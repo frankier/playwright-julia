@@ -29,6 +29,9 @@ export playwright, install,
        click, text_content, screenshot,
        PlaywrightError
 
+include("driver.jl")
+include("transport.jl")
+
 """
     playwright(f) -> result of `f`
 
@@ -37,13 +40,5 @@ object (fields `chromium` and `firefox`), and guarantee driver shutdown
 when the block exits — normally or by exception.
 """
 function playwright end
-
-"""
-    install()
-
-Download the Playwright driver bundle and install the Chromium and Firefox
-browsers. Called automatically on first use; safe to call repeatedly.
-"""
-function install end
 
 end # module
