@@ -32,14 +32,7 @@ export playwright, install,
 include("driver.jl")
 include("transport.jl")
 include("connection.jl")
-
-"""
-    playwright(f) -> result of `f`
-
-Start the Playwright driver, call `f(pw)` with the root `PlaywrightAPI`
-object (fields `chromium` and `firefox`), and guarantee driver shutdown
-when the block exits — normally or by exception.
-"""
-function playwright end
+include("objects.jl")
+include("api.jl")
 
 end # module

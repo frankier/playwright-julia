@@ -13,7 +13,7 @@ See `tasks/plan.md` for full task descriptions, acceptance criteria, and verific
 - [ ] Human review of protocol-layer API
 
 ## Phase 2: Vertical slices against a real browser
-- [ ] Task 5: Bootstrap handshake + `playwright() do ... end` wrapper (M) — deps: T2, T4
+- [x] Task 5: Bootstrap handshake + `playwright() do ... end` wrapper (M) — deps: T2, T4
 - [ ] Task 6: First browser slice — launch, new_page, goto, title, close + fixture server (M) — deps: T5
 - [ ] Task 7: Locator slice — locator, text_content, click, fill (M) — deps: T6
 - [ ] Task 8: screenshot + error-path coverage (S) — deps: T6
