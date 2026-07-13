@@ -69,6 +69,40 @@ end
                 close(page)
                 close(browser)
             end
+
+            @testset "locator slice: text_content, click, fill" begin
+                browser = launch(pw.chromium; headless = true)
+                page = new_page(browser)
+                goto(page, "$base_url/")
+
+                heading = locator(page, "h1")
+                @test heading isa Playwright.Locator
+                @test text_content(heading) == "Hello from the fixture"
+
+                # click has an observable DOM effect
+                status = locator(page, "#status")
+                @test text_content(status) == "untouched"
+                click(locator(page, "#mutate"))
+                @test text_content(status) == "clicked"
+
+                # fill round-trips through the input's value
+                name = locator(page, "#name")
+                @test input_value(name) == ""
+                fill(name, "Jane Doe")
+                @test input_value(name) == "Jane Doe"
+
+                # missing selector times out with the driver's explanation
+                err = try
+                    click(locator(page, "#does-not-exist"); timeout = 500)
+                    nothing
+                catch e
+                    e
+                end
+                @test err isa PlaywrightError
+                @test occursin("Timeout 500ms exceeded", err.message)
+
+                close(browser)
+            end
         end
     end
 end

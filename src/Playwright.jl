@@ -26,7 +26,7 @@ using p7zip_jll: p7zip
 
 export playwright, install,
        launch, new_page, goto, title, locator,
-       click, text_content, screenshot,
+       click, text_content, input_value, screenshot,
        PlaywrightError
 
 include("driver.jl")

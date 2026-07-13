@@ -113,3 +113,60 @@ Close a page, or a browser and all of its pages.
 """
 Base.close(page::Page) = (send_message(page, "close", Dict{String,Any}()); nothing)
 Base.close(browser::Browser) = (send_message(browser, "close", Dict{String,Any}()); nothing)
+
+"""
+    locator(page::Page, selector) -> Locator
+
+Lazy handle for `selector` (CSS, `text=`, `xpath=`, …). The selector is
+re-resolved in the browser on every action and must match exactly one
+element when acted upon.
+"""
+locator(page::Page, selector::AbstractString) = Locator(main_frame(page), String(selector))
+
+function locator_params(loc::Locator, timeout::Real; extra...)
+    params = Dict{String,Any}("selector" => loc.selector, "strict" => true,
+                              "timeout" => timeout)
+    for (key, value) in extra
+        params[String(key)] = value
+    end
+    return params
+end
+
+"""
+    text_content(loc::Locator; timeout=30_000) -> Union{String,Nothing}
+
+The `textContent` of the matched element (`nothing` for elements without one).
+"""
+function text_content(loc::Locator; timeout::Real = 30_000)
+    result = send_message(loc.frame, "textContent", locator_params(loc, timeout))
+    return get(result, "value", nothing)
+end
+
+"""
+    click(loc::Locator; timeout=30_000)
+
+Click the matched element, waiting for it to be actionable first.
+"""
+function click(loc::Locator; timeout::Real = 30_000)
+    send_message(loc.frame, "click", locator_params(loc, timeout))
+    return nothing
+end
+
+"""
+    fill(loc::Locator, value; timeout=30_000)
+
+Set the matched input/textarea's value to `value` (extends `Base.fill`).
+"""
+function Base.fill(loc::Locator, value::AbstractString; timeout::Real = 30_000)
+    send_message(loc.frame, "fill", locator_params(loc, timeout; value = String(value)))
+    return nothing
+end
+
+"""
+    input_value(loc::Locator; timeout=30_000) -> String
+
+Current value of the matched input, textarea or select element.
+"""
+function input_value(loc::Locator; timeout::Real = 30_000)
+    return send_message(loc.frame, "inputValue", locator_params(loc, timeout))["value"]
+end
