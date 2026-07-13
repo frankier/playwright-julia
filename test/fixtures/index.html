@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Playwright.jl Fixture</title>
+</head>
+<body>
+  <h1>Hello from the fixture</h1>
+  <p id="status">untouched</p>
+  <button id="mutate" onclick="document.getElementById('status').textContent = 'clicked'">
+    Mutate
+  </button>
+  <input id="name" type="text" value="">
+  <a id="next" href="/second.html">next page</a>
+</body>
+</html>
