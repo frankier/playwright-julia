@@ -21,10 +21,10 @@ See `tasks/plan.md` for full task descriptions, acceptance criteria, and verific
 ### Checkpoint B
 - [x] SPEC snippet runs end to end on Chromium
 - [x] Unit suite green without browser; smoke suite green with `PLAYWRIGHT_JL_SMOKE=1`
-- [ ] Human review before hardening
+- [x] Human review before hardening (auto mode: single upfront approval)
 
 ## Phase 3: Hardening & polish
-- [ ] Task 9: Clean shutdown (no orphan processes) + Firefox smoke matrix (M) — deps: T7, T8
+- [x] Task 9: Clean shutdown (no orphan processes) + Firefox smoke matrix (M) — deps: T7, T8
 - [ ] Task 10: README + first-use install UX + docstrings + format (S) — deps: T9
 
 ### Checkpoint C

@@ -25,9 +25,40 @@ function playwright(f::Function)
     end
 end
 
+# Backstop against leaked drivers: playwright() already guarantees shutdown,
+# but a REPL user holding a bare start_playwright() would otherwise leave a
+# node process behind when Julia exits.
+const LIVE_DRIVERS = Base.Process[]
+const LIVE_DRIVERS_LOCK = ReentrantLock()
+
+function kill_leaked_drivers()
+    procs = lock(LIVE_DRIVERS_LOCK) do
+        drivers = copy(LIVE_DRIVERS)
+        empty!(LIVE_DRIVERS)
+        drivers
+    end
+    for proc in procs
+        process_exited(proc) || kill(proc)
+    end
+    return nothing
+end
+
+function __init__()
+    atexit(kill_leaked_drivers)
+    return nothing
+end
+
+function track_driver(proc::Base.Process, keep::Bool)
+    lock(LIVE_DRIVERS_LOCK) do
+        keep ? push!(LIVE_DRIVERS, proc) : filter!(p -> p !== proc, LIVE_DRIVERS)
+    end
+    return nothing
+end
+
 function start_playwright()
     driver_installed() || install_driver()
     proc = open(pipeline(driver_cmd("run-driver"); stderr = stderr), "r+")
+    track_driver(proc, true)
     transport = Transport(proc.out, proc.in; on_message = _ -> nothing)
     conn = start!(Connection(transport))
     local root
@@ -56,6 +87,7 @@ function kill_driver(proc::Base.Process)
         kill(proc)
         wait(proc)
     end
+    track_driver(proc, false)
     return nothing
 end
 

@@ -23,6 +23,16 @@ function with_fixture_server(f::Function)
     end
 end
 
+"PIDs of running Playwright-owned browser processes (linux/mac)."
+playwright_browser_pids() =
+    filter(!isempty, split(something(tryrun(`pgrep -f ms-playwright`), ""), '\n'))
+
+tryrun(cmd) = try
+    read(cmd, String)
+catch
+    nothing
+end
+
 @testset "smoke" begin
     @testset "playwright() bootstraps and shuts down the driver" begin
         pw_ref = Ref{Any}(nothing)
@@ -48,76 +58,98 @@ end
         @test !process_running(pw_ref[].process)
     end
 
+    if Sys.isunix()
+        @testset "no orphan browser processes, even without close(browser)" begin
+            before = playwright_browser_pids()
+            pw_ref = Ref{Any}(nothing)
+            playwright() do pw
+                pw_ref[] = pw
+                browser = launch(pw.chromium; headless = true)
+                page = new_page(browser)
+                goto(page, "data:text/html,<h1>leak check</h1>")
+                # deliberately no close(browser)
+            end
+            @test !process_running(pw_ref[].process)
+            # The driver tears its browsers down on exit; give it a moment.
+            @test timedwait(() -> length(playwright_browser_pids()) <= length(before),
+                            10.0) === :ok
+        end
+    end
+
     with_fixture_server() do base_url
         playwright() do pw
-            @testset "browser slice: launch → new_page → goto → title → close" begin
-                browser = launch(pw.chromium; headless = true)
-                @test browser isa Playwright.Browser
-                page = new_page(browser)
-                @test page isa Playwright.Page
+            for browser_name in ("chromium", "firefox")
+                bt = getfield(pw, Symbol(browser_name))
 
-                response = goto(page, "$base_url/")
-                @test response isa Playwright.Response
-                @test title(page) == "Playwright.jl Fixture"
+                @testset "$browser_name: launch → new_page → goto → title → close" begin
+                    browser = launch(bt; headless = true)
+                    @test browser isa Playwright.Browser
+                    page = new_page(browser)
+                    @test page isa Playwright.Page
 
-                goto(page, "$base_url/second.html")
-                @test title(page) == "Second Fixture Page"
+                    response = goto(page, "$base_url/")
+                    @test response isa Playwright.Response
+                    @test title(page) == "Playwright.jl Fixture"
 
-                @test_throws PlaywrightError goto(page,
-                    "http://127.0.0.1:1/unreachable"; timeout = 5_000)
+                    goto(page, "$base_url/second.html")
+                    @test title(page) == "Second Fixture Page"
 
-                close(page)
-                close(browser)
-            end
+                    @test_throws PlaywrightError goto(page,
+                        "http://127.0.0.1:1/unreachable"; timeout = 5_000)
 
-            @testset "locator slice: text_content, click, fill" begin
-                browser = launch(pw.chromium; headless = true)
-                page = new_page(browser)
-                goto(page, "$base_url/")
-
-                heading = locator(page, "h1")
-                @test heading isa Playwright.Locator
-                @test text_content(heading) == "Hello from the fixture"
-
-                # click has an observable DOM effect
-                status = locator(page, "#status")
-                @test text_content(status) == "untouched"
-                click(locator(page, "#mutate"))
-                @test text_content(status) == "clicked"
-
-                # fill round-trips through the input's value
-                name = locator(page, "#name")
-                @test input_value(name) == ""
-                fill(name, "Jane Doe")
-                @test input_value(name) == "Jane Doe"
-
-                # missing selector times out with the driver's explanation
-                err = try
-                    click(locator(page, "#does-not-exist"); timeout = 500)
-                    nothing
-                catch e
-                    e
+                    close(page)
+                    close(browser)
                 end
-                @test err isa PlaywrightError
-                @test occursin("Timeout 500ms exceeded", err.message)
-                @test occursin("does-not-exist", err.message)   # via the call log
 
-                close(browser)
-            end
+                @testset "$browser_name: locators — text_content, click, fill" begin
+                    browser = launch(bt; headless = true)
+                    page = new_page(browser)
+                    goto(page, "$base_url/")
 
-            @testset "screenshot writes a non-empty PNG" begin
-                browser = launch(pw.chromium; headless = true)
-                page = new_page(browser)
-                goto(page, "$base_url/")
+                    heading = locator(page, "h1")
+                    @test heading isa Playwright.Locator
+                    @test text_content(heading) == "Hello from the fixture"
 
-                path = joinpath(mktempdir(), "example.png")
-                bytes = screenshot(page; path)
-                @test isfile(path)
-                png_magic = UInt8[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
-                @test read(path, 8) == png_magic
-                @test length(bytes) > 8 && bytes[1:8] == png_magic
+                    # click has an observable DOM effect
+                    status = locator(page, "#status")
+                    @test text_content(status) == "untouched"
+                    click(locator(page, "#mutate"))
+                    @test text_content(status) == "clicked"
 
-                close(browser)
+                    # fill round-trips through the input's value
+                    name = locator(page, "#name")
+                    @test input_value(name) == ""
+                    fill(name, "Jane Doe")
+                    @test input_value(name) == "Jane Doe"
+
+                    # missing selector times out with the driver's explanation
+                    err = try
+                        click(locator(page, "#does-not-exist"); timeout = 500)
+                        nothing
+                    catch e
+                        e
+                    end
+                    @test err isa PlaywrightError
+                    @test occursin("Timeout 500ms exceeded", err.message)
+                    @test occursin("does-not-exist", err.message)   # via the call log
+
+                    close(browser)
+                end
+
+                @testset "$browser_name: screenshot writes a non-empty PNG" begin
+                    browser = launch(bt; headless = true)
+                    page = new_page(browser)
+                    goto(page, "$base_url/")
+
+                    path = joinpath(mktempdir(), "example.png")
+                    bytes = screenshot(page; path)
+                    @test isfile(path)
+                    png_magic = UInt8[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+                    @test read(path, 8) == png_magic
+                    @test length(bytes) > 8 && bytes[1:8] == png_magic
+
+                    close(browser)
+                end
             end
         end
     end
