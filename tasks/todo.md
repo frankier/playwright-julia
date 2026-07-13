@@ -25,7 +25,7 @@ See `tasks/plan.md` for full task descriptions, acceptance criteria, and verific
 
 ## Phase 3: Hardening & polish
 - [x] Task 9: Clean shutdown (no orphan processes) + Firefox smoke matrix (M) — deps: T7, T8
-- [ ] Task 10: README + first-use install UX + docstrings + format (S) — deps: T9
+- [x] Task 10: README + first-use install UX + docstrings + format (S) — deps: T9
 
 ### Checkpoint C
-- [ ] All five SPEC success criteria verified
+- [x] All five SPEC success criteria verified

@@ -63,8 +63,12 @@ function start_playwright()
     conn = start!(Connection(transport))
     local root
     try
-        result = send_message(conn, "", "initialize",
-                              Dict{String,Any}("sdkLanguage" => "python"))
+        result = send_message(
+            conn,
+            "",
+            "initialize",
+            Dict{String,Any}("sdkLanguage" => "python"),
+        )
         root = from_channel(conn, result["playwright"])::PlaywrightRoot
     catch
         close(conn)
@@ -98,9 +102,17 @@ Launch a browser instance of `browser_type` (e.g. `pw.chromium`), waiting up
 to `timeout` ms for it to start.
 """
 function launch(bt::BrowserType; headless::Bool = true, timeout::Real = 180_000)
-    result = send_message(bt, "launch",
-                          Dict{String,Any}("headless" => headless,
-                                           "timeout" => timeout))
+    params = Dict{String,Any}("headless" => headless, "timeout" => timeout)
+    result = try
+        send_message(bt, "launch", params)
+    catch err
+        # First-use nicety: if this browser was never installed, install it
+        # and retry once instead of surfacing the driver's error.
+        (err isa PlaywrightError && occursin("Executable doesn't exist", err.message)) || rethrow()
+        @info "Browser $(browser_name(bt)) is not installed yet; installing it now"
+        run(driver_cmd("install", browser_name(bt)))
+        send_message(bt, "launch", params)
+    end
     return from_channel(bt.connection, result["browser"])::Browser
 end
 
@@ -122,10 +134,13 @@ end
 Navigate `page` to `url` and wait for the navigation to finish. `wait_until`
 is one of `"load"`, `"domcontentloaded"`, `"networkidle"` or `"commit"`.
 """
-function goto(page::Page, url::AbstractString;
-              timeout::Real = 30_000, wait_until::AbstractString = "load")
-    params = Dict{String,Any}("url" => url, "timeout" => timeout,
-                              "waitUntil" => wait_until)
+function goto(
+    page::Page,
+    url::AbstractString;
+    timeout::Real = 30_000,
+    wait_until::AbstractString = "load",
+)
+    params = Dict{String,Any}("url" => url, "timeout" => timeout, "waitUntil" => wait_until)
     result = send_message(main_frame(page), "goto", params)
     return from_channel(page.connection, get(result, "response", nothing))
 end
@@ -156,8 +171,8 @@ element when acted upon.
 locator(page::Page, selector::AbstractString) = Locator(main_frame(page), String(selector))
 
 function locator_params(loc::Locator, timeout::Real; extra...)
-    params = Dict{String,Any}("selector" => loc.selector, "strict" => true,
-                              "timeout" => timeout)
+    params =
+        Dict{String,Any}("selector" => loc.selector, "strict" => true, "timeout" => timeout)
     for (key, value) in extra
         params[String(key)] = value
     end
@@ -209,8 +224,11 @@ end
 Capture a PNG screenshot of `page`, returning its bytes and writing them to
 `path` when given.
 """
-function screenshot(page::Page; path::Union{AbstractString,Nothing} = nothing,
-                    timeout::Real = 30_000)
+function screenshot(
+    page::Page;
+    path::Union{AbstractString,Nothing} = nothing,
+    timeout::Real = 30_000,
+)
     params = Dict{String,Any}("type" => "png", "timeout" => timeout)
     result = send_message(page, "screenshot", params)
     bytes = base64decode(result["binary"])

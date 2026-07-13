@@ -27,13 +27,18 @@ end
 playwright_browser_pids() =
     filter(!isempty, split(something(tryrun(`pgrep -f ms-playwright`), ""), '\n'))
 
-tryrun(cmd) = try
-    read(cmd, String)
-catch
-    nothing
-end
+tryrun(cmd) =
+    try
+        read(cmd, String)
+    catch
+        nothing
+    end
 
 @testset "smoke" begin
+    @testset "install() is idempotent once everything is present" begin
+        @test install() === nothing
+    end
+
     @testset "playwright() bootstraps and shuts down the driver" begin
         pw_ref = Ref{Any}(nothing)
         result = playwright() do pw
@@ -71,8 +76,10 @@ end
             end
             @test !process_running(pw_ref[].process)
             # The driver tears its browsers down on exit; give it a moment.
-            @test timedwait(() -> length(playwright_browser_pids()) <= length(before),
-                            10.0) === :ok
+            @test timedwait(
+                () -> length(playwright_browser_pids()) <= length(before),
+                10.0,
+            ) === :ok
         end
     end
 
@@ -94,8 +101,11 @@ end
                     goto(page, "$base_url/second.html")
                     @test title(page) == "Second Fixture Page"
 
-                    @test_throws PlaywrightError goto(page,
-                        "http://127.0.0.1:1/unreachable"; timeout = 5_000)
+                    @test_throws PlaywrightError goto(
+                        page,
+                        "http://127.0.0.1:1/unreachable";
+                        timeout = 5_000,
+                    )
 
                     close(page)
                     close(browser)
