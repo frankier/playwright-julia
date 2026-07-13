@@ -108,6 +108,31 @@ end
         close(fake.connection)
     end
 
+    @testset "error replies append the driver's call log to the message" begin
+        fake = FakeDriver()
+        task = @async Playwright.send_message(fake.connection, "frame@1", "click",
+                                              Dict{String,Any}("selector" => "#nope"))
+        sent = take!(fake.client_messages)
+        # Real wire shape: the call log rides at the top level of the reply.
+        driver_send(fake, Dict(
+            "id" => sent["id"],
+            "error" => Dict(
+                "error" => Dict("message" => "Timeout 500ms exceeded.",
+                                "name" => "TimeoutError", "stack" => "")),
+            "log" => ["  - waiting for locator(\"#nope\")", "  - retrying"]))
+        err = try
+            fetch(task)
+            nothing
+        catch e
+            e isa TaskFailedException ? e.task.exception : e
+        end
+        @test err isa PlaywrightError
+        @test occursin("Timeout 500ms exceeded", err.message)
+        @test occursin("Call log:", err.message)
+        @test occursin("#nope", err.message)
+        close(fake.connection)
+    end
+
     @testset "__dispose__ removes an object and its children" begin
         fake = FakeDriver()
         send_create(fake, "", "Browser", "browser@1")

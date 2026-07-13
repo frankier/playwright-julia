@@ -17,10 +17,20 @@ end
 PlaywrightError(message::AbstractString; name = "Error", stack = "") =
     PlaywrightError(String(message), String(name), String(stack))
 
-function PlaywrightError(payload::AbstractDict)
-    return PlaywrightError(get(payload, "message", "unknown driver error");
-                           name = get(payload, "name", "Error"),
-                           stack = get(payload, "stack", ""))
+"""
+Build a `PlaywrightError` from a protocol error reply: `detail` is the inner
+`{message, name, stack}` payload, `log` the reply's top-level call log
+(actionability retries, selector waits), which is appended to the message
+the way upstream clients do.
+"""
+function PlaywrightError(detail::AbstractDict, log = nothing)
+    message = get(detail, "message", "unknown driver error")
+    if log !== nothing && !isempty(log)
+        message *= "\nCall log:\n" * join(log, "\n")
+    end
+    return PlaywrightError(message;
+                           name = get(detail, "name", "Error"),
+                           stack = get(detail, "stack", ""))
 end
 
 Base.showerror(io::IO, e::PlaywrightError) = print(io, "PlaywrightError: ", e.message)
@@ -128,7 +138,7 @@ function dispatch(conn::Connection, msg::AbstractDict)
         end
         callback === nothing && return   # stray reply; drop it
         if haskey(msg, "error") && !haskey(msg, "result")
-            put!(callback, PlaywrightError(msg["error"]["error"]))
+            put!(callback, PlaywrightError(msg["error"]["error"], get(msg, "log", nothing)))
         else
             put!(callback, get(msg, "result", nothing))
         end

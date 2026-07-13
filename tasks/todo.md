@@ -16,11 +16,11 @@ See `tasks/plan.md` for full task descriptions, acceptance criteria, and verific
 - [x] Task 5: Bootstrap handshake + `playwright() do ... end` wrapper (M) — deps: T2, T4
 - [x] Task 6: First browser slice — launch, new_page, goto, title, close + fixture server (M) — deps: T5
 - [x] Task 7: Locator slice — locator, text_content, click, fill (M) — deps: T6
-- [ ] Task 8: screenshot + error-path coverage (S) — deps: T6
+- [x] Task 8: screenshot + error-path coverage (S) — deps: T6
 
 ### Checkpoint B
-- [ ] SPEC snippet runs end to end on Chromium
-- [ ] Unit suite green without browser; smoke suite green with `PLAYWRIGHT_JL_SMOKE=1`
+- [x] SPEC snippet runs end to end on Chromium
+- [x] Unit suite green without browser; smoke suite green with `PLAYWRIGHT_JL_SMOKE=1`
 - [ ] Human review before hardening
 
 ## Phase 3: Hardening & polish

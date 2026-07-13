@@ -100,6 +100,22 @@ end
                 end
                 @test err isa PlaywrightError
                 @test occursin("Timeout 500ms exceeded", err.message)
+                @test occursin("does-not-exist", err.message)   # via the call log
+
+                close(browser)
+            end
+
+            @testset "screenshot writes a non-empty PNG" begin
+                browser = launch(pw.chromium; headless = true)
+                page = new_page(browser)
+                goto(page, "$base_url/")
+
+                path = joinpath(mktempdir(), "example.png")
+                bytes = screenshot(page; path)
+                @test isfile(path)
+                png_magic = UInt8[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+                @test read(path, 8) == png_magic
+                @test length(bytes) > 8 && bytes[1:8] == png_magic
 
                 close(browser)
             end

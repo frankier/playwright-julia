@@ -170,3 +170,18 @@ Current value of the matched input, textarea or select element.
 function input_value(loc::Locator; timeout::Real = 30_000)
     return send_message(loc.frame, "inputValue", locator_params(loc, timeout))["value"]
 end
+
+"""
+    screenshot(page::Page; path=nothing, timeout=30_000) -> Vector{UInt8}
+
+Capture a PNG screenshot of `page`, returning its bytes and writing them to
+`path` when given.
+"""
+function screenshot(page::Page; path::Union{AbstractString,Nothing} = nothing,
+                    timeout::Real = 30_000)
+    params = Dict{String,Any}("type" => "png", "timeout" => timeout)
+    result = send_message(page, "screenshot", params)
+    bytes = base64decode(result["binary"])
+    path === nothing || write(path, bytes)
+    return bytes
+end
