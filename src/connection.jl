@@ -1,0 +1,192 @@
+# Protocol connection: message id assignment, blocking request/reply,
+# and the guid → object registry driven by __create__/__dispose__ events.
+# Wire-protocol knowledge stops here — api.jl never sees raw messages.
+
+"""
+    PlaywrightError(message; name="Error", stack="")
+
+Error surfaced from the Playwright driver, carrying the driver's message
+(which includes its call log for timeouts and selector failures).
+"""
+struct PlaywrightError <: Exception
+    message::String
+    name::String
+    stack::String
+end
+
+PlaywrightError(message::AbstractString; name = "Error", stack = "") =
+    PlaywrightError(String(message), String(name), String(stack))
+
+function PlaywrightError(payload::AbstractDict)
+    return PlaywrightError(get(payload, "message", "unknown driver error");
+                           name = get(payload, "name", "Error"),
+                           stack = get(payload, "stack", ""))
+end
+
+Base.showerror(io::IO, e::PlaywrightError) = print(io, "PlaywrightError: ", e.message)
+
+"""
+Remote object owned by the protocol connection. Concrete channel-owner types
+(`Browser`, `Page`, …) are registered in `CHANNEL_TYPES` (see objects.jl);
+protocol types without a registered wrapper become plain `RemoteObject`s.
+"""
+abstract type ChannelOwner end
+
+# Field layout shared by every channel owner; kept in one macro so concrete
+# types stay in sync with what Connection expects.
+macro channel_owner_fields()
+    esc(quote
+        connection::Connection
+        type::String
+        guid::String
+        initializer::Dict{String,Any}
+    end)
+end
+
+mutable struct Connection
+    transport::Transport
+    objects::Dict{String,ChannelOwner}
+    children::Dict{String,Vector{String}}          # parent guid → child guids
+    callbacks::Dict{Int,Channel{Any}}              # message id → reply slot
+    last_id::Int
+    closed_error::Union{PlaywrightError,Nothing}
+    lock::ReentrantLock
+
+    function Connection(transport::Transport)
+        conn = new(transport, Dict{String,ChannelOwner}(),
+                   Dict{String,Vector{String}}(), Dict{Int,Channel{Any}}(),
+                   0, nothing, ReentrantLock())
+        transport.on_message = msg -> dispatch(conn, msg)
+        transport.on_close = () -> handle_transport_close(conn)
+        return conn
+    end
+end
+
+mutable struct RemoteObject <: ChannelOwner
+    @channel_owner_fields
+end
+
+# type name (wire) → concrete ChannelOwner constructor; populated by objects.jl.
+const CHANNEL_TYPES = Dict{String,Any}()
+
+"Start the transport reader; the connection is usable afterwards."
+start!(conn::Connection) = (start_reading!(conn.transport); conn)
+
+lookup_object(conn::Connection, guid::AbstractString) =
+    lock(conn.lock) do
+        get(conn.objects, guid, nothing)
+    end
+
+"""
+    from_channel(conn, ref) -> object | nothing
+
+Resolve a protocol `{"guid" => …}` reference to the registered object.
+`nothing` passes through, so optional result fields resolve directly.
+"""
+from_channel(conn::Connection, ::Nothing) = nothing
+from_channel(conn::Connection, ref::AbstractDict) = lookup_object(conn, ref["guid"])
+
+"""
+    send_message(conn, guid, method, params) -> result
+
+Send one protocol request and block until the driver replies. Returns the
+`result` payload (an `AbstractDict` or `nothing`); raises `PlaywrightError`
+for error replies and when the connection closes mid-call.
+"""
+function send_message(conn::Connection, guid::AbstractString, method::AbstractString,
+                      params::AbstractDict)
+    reply = Channel{Any}(1)
+    id = lock(conn.lock) do
+        conn.closed_error === nothing || throw(conn.closed_error)
+        conn.last_id += 1
+        conn.callbacks[conn.last_id] = reply
+        conn.last_id
+    end
+    msg = Dict{String,Any}("id" => id, "guid" => guid, "method" => method,
+                           "params" => params, "metadata" => Dict{String,Any}())
+    try
+        send(conn.transport, msg)
+    catch err
+        lock(conn.lock) do
+            delete!(conn.callbacks, id)
+        end
+        conn.closed_error === nothing || throw(conn.closed_error)
+        rethrow(err)
+    end
+    value = take!(reply)
+    value isa PlaywrightError && throw(value)
+    return value
+end
+
+send_message(obj::ChannelOwner, method::AbstractString, params::AbstractDict) =
+    send_message(obj.connection, obj.guid, method, params)
+
+function dispatch(conn::Connection, msg::AbstractDict)
+    if haskey(msg, "id")
+        callback = lock(conn.lock) do
+            pop!(conn.callbacks, msg["id"], nothing)
+        end
+        callback === nothing && return   # stray reply; drop it
+        if haskey(msg, "error") && !haskey(msg, "result")
+            put!(callback, PlaywrightError(msg["error"]["error"]))
+        else
+            put!(callback, get(msg, "result", nothing))
+        end
+        return
+    end
+    method = get(msg, "method", "")
+    if method == "__create__"
+        create_remote_object(conn, msg["guid"], msg["params"])
+    elseif method == "__dispose__"
+        dispose_object(conn, msg["guid"])
+    else
+        # Server event for an object. Milestone 1 consumes no events, but an
+        # unknown guid or event must never kill the read loop.
+        nothing
+    end
+    return
+end
+
+function create_remote_object(conn::Connection, parent_guid::AbstractString,
+                              params::AbstractDict)
+    type = params["type"]
+    guid = params["guid"]
+    initializer = Dict{String,Any}(pairs(get(params, "initializer", Dict{String,Any}())))
+    constructor = get(CHANNEL_TYPES, type, RemoteObject)
+    obj = constructor(conn, String(type), String(guid), initializer)
+    lock(conn.lock) do
+        conn.objects[guid] = obj
+        push!(get!(Vector{String}, conn.children, parent_guid), guid)
+    end
+    return obj
+end
+
+function dispose_object(conn::Connection, guid::AbstractString)
+    lock(conn.lock) do
+        dispose_locked(conn, String(guid))
+    end
+end
+
+function dispose_locked(conn::Connection, guid::String)
+    for child in pop!(conn.children, guid, String[])
+        dispose_locked(conn, child)
+    end
+    delete!(conn.objects, guid)
+    return
+end
+
+function handle_transport_close(conn::Connection)
+    err = PlaywrightError("connection closed: the Playwright driver exited")
+    pending = lock(conn.lock) do
+        conn.closed_error = err
+        callbacks = collect(values(conn.callbacks))
+        empty!(conn.callbacks)
+        callbacks
+    end
+    for callback in pending
+        put!(callback, err)
+    end
+    return
+end
+
+Base.close(conn::Connection) = close(conn.transport)

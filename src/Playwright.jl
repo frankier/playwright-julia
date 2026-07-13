@@ -31,6 +31,7 @@ export playwright, install,
 
 include("driver.jl")
 include("transport.jl")
+include("connection.jl")
 
 """
     playwright(f) -> result of `f`
