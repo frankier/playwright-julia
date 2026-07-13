@@ -4,8 +4,8 @@ See `tasks/plan.md` for full task descriptions, acceptance criteria, and verific
 
 ## Phase 1: Foundation (no browser needed)
 - [x] Task 1: Package skeleton — Project.toml, module root, empty test suite passes (S)
-- [ ] Task 2: Driver download/locate/install in `src/driver.jl` (M) — deps: T1
-- [ ] Task 3: Length-prefixed JSON transport in `src/transport.jl` (S) — deps: T1
+- [x] Task 2: Driver download/locate/install in `src/driver.jl` (M) — deps: T1
+- [x] Task 3: Length-prefixed JSON transport in `src/transport.jl` (S) — deps: T1
 - [ ] Task 4: Connection & guid object registry in `src/connection.jl` (M) — deps: T3
 
 ### Checkpoint A
