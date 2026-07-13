@@ -24,10 +24,18 @@ using Downloads
 using Base64
 using p7zip_jll: p7zip
 
-export playwright, install,
-       launch, new_page, goto, title, locator,
-       click, text_content, input_value, screenshot,
-       PlaywrightError
+export playwright,
+    install,
+    launch,
+    new_page,
+    goto,
+    title,
+    locator,
+    click,
+    text_content,
+    input_value,
+    screenshot,
+    PlaywrightError
 
 include("driver.jl")
 include("transport.jl")

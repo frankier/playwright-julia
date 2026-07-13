@@ -28,9 +28,11 @@ function PlaywrightError(detail::AbstractDict, log = nothing)
     if log !== nothing && !isempty(log)
         message *= "\nCall log:\n" * join(log, "\n")
     end
-    return PlaywrightError(message;
-                           name = get(detail, "name", "Error"),
-                           stack = get(detail, "stack", ""))
+    return PlaywrightError(
+        message;
+        name = get(detail, "name", "Error"),
+        stack = get(detail, "stack", ""),
+    )
 end
 
 Base.showerror(io::IO, e::PlaywrightError) = print(io, "PlaywrightError: ", e.message)
@@ -63,9 +65,15 @@ mutable struct Connection
     lock::ReentrantLock
 
     function Connection(transport::Transport)
-        conn = new(transport, Dict{String,ChannelOwner}(),
-                   Dict{String,Vector{String}}(), Dict{Int,Channel{Any}}(),
-                   0, nothing, ReentrantLock())
+        conn = new(
+            transport,
+            Dict{String,ChannelOwner}(),
+            Dict{String,Vector{String}}(),
+            Dict{Int,Channel{Any}}(),
+            0,
+            nothing,
+            ReentrantLock(),
+        )
         transport.on_message = msg -> dispatch(conn, msg)
         transport.on_close = () -> handle_transport_close(conn)
         return conn
@@ -82,10 +90,9 @@ const CHANNEL_TYPES = Dict{String,Any}()
 "Start the transport reader; the connection is usable afterwards."
 start!(conn::Connection) = (start_reading!(conn.transport); conn)
 
-lookup_object(conn::Connection, guid::AbstractString) =
-    lock(conn.lock) do
-        get(conn.objects, guid, nothing)
-    end
+lookup_object(conn::Connection, guid::AbstractString) = lock(conn.lock) do
+    get(conn.objects, guid, nothing)
+end
 
 """
     from_channel(conn, ref) -> object | nothing
@@ -103,8 +110,12 @@ Send one protocol request and block until the driver replies. Returns the
 `result` payload (an `AbstractDict` or `nothing`); raises `PlaywrightError`
 for error replies and when the connection closes mid-call.
 """
-function send_message(conn::Connection, guid::AbstractString, method::AbstractString,
-                      params::AbstractDict)
+function send_message(
+    conn::Connection,
+    guid::AbstractString,
+    method::AbstractString,
+    params::AbstractDict,
+)
     reply = Channel{Any}(1)
     id = lock(conn.lock) do
         conn.closed_error === nothing || throw(conn.closed_error)
@@ -112,8 +123,13 @@ function send_message(conn::Connection, guid::AbstractString, method::AbstractSt
         conn.callbacks[conn.last_id] = reply
         conn.last_id
     end
-    msg = Dict{String,Any}("id" => id, "guid" => guid, "method" => method,
-                           "params" => params, "metadata" => Dict{String,Any}())
+    msg = Dict{String,Any}(
+        "id" => id,
+        "guid" => guid,
+        "method" => method,
+        "params" => params,
+        "metadata" => Dict{String,Any}(),
+    )
     try
         send(conn.transport, msg)
     catch err
@@ -157,8 +173,11 @@ function dispatch(conn::Connection, msg::AbstractDict)
     return
 end
 
-function create_remote_object(conn::Connection, parent_guid::AbstractString,
-                              params::AbstractDict)
+function create_remote_object(
+    conn::Connection,
+    parent_guid::AbstractString,
+    params::AbstractDict,
+)
     type = params["type"]
     guid = params["guid"]
     initializer = Dict{String,Any}(pairs(get(params, "initializer", Dict{String,Any}())))

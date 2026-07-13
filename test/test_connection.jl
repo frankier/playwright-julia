@@ -17,8 +17,8 @@ function FakeDriver()
     from_driver = Pipe()
     Base.link_pipe!(to_driver)
     Base.link_pipe!(from_driver)
-    transport = Playwright.Transport(from_driver.out, to_driver.in;
-        on_message = _ -> nothing)
+    transport =
+        Playwright.Transport(from_driver.out, to_driver.in; on_message = _ -> nothing)
     connection = Playwright.Connection(transport)
     Playwright.start!(connection)
     messages = Channel{Any}(32)
@@ -40,17 +40,27 @@ function driver_send(fake::FakeDriver, msg::AbstractDict)
 end
 
 reply_ok(fake, id, result) = driver_send(fake, Dict("id" => id, "result" => result))
-reply_error(fake, id, message) = driver_send(fake,
-    Dict("id" => id,
-         "error" => Dict("error" => Dict("message" => message, "name" => "Error",
-                                         "stack" => ""))))
-send_create(fake, parent, type, guid, initializer = Dict{String,Any}()) =
-    driver_send(fake, Dict("guid" => parent, "method" => "__create__",
-                           "params" => Dict("type" => type, "guid" => guid,
-                                            "initializer" => initializer)))
-send_dispose(fake, guid) =
-    driver_send(fake, Dict("guid" => guid, "method" => "__dispose__",
-                           "params" => Dict{String,Any}()))
+reply_error(fake, id, message) = driver_send(
+    fake,
+    Dict(
+        "id" => id,
+        "error" => Dict(
+            "error" => Dict("message" => message, "name" => "Error", "stack" => ""),
+        ),
+    ),
+)
+send_create(fake, parent, type, guid, initializer = Dict{String,Any}()) = driver_send(
+    fake,
+    Dict(
+        "guid" => parent,
+        "method" => "__create__",
+        "params" => Dict("type" => type, "guid" => guid, "initializer" => initializer),
+    ),
+)
+send_dispose(fake, guid) = driver_send(
+    fake,
+    Dict("guid" => guid, "method" => "__dispose__", "params" => Dict{String,Any}()),
+)
 
 "Round-trip a no-op request so every earlier frame has been dispatched."
 function sync(fake::FakeDriver)
@@ -63,8 +73,12 @@ end
 @testset "connection" begin
     @testset "send_message round-trip carries guid/method/params and returns result" begin
         fake = FakeDriver()
-        task = @async Playwright.send_message(fake.connection, "browser@1", "newContext",
-                                              Dict{String,Any}("ignoreHTTPSErrors" => true))
+        task = @async Playwright.send_message(
+            fake.connection,
+            "browser@1",
+            "newContext",
+            Dict{String,Any}("ignoreHTTPSErrors" => true),
+        )
         sent = take!(fake.client_messages)
         @test sent["guid"] == "browser@1"
         @test sent["method"] == "newContext"
@@ -77,24 +91,31 @@ end
 
     @testset "__create__ registers objects; initializer guid refs resolve" begin
         fake = FakeDriver()
-        send_create(fake, "", "Playwright", "pw@1",
-                    Dict("chromium" => Dict("guid" => "bt@chromium")))
-        send_create(fake, "pw@1", "BrowserType", "bt@chromium",
-                    Dict("name" => "chromium"))
+        send_create(
+            fake,
+            "",
+            "Playwright",
+            "pw@1",
+            Dict("chromium" => Dict("guid" => "bt@chromium")),
+        )
+        send_create(fake, "pw@1", "BrowserType", "bt@chromium", Dict("name" => "chromium"))
         sync(fake)
         pw = Playwright.lookup_object(fake.connection, "pw@1")
         bt = Playwright.lookup_object(fake.connection, "bt@chromium")
         @test pw !== nothing && bt !== nothing
-        @test Playwright.from_channel(fake.connection,
-                                      pw.initializer["chromium"]) === bt
+        @test Playwright.from_channel(fake.connection, pw.initializer["chromium"]) === bt
         @test Playwright.from_channel(fake.connection, nothing) === nothing
         close(fake.connection)
     end
 
     @testset "error replies raise PlaywrightError with the driver's message" begin
         fake = FakeDriver()
-        task = @async Playwright.send_message(fake.connection, "page@1", "goto",
-                                              Dict{String,Any}("url" => "x"))
+        task = @async Playwright.send_message(
+            fake.connection,
+            "page@1",
+            "goto",
+            Dict{String,Any}("url" => "x"),
+        )
         sent = take!(fake.client_messages)
         reply_error(fake, sent["id"], "net::ERR_NAME_NOT_RESOLVED at x")
         err = try
@@ -110,16 +131,28 @@ end
 
     @testset "error replies append the driver's call log to the message" begin
         fake = FakeDriver()
-        task = @async Playwright.send_message(fake.connection, "frame@1", "click",
-                                              Dict{String,Any}("selector" => "#nope"))
+        task = @async Playwright.send_message(
+            fake.connection,
+            "frame@1",
+            "click",
+            Dict{String,Any}("selector" => "#nope"),
+        )
         sent = take!(fake.client_messages)
         # Real wire shape: the call log rides at the top level of the reply.
-        driver_send(fake, Dict(
-            "id" => sent["id"],
-            "error" => Dict(
-                "error" => Dict("message" => "Timeout 500ms exceeded.",
-                                "name" => "TimeoutError", "stack" => "")),
-            "log" => ["  - waiting for locator(\"#nope\")", "  - retrying"]))
+        driver_send(
+            fake,
+            Dict(
+                "id" => sent["id"],
+                "error" => Dict(
+                    "error" => Dict(
+                        "message" => "Timeout 500ms exceeded.",
+                        "name" => "TimeoutError",
+                        "stack" => "",
+                    ),
+                ),
+                "log" => ["  - waiting for locator(\"#nope\")", "  - retrying"],
+            ),
+        )
         err = try
             fetch(task)
             nothing
@@ -150,8 +183,12 @@ end
 
     @testset "driver crash fails pending calls instead of hanging" begin
         fake = FakeDriver()
-        task = @async Playwright.send_message(fake.connection, "page@1", "goto",
-                                              Dict{String,Any}("url" => "x"))
+        task = @async Playwright.send_message(
+            fake.connection,
+            "page@1",
+            "goto",
+            Dict{String,Any}("url" => "x"),
+        )
         take!(fake.client_messages)   # request is in flight
         close(fake.from_driver.in)    # driver hangs up
         err = try
@@ -163,14 +200,24 @@ end
         @test err isa PlaywrightError
         # And further sends fail fast too.
         @test_throws PlaywrightError Playwright.send_message(
-            fake.connection, "page@1", "goto", Dict{String,Any}())
+            fake.connection,
+            "page@1",
+            "goto",
+            Dict{String,Any}(),
+        )
     end
 
     @testset "stray replies and unknown events do not kill the read loop" begin
         fake = FakeDriver()
         reply_ok(fake, 99999, Dict("value" => 1))                    # unknown id
-        driver_send(fake, Dict("guid" => "nope@1", "method" => "someEvent",
-                               "params" => Dict{String,Any}()))      # unknown guid
+        driver_send(
+            fake,
+            Dict(
+                "guid" => "nope@1",
+                "method" => "someEvent",
+                "params" => Dict{String,Any}(),
+            ),
+        )      # unknown guid
         # The connection still works afterwards:
         sync(fake)
         @test true

@@ -20,8 +20,9 @@ const NPM_REGISTRY = "https://registry.npmjs.org"
 const NODEJS_DIST = "https://nodejs.org/dist"
 
 function default_os()
-    Sys.iswindows() ? :windows : Sys.isapple() ? :macos : Sys.islinux() ? :linux :
-    error("unsupported OS for the Playwright driver")
+    Sys.iswindows() ? :windows :
+    Sys.isapple() ? :macos :
+    Sys.islinux() ? :linux : error("unsupported OS for the Playwright driver")
 end
 
 """
@@ -31,16 +32,18 @@ Map an OS/architecture pair to the nodejs.org archive infix
 (`node-v<ver>-<infix>`), e.g. `"linux-x64"`.
 """
 function node_platform(; os::Symbol = default_os(), arch::Symbol = Sys.ARCH)
-    archpart = arch === :x86_64 ? "x64" : arch === :aarch64 ? "arm64" :
-               error("unsupported architecture for the Playwright driver: $arch")
-    ospart = os === :linux ? "linux" : os === :macos ? "darwin" :
-             os === :windows ? "win" :
-             error("unsupported OS for the Playwright driver: $os")
+    archpart =
+        arch === :x86_64 ? "x64" :
+        arch === :aarch64 ? "arm64" :
+        error("unsupported architecture for the Playwright driver: $arch")
+    ospart =
+        os === :linux ? "linux" :
+        os === :macos ? "darwin" :
+        os === :windows ? "win" : error("unsupported OS for the Playwright driver: $os")
     return "$ospart-$archpart"
 end
 
-playwright_core_url() =
-    "$NPM_REGISTRY/playwright-core/-/playwright-core-$PLAYWRIGHT_VERSION.tgz"
+playwright_core_url() = "$NPM_REGISTRY/playwright-core/-/playwright-core-$PLAYWRIGHT_VERSION.tgz"
 
 function node_url(; os::Symbol = default_os(), arch::Symbol = Sys.ARCH)
     platform = node_platform(; os, arch)
@@ -71,8 +74,11 @@ end
 
 # `members` limits extraction to specific archive paths — needed for the
 # Node.js dist archives, whose npm/npx symlinks 7z refuses to extract.
-function extract_archive(archive::AbstractString, dest::AbstractString;
-                         members::Vector{String} = String[])
+function extract_archive(
+    archive::AbstractString,
+    dest::AbstractString;
+    members::Vector{String} = String[],
+)
     if endswith(archive, ".zip")
         run(pipeline(`$(p7zip()) x -y -o$dest $archive $members`; stdout = devnull))
     else
@@ -86,17 +92,25 @@ function extract_archive(archive::AbstractString, dest::AbstractString;
     end
 end
 
-function download_with_progress(url::AbstractString, dest::AbstractString, what::AbstractString)
+function download_with_progress(
+    url::AbstractString,
+    dest::AbstractString,
+    what::AbstractString,
+)
     @info "Downloading $what" url
     last_pct = Ref(-1)
-    Downloads.download(url, dest; progress = (total, now) -> begin
-        total > 0 || return
-        pct = floor(Int, 100 * now / total)
-        if pct != last_pct[] && pct % 10 == 0
-            last_pct[] = pct
-            @info "  $what: $pct%"
-        end
-    end)
+    Downloads.download(
+        url,
+        dest;
+        progress = (total, now) -> begin
+            total > 0 || return
+            pct = floor(Int, 100 * now / total)
+            if pct != last_pct[] && pct % 10 == 0
+                last_pct[] = pct
+                @info "  $what: $pct%"
+            end
+        end,
+    )
 end
 
 """
@@ -117,7 +131,11 @@ function install_driver(; force::Bool = false)
     mktempdir() do tmp
         # playwright-core npm tarball extracts to package/
         core_tgz = joinpath(tmp, "playwright-core.tgz")
-        download_with_progress(playwright_core_url(), core_tgz, "Playwright driver $PLAYWRIGHT_VERSION")
+        download_with_progress(
+            playwright_core_url(),
+            core_tgz,
+            "Playwright driver $PLAYWRIGHT_VERSION",
+        )
         extract_archive(core_tgz, tmp)
         pkg = joinpath(tmp, "package")
         isfile(joinpath(pkg, "cli.js")) || error("playwright-core package has no cli.js")
@@ -133,7 +151,8 @@ function install_driver(; force::Bool = false)
         node_member = Sys.iswindows() ? "$root_name/node.exe" : "$root_name/bin/node"
         extract_archive(node_archive, node_tree; members = [node_member])
         root = joinpath(node_tree, root_name)
-        node_src = Sys.iswindows() ? joinpath(root, "node.exe") : joinpath(root, "bin", "node")
+        node_src =
+            Sys.iswindows() ? joinpath(root, "node.exe") : joinpath(root, "bin", "node")
         isfile(node_src) || error("node binary not found in Node.js archive at $node_src")
         node_dest = joinpath(dir, node_exe_name())
         cp(node_src, node_dest; force = true)

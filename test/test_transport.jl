@@ -5,12 +5,15 @@
         wire = Pipe()
         Base.link_pipe!(wire)
         received = Channel{Any}(10)
-        transport = Playwright.Transport(wire.out, wire.in;
-            on_message = msg -> put!(received, msg))
+        transport =
+            Playwright.Transport(wire.out, wire.in; on_message = msg -> put!(received, msg))
         Playwright.start_reading!(transport)
 
-        msg1 = Dict{String,Any}("id" => 1, "method" => "initialize",
-                                "params" => Dict{String,Any}("sdkLanguage" => "julia"))
+        msg1 = Dict{String,Any}(
+            "id" => 1,
+            "method" => "initialize",
+            "params" => Dict{String,Any}("sdkLanguage" => "julia"),
+        )
         msg2 = Dict{String,Any}("id" => 2, "method" => "ping")
         Playwright.send(transport, msg1)
         Playwright.send(transport, msg2)
@@ -27,8 +30,8 @@
         wire = Pipe()
         Base.link_pipe!(wire)
         received = Channel{Any}(1)
-        transport = Playwright.Transport(wire.out, devnull;
-            on_message = msg -> put!(received, msg))
+        transport =
+            Playwright.Transport(wire.out, devnull; on_message = msg -> put!(received, msg))
         Playwright.start_reading!(transport)
 
         payload = Vector{UInt8}(codeunits("{\"id\":42}"))
@@ -45,9 +48,12 @@
         wire = Pipe()
         Base.link_pipe!(wire)
         closed = Channel{Bool}(1)
-        transport = Playwright.Transport(wire.out, devnull;
+        transport = Playwright.Transport(
+            wire.out,
+            devnull;
             on_message = _ -> nothing,
-            on_close = () -> put!(closed, true))
+            on_close = () -> put!(closed, true),
+        )
         Playwright.start_reading!(transport)
 
         # Announce a 100-byte frame but deliver only 3 bytes, then hang up.

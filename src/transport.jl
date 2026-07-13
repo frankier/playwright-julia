@@ -23,10 +23,22 @@ mutable struct Transport
     lock::ReentrantLock
 end
 
-function Transport(input::IO, output::IO;
-                   on_message::Function, on_close::Function = () -> nothing)
-    return Transport(input, output, on_message, on_close, nothing, false, false,
-                     ReentrantLock())
+function Transport(
+    input::IO,
+    output::IO;
+    on_message::Function,
+    on_close::Function = () -> nothing,
+)
+    return Transport(
+        input,
+        output,
+        on_message,
+        on_close,
+        nothing,
+        false,
+        false,
+        ReentrantLock(),
+    )
 end
 
 """
