@@ -146,6 +146,112 @@ tryrun(cmd) =
                     close(browser)
                 end
 
+                @testset "$browser_name: multi-match locators over sliders.html" begin
+                    browser = launch(bt; headless = true)
+                    page = new_page(browser)
+                    goto(page, "$base_url/sliders.html")
+
+                    sliders = locator(page, "input[type=range]"; strict = false)
+                    @test count(sliders) == 2
+                    @test length(sliders) == 2
+
+                    # nth is 1-based on the Julia side.
+                    fill(nth(sliders, 2), "4")
+                    @test input_value(nth(sliders, 2)) == "4"
+                    @test input_value(nth(sliders, 1)) == "0"
+                    @test input_value(first(sliders)) == "0"
+                    @test input_value(last(sliders)) == "4"
+                    @test input_value(sliders[2]) == "4"
+                    @test lastindex(sliders) == 2
+
+                    # Iteration yields one single-element Locator per match...
+                    yielded = collect(sliders)
+                    @test length(yielded) == count(sliders)
+                    @test all(l -> l isa Playwright.Locator, yielded)
+                    @test eltype(sliders) === Playwright.Locator
+                    # ...and collect(loc)[2] acts on the same element as nth(loc, 2).
+                    fill(yielded[2], "9")
+                    @test input_value(nth(sliders, 2)) == "9"
+
+                    counted = 0
+                    for slider in sliders
+                        counted += 1
+                        @test input_value(slider) isa String
+                    end
+                    @test counted == 2
+
+                    # A strict locator with one match iterates to one element
+                    # rather than erroring — strictness is checked on action.
+                    only_button = locator(page, "#only")
+                    @test length(collect(only_button)) == 1
+                    @test text_content(first(only_button)) == "Only button"
+
+                    # ...but acting on a multi-match strict locator still raises.
+                    strict_sliders = locator(page, "input[type=range]")
+                    @test_throws PlaywrightError input_value(strict_sliders; timeout = 5_000)
+
+                    close(browser)
+                end
+
+                @testset "$browser_name: dispatch_event drives a range input" begin
+                    browser = launch(bt; headless = true)
+                    page = new_page(browser)
+                    goto(page, "$base_url/sliders.html")
+
+                    readout = locator(page, "#readout")
+                    second = locator(page, "#second")
+
+                    # Setting .value alone does not notify listeners...
+                    eval_on_selector(page, "#second", "(el, v) => el.value = v", 7)
+                    @test inner_text(readout) == "first=0 second=0"
+
+                    # ...dispatching the event is what makes the page react.
+                    dispatch_event(second, "input")
+                    @test input_value(second) == "7"
+                    @test inner_text(readout) == "first=0 second=7"
+
+                    # An event initializer crosses the wire through the codec.
+                    # The event name has to be one Playwright maps to a real
+                    # event class — unknown names become a plain Event, which
+                    # silently drops the initializer's fields.
+                    evaluate(page, """
+                        () => {
+                            window.seen = null;
+                            document.getElementById('first')
+                                .addEventListener('keydown', e => { window.seen = e.key; });
+                        }
+                        """)
+                    dispatch_event(locator(page, "#first"), "keydown",
+                                   Dict("key" => "Escape"))
+                    @test evaluate(page, "window.seen") == "Escape"
+
+                    close(browser)
+                end
+
+                @testset "$browser_name: content and state queries" begin
+                    browser = launch(bt; headless = true)
+                    page = new_page(browser)
+                    goto(page, "$base_url/sliders.html")
+
+                    body = locator(page, "body")
+                    # inner_text is what a user sees; text_content is the raw
+                    # text, hidden nodes included.
+                    @test !occursin("INVISIBLE", inner_text(body))
+                    @test occursin("INVISIBLE", text_content(body))
+                    @test occursin("Sliders", inner_text(body))
+
+                    @test occursin("<h1>", inner_html(body))
+                    @test get_attribute(locator(page, "#first"), "type") == "range"
+                    @test get_attribute(locator(page, "#first"), "nope") === nothing
+
+                    @test is_visible(locator(page, "#only"))
+                    @test !is_visible(locator(page, "#hidden"))
+                    @test !is_visible(locator(page, "#does-not-exist"))
+                    @test is_enabled(locator(page, "#only"))
+
+                    close(browser)
+                end
+
                 @testset "$browser_name: screenshot writes a non-empty PNG" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)

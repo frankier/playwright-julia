@@ -18,11 +18,18 @@ main_frame(page::Page) = from_channel(page.connection, page.initializer["mainFra
 Lazy handle for `selector` inside a frame. Holds no element reference —
 every action re-resolves the selector in the browser, Playwright-style.
 Created with [`locator`](@ref).
+
+`strict` mirrors Playwright's strictness: when true (the default) acting on a
+selector that matches more than one element is an error rather than a silent
+pick. It is checked on *action*, not on construction.
 """
 struct Locator
     frame::Frame
     selector::String
+    strict::Bool
 end
+
+Locator(frame::Frame, selector::AbstractString) = Locator(frame, String(selector), true)
 
 """
     PlaywrightAPI

@@ -41,6 +41,14 @@ export playwright,
     eval_on_selector,
     eval_on_selector_all,
     dispose,
+    nth,
+    inner_text,
+    inner_html,
+    get_attribute,
+    is_visible,
+    is_checked,
+    is_enabled,
+    dispatch_event,
     PlaywrightError
 
 include("driver.jl")

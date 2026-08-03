@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Sliders fixture</title>
+  </head>
+  <body>
+    <h1>Sliders</h1>
+
+    <!-- Mirrors Bonnie's embed_raw: two range inputs plus a live readout, so a
+         test can prove the input event actually fired rather than just that
+         the value attribute changed. -->
+    <input type="range" id="first" min="0" max="10" step="1" value="0" />
+    <input type="range" id="second" min="0" max="10" step="1" value="0" />
+
+    <p id="readout">first=0 second=0</p>
+
+    <!-- inner_text must not see this; text_content must. -->
+    <span id="hidden" style="display: none">INVISIBLE</span>
+
+    <button id="only">Only button</button>
+
+    <script>
+      const first = document.getElementById("first");
+      const second = document.getElementById("second");
+      const readout = document.getElementById("readout");
+
+      function render() {
+        readout.textContent = `first=${first.value} second=${second.value}`;
+      }
+
+      first.addEventListener("input", render);
+      second.addEventListener("input", render);
+    </script>
+  </body>
+</html>
