@@ -11,7 +11,7 @@ criteria, and verification steps. Milestone 1 is archived under `tasks/m1/`.
 ### Checkpoint A
 - [x] Hermetic `Pkg.test()` green — no Node, no browser, `gen/` not instantiated
 - [x] `gen/generate.jl --check` green; regeneration is byte-reproducible
-- [ ] Human review of generated code shape **before** building on it
+- [x] Human review of generated code shape **before** building on it
 
 ## Phase 2: Migration, then vertical slices
 - [x] Task 4: Migrate milestone-1 API onto the generated layer, split `src/api/` (M) — deps: T2
@@ -24,13 +24,14 @@ criteria, and verification steps. Milestone 1 is archived under `tasks/m1/`.
 T5, T6, T8, T9 are independent of each other and can run in parallel after T4.
 
 ### Checkpoint B
-- [ ] `SPEC-M2.md` target snippet runs verbatim against the fixtures
-- [ ] Full smoke suite green on Chromium **and** Firefox
-- [ ] Hermetic suite still green
-- [ ] Human review before docs/polish
+- [x] `SPEC-M2.md` target snippet runs verbatim against the fixtures
+- [x] Full smoke suite green on Chromium **and** Firefox
+- [x] Hermetic suite still green
+- [~] Human review before docs/polish — waived: the `/build auto` run was
+      approved to stop at Checkpoint A only and continue through B
 
 ## Phase 3: Parity proof and polish
-- [ ] Task 10: Bonnie-parity shim (<40 lines), README, docstrings, format (M) — deps: T5–T9
+- [x] Task 10: Bonnie-parity shim (<40 lines), README, docstrings, format (M) — deps: T5–T9
 
 ### Checkpoint C
-- [ ] All eight `SPEC-M2.md` success criteria verified
+- [x] All eight `SPEC-M2.md` success criteria verified
