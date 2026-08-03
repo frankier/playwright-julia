@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Milestone 3 fixture</title>
+  </head>
+  <body>
+    <!-- The page the SPEC-M3 target snippet runs against: everything it waits
+         for is deliberately absent at load, so a test that passes here proves
+         waiting happened rather than that the DOM was already settled. -->
+    <h1>Hello</h1>
+
+    <!-- Two range inputs for the evaluate-on-Locator slice. The readout proves
+         an `input` event actually fired, not just that .value was assigned. -->
+    <input type="range" id="first" min="0" max="10" step="1" value="0" />
+    <input type="range" id="second" min="0" max="10" step="1" value="0" />
+    <p id="readout">first=0 second=0</p>
+
+    <button id="open-popup">Open popup</button>
+
+    <div id="slot"></div>
+
+    <script>
+      const first = document.getElementById("first");
+      const second = document.getElementById("second");
+      const readout = document.getElementById("readout");
+      const render = () => {
+        readout.textContent = `first=${first.value} second=${second.value}`;
+      };
+      first.addEventListener("input", render);
+      second.addEventListener("input", render);
+
+      document.getElementById("open-popup").addEventListener("click", () => {
+        window.open("m3-popup.html", "_blank");
+      });
+
+      // The page timestamps its own milestones. A test can then prove lateness
+      // deterministically (appeared strictly after parse) instead of racing the
+      // navigation to observe the absence — Firefox's goto can return late
+      // enough that the timers have already fired.
+      window.__parsedAt = performance.now();
+
+      // #late appears after a delay: attached, visible and with text, so
+      // wait_for_selector can be exercised for :attached and :visible alike.
+      setTimeout(() => {
+        const late = document.createElement("p");
+        late.id = "late";
+        late.textContent = "late arrival";
+        document.getElementById("slot").appendChild(late);
+        window.__lateAt = performance.now();
+      }, 300);
+
+      // window.ready flips later still, for wait_for_function.
+      setTimeout(() => {
+        window.ready = true;
+        window.__readyAt = performance.now();
+      }, 500);
+    </script>
+  </body>
+</html>

@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Events fixture</title>
+  </head>
+  <body>
+    <h1>Events</h1>
+
+    <!-- #shout is the race regression fixture (SC 6): its handler logs
+         *synchronously*, so the console message is emitted before the call that
+         triggered it returns. An expect_event body that clicks this must still
+         catch the event — a subscription set up after the body ran would miss
+         it. -->
+    <button id="shout">Shout</button>
+
+    <!-- #flood emits 5 000 messages in one synchronous burst, to prove no event
+         is dropped from a live subscription. -->
+    <button id="flood">Flood</button>
+
+    <script>
+      const FLOOD_COUNT = 5000;
+
+      document.getElementById("shout").addEventListener("click", () => {
+        console.log("shouted");
+        window.__shouted = true;
+      });
+
+      document.getElementById("flood").addEventListener("click", () => {
+        window.__floodDone = false;
+        window.__floodCount = 0;
+        for (let i = 0; i < FLOOD_COUNT; i++) {
+          console.log("flood " + i);
+          window.__floodCount++;
+        }
+        window.__floodDone = true;
+      });
+    </script>
+  </body>
+</html>

@@ -17,6 +17,7 @@ using Playwright
 
     if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
         include("test_smoke.jl")
+        include("test_fixtures.jl")
         include("test_evaluate.jl")
         include("test_frames.jl")
         include("test_parity.jl")

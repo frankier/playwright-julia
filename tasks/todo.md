@@ -5,7 +5,7 @@ criteria, and verification steps. Milestones 1–2 are archived under `tasks/m1/
 and `tasks/m2/`.
 
 ## Phase 1: Foundation (no browser needed)
-- [ ] T0: Fixtures — late element, `window.ready`, popup, sync-fired event,
+- [x] T0: Fixtures — late element, `window.ready`, popup, sync-fired event,
       5 000-message page, two range inputs (S)
 - [ ] T1: Error taxonomy — abstract `PlaywrightError` + `DriverError` /
       `TimeoutError` / `TargetClosedError` / `AssertionFailure` (M)
