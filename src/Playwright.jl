@@ -22,6 +22,7 @@ using JSON
 using Scratch
 using Downloads
 using Base64
+using Dates
 using p7zip_jll: p7zip
 
 export playwright,
@@ -41,6 +42,7 @@ include("driver.jl")
 include("transport.jl")
 include("connection.jl")
 include("generated/channels.jl")
+include("serializers.jl")
 include("objects.jl")
 include("api.jl")
 
