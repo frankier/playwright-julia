@@ -15,6 +15,7 @@ using Playwright
     include("test_serializers.jl")
     include("test_transport.jl")
     include("test_connection.jl")
+    include("test_timeouts.jl")
 
     if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
         include("test_smoke.jl")

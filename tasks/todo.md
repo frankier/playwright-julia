@@ -9,7 +9,7 @@ and `tasks/m2/`.
       5 000-message page, two range inputs (S)
 - [x] T1: Error taxonomy — abstract `PlaywrightError` + `DriverError` /
       `TimeoutError` / `TargetClosedError` / `AssertionFailure` (M)
-- [ ] T2: Timeout settings + `resolve_timeout` cascade, `set_default_timeout!` (M) — deps: T1
+- [x] T2: Timeout settings + `resolve_timeout` cascade, `set_default_timeout!` (M) — deps: T1
 - [ ] T3: Event registry + `Subscription` lifetime, dispatch routing (L) — deps: T1
 
 T2 ∥ T3 — disjoint files.

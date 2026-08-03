@@ -24,6 +24,8 @@ mutable struct Connection
     transport::Transport
     objects::Dict{String,ChannelOwner}
     children::Dict{String,Vector{String}}          # parent guid → child guids
+    parents::Dict{String,String}                   # child guid → parent guid
+    timeouts::Dict{String,Any}                     # guid → timeout settings (timeouts.jl)
     callbacks::Dict{Int,Channel{Any}}              # message id → reply slot
     last_id::Int
     closed_error::Union{PlaywrightError,Nothing}
@@ -34,6 +36,8 @@ mutable struct Connection
             transport,
             Dict{String,ChannelOwner}(),
             Dict{String,Vector{String}}(),
+            Dict{String,String}(),
+            Dict{String,Any}(),
             Dict{Int,Channel{Any}}(),
             0,
             nothing,
@@ -197,6 +201,7 @@ function create_remote_object(
     lock(conn.lock) do
         conn.objects[guid] = obj
         push!(get!(Vector{String}, conn.children, parent_guid), guid)
+        conn.parents[guid] = String(parent_guid)
     end
     return obj
 end
@@ -212,6 +217,10 @@ function dispose_locked(conn::Connection, guid::String)
         dispose_locked(conn, child)
     end
     delete!(conn.objects, guid)
+    delete!(conn.parents, guid)
+    # Side tables keyed by guid (timeout settings; see timeouts.jl) have to be
+    # pruned here too, or they grow for the life of the process.
+    delete!(conn.timeouts, guid)
     return
 end
 

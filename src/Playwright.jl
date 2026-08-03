@@ -65,6 +65,8 @@ export playwright,
     clear_page_errors,
     ConsoleMessage,
     PageError,
+    set_default_timeout!,
+    set_default_navigation_timeout!,
     PlaywrightError,
     DriverError,
     TimeoutError,
@@ -78,6 +80,7 @@ include("connection.jl")
 include("generated/channels.jl")
 include("serializers.jl")
 include("objects.jl")
+include("timeouts.jl")
 include("api/lifecycle.jl")
 include("api/navigation.jl")
 include("api/locators.jl")

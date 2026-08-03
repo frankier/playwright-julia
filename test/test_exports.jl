@@ -17,6 +17,8 @@
         :TimeoutError,
         :clear_console_messages,
         :clear_page_errors,
+        :set_default_timeout!,
+        :set_default_navigation_timeout!,
         :click,
         :console_messages,
         :dispose,
