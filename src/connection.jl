@@ -26,6 +26,7 @@ mutable struct Connection
     children::Dict{String,Vector{String}}          # parent guid → child guids
     parents::Dict{String,String}                   # child guid → parent guid
     timeouts::Dict{String,Any}                     # guid → timeout settings (timeouts.jl)
+    subscriptions::Dict{String,Vector}              # guid → subscriptions (api/events.jl)
     callbacks::Dict{Int,Channel{Any}}              # message id → reply slot
     last_id::Int
     closed_error::Union{PlaywrightError,Nothing}
@@ -38,6 +39,7 @@ mutable struct Connection
             Dict{String,Vector{String}}(),
             Dict{String,String}(),
             Dict{String,Any}(),
+            Dict{String,Vector}(),
             Dict{Int,Channel{Any}}(),
             0,
             nothing,
@@ -154,9 +156,10 @@ function dispatch(conn::Connection, msg::AbstractDict)
     elseif method == "frameDetached"
         frame_detached(conn, msg["params"])
     else
-        # Some other server event. No event subscription API exists yet, but an
-        # unknown guid or event must never kill the read loop.
-        nothing
+        # Any other server event goes to whoever subscribed. An unknown guid or
+        # an event nobody wants must never kill the read loop, so routing is
+        # silent about both.
+        deliver_event(conn, msg["guid"], method, get(msg, "params", Dict{String,Any}()))
     end
     return
 end
@@ -218,9 +221,11 @@ function dispose_locked(conn::Connection, guid::String)
     end
     delete!(conn.objects, guid)
     delete!(conn.parents, guid)
-    # Side tables keyed by guid (timeout settings; see timeouts.jl) have to be
-    # pruned here too, or they grow for the life of the process.
+    # Side tables keyed by guid have to be pruned here too, or they grow for
+    # the life of the connection. Subscriptions matter most: their buffers are
+    # unbounded, so a dropped owner must not keep its backlog alive (D1a).
     delete!(conn.timeouts, guid)
+    close_subscriptions_locked(conn, guid)
     return
 end
 
@@ -239,6 +244,9 @@ function handle_transport_close(conn::Connection)
     for callback in pending
         put!(callback, err)
     end
+    # No further events can arrive, so every buffer still attached is dead
+    # weight. playwright() teardown lands here.
+    close_all_subscriptions(conn)
     return
 end
 
