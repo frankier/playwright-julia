@@ -324,6 +324,53 @@ tryrun(cmd) =
                     close(browser)
                 end
 
+                @testset "$browser_name: console messages and page errors" begin
+                    browser = launch(bt; headless = true)
+                    page = new_page(browser)
+                    goto(page, "$base_url/noisy.html")
+
+                    # The uncaught error is thrown from a timeout callback, so
+                    # it can land after load.
+                    @test timedwait(() -> !isempty(page_errors(page)), 10.0) === :ok
+
+                    msgs = console_messages(page)
+                    @test length(msgs) >= 4
+                    @test all(m -> m isa Playwright.ConsoleMessage, msgs)
+
+                    by_type = Dict(m.type => m for m in msgs)
+                    @test haskey(by_type, "log")
+                    @test by_type["log"].text == "a log line"
+                    @test occursin("noisy.html", by_type["log"].location.url)
+                    @test by_type["log"].location.line > 0
+                    @test by_type["log"].timestamp > 0
+                    # Message text can differ between engines, so assert on
+                    # substrings and on the type, not on exact strings.
+                    @test occursin("warning", by_type["warning"].text) ||
+                          occursin("a warning line", by_type["warning"].text)
+                    @test haskey(by_type, "error")
+
+                    errs = page_errors(page)
+                    @test length(errs) == 1
+                    @test errs[1] isa Playwright.PageError
+                    @test occursin("uncaught fixture failure", errs[1].message)
+                    @test !isempty(errs[1].stack)
+                    @test errs[1].name == "Error"
+
+                    clear_console_messages(page)
+                    clear_page_errors(page)
+                    @test isempty(console_messages(page))
+                    @test isempty(page_errors(page))
+
+                    # ...and the buffer refills afterwards.
+                    evaluate(page, "() => console.log('after clearing')")
+                    @test timedwait(
+                        () -> any(m -> m.text == "after clearing", console_messages(page)),
+                        10.0,
+                    ) === :ok
+
+                    close(browser)
+                end
+
                 @testset "$browser_name: screenshot writes a non-empty PNG" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)

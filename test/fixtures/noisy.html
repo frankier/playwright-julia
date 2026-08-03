@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Noisy fixture</title>
+  </head>
+  <body>
+    <h1>Noisy</h1>
+
+    <script>
+      console.log("a log line");
+      console.info("an info line");
+      console.warn("a warning line");
+      console.error("an error line");
+
+      // Uncaught, so it lands in pageErrors rather than consoleMessages.
+      setTimeout(() => {
+        throw new Error("uncaught fixture failure");
+      }, 0);
+    </script>
+  </body>
+</html>

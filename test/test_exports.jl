@@ -7,9 +7,14 @@
 
 @testset "exports" begin
     expected = [
+        :ConsoleMessage,
+        :PageError,
         :Playwright,        # the module itself
         :PlaywrightError,
+        :clear_console_messages,
+        :clear_page_errors,
         :click,
+        :console_messages,
         :dispose,
         :eval_on_selector,
         :eval_on_selector_all,
@@ -36,6 +41,7 @@
         :new_page,
         :nth,
         :owner_frame,
+        :page_errors,
         :pages,
         :parent_frame,
         :playwright,

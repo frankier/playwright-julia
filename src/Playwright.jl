@@ -59,6 +59,12 @@ export playwright,
     new_context,
     contexts,
     pages,
+    console_messages,
+    page_errors,
+    clear_console_messages,
+    clear_page_errors,
+    ConsoleMessage,
+    PageError,
     PlaywrightError
 
 include("driver.jl")
