@@ -44,6 +44,11 @@ include("connection.jl")
 include("generated/channels.jl")
 include("serializers.jl")
 include("objects.jl")
-include("api.jl")
+include("api/lifecycle.jl")
+include("api/navigation.jl")
+include("api/locators.jl")
+include("api/frames.jl")
+include("api/evaluate.jl")
+include("api/diagnostics.jl")
 
 end # module

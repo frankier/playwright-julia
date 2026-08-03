@@ -7,6 +7,7 @@ using Playwright
         @test isdefined(Playwright, :playwright)
     end
 
+    include("test_exports.jl")
     include("test_driver.jl")
     include("test_protocol_spec.jl")
     include("test_codegen.jl")
