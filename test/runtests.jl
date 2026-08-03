@@ -18,6 +18,7 @@ using Playwright
     if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
         include("test_smoke.jl")
         include("test_evaluate.jl")
+        include("test_frames.jl")
     else
         @info "Skipping smoke tests (set PLAYWRIGHT_JL_SMOKE=1 to enable)"
     end

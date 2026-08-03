@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Iframe Parent</title>
+  </head>
+  <body>
+    <h1>Parent</h1>
+    <p id="parent-status">untouched</p>
+
+    <!-- Same-origin child: the case Bonnie's oxygen-template test needs and
+         could not express through the CDP shim. -->
+    <iframe id="child" src="iframe-child.html" width="400" height="200"></iframe>
+
+    <script>
+      // Lets a test detach the frame at runtime and watch frames(page) shrink.
+      window.detachChild = () => {
+        document.getElementById("child").remove();
+      };
+    </script>
+  </body>
+</html>

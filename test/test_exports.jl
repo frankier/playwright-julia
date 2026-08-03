@@ -15,7 +15,10 @@
         :eval_on_selector_all,
         :evaluate,
         :evaluate_handle,
+        :content_frame,
         :dispatch_event,
+        :frame_locator,
+        :frames,
         :get_attribute,
         :goto,
         :inner_html,
@@ -27,12 +30,16 @@
         :install,
         :launch,
         :locator,
+        :name,
         :new_page,
         :nth,
+        :owner_frame,
+        :parent_frame,
         :playwright,
         :screenshot,
         :text_content,
         :title,
+        :url,
     ]
     @test sort(names(Playwright)) == sort(expected)
 

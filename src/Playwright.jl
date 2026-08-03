@@ -49,6 +49,13 @@ export playwright,
     is_checked,
     is_enabled,
     dispatch_event,
+    frames,
+    parent_frame,
+    url,
+    name,
+    frame_locator,
+    content_frame,
+    owner_frame,
     PlaywrightError
 
 include("driver.jl")

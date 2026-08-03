@@ -179,11 +179,42 @@ function dispatch(conn::Connection, msg::AbstractDict)
         create_remote_object(conn, msg["guid"], msg["params"])
     elseif method == "__dispose__"
         dispose_object(conn, msg["guid"])
+    elseif method == "navigated"
+        frame_navigated(conn, msg["guid"], msg["params"])
+    elseif method == "frameDetached"
+        frame_detached(conn, msg["params"])
     else
-        # Server event for an object. Milestone 1 consumes no events, but an
+        # Some other server event. No event subscription API exists yet, but an
         # unknown guid or event must never kill the read loop.
         nothing
     end
+    return
+end
+
+"""
+A frame's `url` and `name` live in its initializer, which the driver only
+sends once. Without folding `navigated` back in, `url(frame)` would report
+wherever the frame started — usually `about:blank`.
+"""
+function frame_navigated(conn::Connection, guid::AbstractString, params::AbstractDict)
+    frame = lookup_object(conn, guid)
+    frame === nothing && return
+    lock(conn.lock) do
+        frame.initializer["url"] = get(params, "url", "")
+        frame.initializer["name"] = get(params, "name", "")
+    end
+    return
+end
+
+"""
+Detached frames are *not* `__dispose__`d by the driver — it reports
+`frameDetached` on the page instead — so without this a removed iframe would
+linger in `frames(page)` forever.
+"""
+function frame_detached(conn::Connection, params::AbstractDict)
+    ref = get(params, "frame", nothing)
+    ref === nothing && return
+    dispose_object(conn, ref["guid"])
     return
 end
 
