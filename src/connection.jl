@@ -90,9 +90,10 @@ const CHANNEL_TYPES = Dict{String,Any}()
 "Start the transport reader; the connection is usable afterwards."
 start!(conn::Connection) = (start_reading!(conn.transport); conn)
 
-lookup_object(conn::Connection, guid::AbstractString) = lock(conn.lock) do
-    get(conn.objects, guid, nothing)
-end
+lookup_object(conn::Connection, guid::AbstractString) =
+    lock(conn.lock) do
+        get(conn.objects, guid, nothing)
+    end
 
 """
     from_channel(conn, ref) -> object | nothing

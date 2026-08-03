@@ -37,23 +37,126 @@ Browsers land in the standard Playwright cache (`~/.cache/ms-playwright`),
 shared with any other Playwright installation on the machine. The driver
 lives in a Julia scratch space keyed by the pinned Playwright version.
 
-## API (milestone 1)
+## A fuller example
+
+```julia
+using Playwright
+
+playwright() do pw
+    browser = launch(pw.chromium; headless=true, chromium_sandbox=false,
+                     args=["--disable-dev-shm-usage"])
+    ctx = new_context(browser; viewport=(width=1280, height=720))
+    page = new_page(ctx)
+    goto(page, url)
+
+    # Arbitrary JavaScript, values in and out
+    @assert evaluate(page, "1 + 1") == 2
+    @assert evaluate(page, "x => x.a * 2", (a = 21,)) == 42
+
+    # Several matches: countable, indexable, iterable
+    sliders = locator(page, "input[type=range]"; strict=false)
+    @assert count(sliders) == 2
+    for slider in sliders
+        println(input_value(slider))
+    end
+
+    # Reach into an iframe
+    inner = frame_locator(page, "iframe")
+    click(locator(inner, "button"))
+    println(evaluate(content_frame(inner), "document.title"))
+
+    # Keep a value in the browser; released on the way out of the block
+    evaluate_handle(page, "() => window.app") do app
+        @assert evaluate(app, "a => a.ready") === true
+    end
+
+    # Why did that fail?
+    for err in page_errors(page)
+        @warn "page error" err.message
+    end
+
+    close(ctx)
+    close(browser)
+end
+```
+
+## API
+
+### Lifecycle
 
 | Function | Purpose |
 |---|---|
 | `playwright(f)` | Start the driver, run `f(pw)`, guarantee shutdown |
 | `pw.chromium`, `pw.firefox` | The launchable `BrowserType`s |
-| `launch(bt; headless=true)` | Launch a browser |
-| `new_page(browser)` | New page in a fresh context |
+| `launch(bt; headless=true, …)` | Launch a browser — see options below |
+| `new_context(browser; viewport, user_agent, …)` | Isolated profile; the unit of test isolation |
+| `new_page(browser)` / `new_page(context)` | New page; from a browser it owns the context it created |
+| `contexts(browser)`, `pages(context)` | What is currently open |
+| `close(page)`, `close(context)`, `close(browser)` | Close (extends `Base.close`) |
+
+`launch` options, all optional and omitted from the wire when unset: `args`,
+`chromium_sandbox`, `env`, `firefox_user_prefs`, `executable_path`, `channel`,
+`slow_mo`, `proxy`, `downloads_path`. `executable_path` and `channel` are what
+make `CHROME_BIN`-style provisioning work against a browser the machine
+already has.
+
+### Navigation and capture
+
+| Function | Purpose |
+|---|---|
 | `goto(page, url; timeout=30_000, wait_until="load")` | Navigate |
 | `title(page)` | Document title |
-| `locator(page, selector)` | Lazy, strict selector handle |
-| `text_content(loc)` | Element's text content |
-| `click(loc)` | Click (waits for actionability) |
-| `fill(loc, value)` | Set an input's value (extends `Base.fill`) |
-| `input_value(loc)` | Read an input's value |
 | `screenshot(page; path=nothing)` | PNG screenshot, returned and/or written |
-| `close(page)`, `close(browser)` | Close (extends `Base.close`) |
+
+### Locators
+
+| Function | Purpose |
+|---|---|
+| `locator(page, selector; strict=true)` | Lazy selector handle |
+| `count(loc)`, `nth(loc, i)`, `first(loc)`, `last(loc)` | Work with several matches (`nth` is 1-based) |
+| iteration, `loc[i]`, `collect(loc)` | One single-element `Locator` per match |
+| `click(loc)`, `fill(loc, value)` | Act (waits for actionability) |
+| `dispatch_event(loc, type, event_init=missing)` | Fire a synthetic DOM event |
+| `text_content(loc)`, `inner_text(loc)`, `inner_html(loc)` | Read content |
+| `input_value(loc)`, `get_attribute(loc, name)` | Read values |
+| `is_visible(loc)`, `is_checked(loc)`, `is_enabled(loc)` | Read state |
+
+A `Locator` is iterable but deliberately **not** an `AbstractArray`: indexing
+is a network call and the length is not stable. Iteration samples the match
+set once, with a `count` round-trip, when the loop starts.
+
+### JavaScript
+
+| Function | Purpose |
+|---|---|
+| `evaluate(target, expression, arg=missing)` | Run JS in a page, frame or handle; returns a Julia value |
+| `evaluate_handle(target, expression, arg=missing)` | Keep the result in the browser as a `JSHandle` |
+| `evaluate_handle(f, target, expression, …)` | Block form — disposes the handle on the way out, throw or not |
+| `dispose(handle)` | Release a handle explicitly |
+| `eval_on_selector(target, selector, expression, …)` | Run JS with the matched element as its argument |
+| `eval_on_selector_all(target, selector, expression, …)` | ...with *all* matches as an array |
+
+Numbers come back as `Float64` — JavaScript has one number type — so
+`evaluate(page, "1 + 1")` is `2.0`, which still `== 2`.
+
+### Frames
+
+| Function | Purpose |
+|---|---|
+| `frames(page)` | Main frame first, then descendants |
+| `frame_locator(page, selector)` | Scope into an iframe |
+| `locator(fl, selector)` | Address an element inside it |
+| `content_frame(fl_or_loc)` | The `Frame` an iframe element contains |
+| `owner_frame(loc)` | The frame containing an element |
+| `parent_frame(frame)`, `url(frame)`, `name(frame)` | Frame tree and identity |
+
+### Diagnostics
+
+| Function | Purpose |
+|---|---|
+| `console_messages(page)` | Buffered `ConsoleMessage`s (`type`, `text`, `location`, `timestamp`) |
+| `page_errors(page)` | Uncaught `PageError`s (`message`, `name`, `stack`) |
+| `clear_console_messages(page)`, `clear_page_errors(page)` | Reset the buffers for per-test isolation |
 
 Failures surface as `PlaywrightError` carrying the driver's message and its
 call log (so a timeout tells you which selector it was waiting for).
@@ -68,8 +171,36 @@ PLAYWRIGHT_JL_SMOKE=1 julia --project=. -e 'using Pkg; Pkg.test()' # + real-brow
 Unit tests need no Node.js or browsers. The smoke suite launches headless
 Chromium and Firefox against local HTML fixtures served in-process.
 
+## The channel layer is generated
+
+`src/generated/channels.jl` — one type per protocol interface and one function
+per protocol command — is generated from Playwright's own protocol spec,
+vendored under `protocol/spec/` at the pinned version. The generated code is
+checked in; the generator never runs at build or load time and adds no runtime
+dependency.
+
+```
+julia --project=gen gen/fetch_spec.jl        # re-vendor protocol/spec/*.yml
+julia --project=gen gen/generate.jl          # regenerate the channel layer
+julia --project=gen gen/generate.jl --check  # non-zero exit if it is stale
+```
+
+The user-facing API above is hand-written on top of that layer: the spec
+carries no documentation and no notion of the idiomatic way to call something,
+so a fully generated API would be a transliteration of TypeScript rather than
+Julia. Never edit `src/generated/` by hand.
+
 ## Status
 
-Milestone 1: a minimal vertical slice proving the architecture — Chromium and
-Firefox, the API above, sync only. Not yet covered: WebKit, events, network
-interception, downloads, tracing, and the rest of Playwright's surface.
+Milestone 2: broad enough to write a real end-to-end browser suite in Julia —
+`evaluate` and the value codec, frames and iframes, multi-match locators,
+`dispatch_event`, full launch options, explicit context lifecycle, and
+console/error diagnostics. Chromium and Firefox, sync only.
+
+[`docs/bonnie-parity.md`](docs/bonnie-parity.md) records the driving use case:
+replacing a hand-rolled CDP test harness with public API, row by row.
+
+Not yet covered: WebKit; event subscription (`expect_*`, `wait_for_event`);
+auto-retrying assertions; network interception and routing; downloads, file
+choosers and dialogs; PDF; video and tracing; persistent contexts; an async
+API.

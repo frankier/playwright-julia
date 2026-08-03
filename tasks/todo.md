@@ -14,12 +14,12 @@ criteria, and verification steps. Milestone 1 is archived under `tasks/m1/`.
 - [ ] Human review of generated code shape **before** building on it
 
 ## Phase 2: Migration, then vertical slices
-- [ ] Task 4: Migrate milestone-1 API onto the generated layer, split `src/api/` (M) — deps: T2
-- [ ] Task 5: `evaluate` slice — evaluate, handles, scoped disposal (M) — deps: T3, T4
-- [ ] Task 6: Locator expansion — strict=false, count/nth/first/last/iterate, dispatch_event (M) — deps: T4
-- [ ] Task 7: Frames slice — frames, frame_locator, content_frame (M) — deps: T5, T6
-- [ ] Task 8: Launch options + explicit context lifecycle (M) — deps: T4
-- [ ] Task 9: Diagnostics — console_messages, page_errors (S) — deps: T4
+- [x] Task 4: Migrate milestone-1 API onto the generated layer, split `src/api/` (M) — deps: T2
+- [x] Task 5: `evaluate` slice — evaluate, handles, scoped disposal (M) — deps: T3, T4
+- [x] Task 6: Locator expansion — strict=false, count/nth/first/last/iterate, dispatch_event (M) — deps: T4
+- [x] Task 7: Frames slice — frames, frame_locator, content_frame (M) — deps: T5, T6
+- [x] Task 8: Launch options + explicit context lifecycle (M) — deps: T4
+- [x] Task 9: Diagnostics — console_messages, page_errors (S) — deps: T4
 
 T5, T6, T8, T9 are independent of each other and can run in parallel after T4.
 

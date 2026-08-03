@@ -1,0 +1,8 @@
+# Default JuliaFormatter style, applied to src/ and test/.
+#
+# src/generated/ is excluded: gen/generate.jl already formats its output with
+# the exact JuliaFormatter version pinned in gen/Manifest.toml, and that byte
+# sequence is what `gen/generate.jl --check` compares against. Letting a
+# different formatter version reflow it here would make --check fail for
+# reasons that have nothing to do with the protocol.
+ignore = ["src/generated"]

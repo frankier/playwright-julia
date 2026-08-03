@@ -261,9 +261,17 @@ end
         msg = take!(fake.client_messages)
         params = msg["params"]
         @test sort(collect(keys(params))) == sort([
-            "headless", "timeout", "chromiumSandbox", "args", "env",
-            "firefoxUserPrefs", "executablePath", "channel", "slowMo",
-            "downloadsPath", "proxy",
+            "headless",
+            "timeout",
+            "chromiumSandbox",
+            "args",
+            "env",
+            "firefoxUserPrefs",
+            "executablePath",
+            "channel",
+            "slowMo",
+            "downloadsPath",
+            "proxy",
         ])
         @test params["headless"] === false
         @test params["chromiumSandbox"] === false

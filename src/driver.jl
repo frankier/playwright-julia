@@ -43,7 +43,8 @@ function node_platform(; os::Symbol = default_os(), arch::Symbol = Sys.ARCH)
     return "$ospart-$archpart"
 end
 
-playwright_core_url() = "$NPM_REGISTRY/playwright-core/-/playwright-core-$PLAYWRIGHT_VERSION.tgz"
+playwright_core_url() =
+    "$NPM_REGISTRY/playwright-core/-/playwright-core-$PLAYWRIGHT_VERSION.tgz"
 
 function node_url(; os::Symbol = default_os(), arch::Symbol = Sys.ARCH)
     platform = node_platform(; os, arch)

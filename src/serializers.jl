@@ -14,11 +14,8 @@ const ISO8601_MS = dateformat"yyyy-mm-dd\THH:MM:SS.sss\Z"
 
 # JS regex flags with a Julia equivalent. The rest (g, u, y) are dropped: they
 # describe how a match is *driven*, which Julia's Regex has no notion of.
-const REGEX_FLAGS = [
-    (Base.PCRE.CASELESS, 'i'),
-    (Base.PCRE.MULTILINE, 'm'),
-    (Base.PCRE.DOTALL, 's'),
-]
+const REGEX_FLAGS =
+    [(Base.PCRE.CASELESS, 'i'), (Base.PCRE.MULTILINE, 'm'), (Base.PCRE.DOTALL, 's')]
 const JULIA_REGEX_FLAGS = "imsxa"
 
 serialize_error(msg::AbstractString) = throw(PlaywrightError(msg))

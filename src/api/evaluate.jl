@@ -95,26 +95,24 @@ evaluate_handle(
     expression::AbstractString,
     arg = missing;
     is_function::Union{Bool,Nothing} = nothing,
-) =
-    _frame_evaluate_expression_handle(
-        frame;
-        expression,
-        arg = serialized_argument(arg),
-        isFunction = is_function,
-    )::JSHandle
+) = _frame_evaluate_expression_handle(
+    frame;
+    expression,
+    arg = serialized_argument(arg),
+    isFunction = is_function,
+)::JSHandle
 
 evaluate_handle(
     handle::JSHandleChannel,
     expression::AbstractString,
     arg = missing;
     is_function::Union{Bool,Nothing} = nothing,
-) =
-    _js_handle_evaluate_expression_handle(
-        handle;
-        expression,
-        arg = serialized_argument(arg),
-        isFunction = is_function,
-    )::JSHandle
+) = _js_handle_evaluate_expression_handle(
+    handle;
+    expression,
+    arg = serialized_argument(arg),
+    isFunction = is_function,
+)::JSHandle
 
 function evaluate_handle(
     f::Function,

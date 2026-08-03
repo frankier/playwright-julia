@@ -56,10 +56,8 @@
                 @test title(page) == "Iframe Parent"
 
                 # The effects of the frame_locator actions above are visible here.
-                @test evaluate(
-                    child,
-                    "document.getElementById('child-input').value",
-                ) == "typed inside"
+                @test evaluate(child, "document.getElementById('child-input').value") ==
+                      "typed inside"
 
                 # content_frame works from a plain Locator too.
                 @test content_frame(locator(page, "#child")) === child
@@ -68,8 +66,9 @@
 
             @testset "owner_frame is the inverse" begin
                 @test owner_frame(locator(page, "#child")) === main
-                @test owner_frame(locator(frame_locator(page, "#child"), "#child-button")) ===
-                      frames(page)[2]
+                @test owner_frame(
+                    locator(frame_locator(page, "#child"), "#child-button"),
+                ) === frames(page)[2]
             end
 
             @testset "detached frames disappear" begin

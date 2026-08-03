@@ -188,7 +188,10 @@ tryrun(cmd) =
 
                     # ...but acting on a multi-match strict locator still raises.
                     strict_sliders = locator(page, "input[type=range]")
-                    @test_throws PlaywrightError input_value(strict_sliders; timeout = 5_000)
+                    @test_throws PlaywrightError input_value(
+                        strict_sliders;
+                        timeout = 5_000,
+                    )
 
                     close(browser)
                 end
@@ -214,15 +217,21 @@ tryrun(cmd) =
                     # The event name has to be one Playwright maps to a real
                     # event class — unknown names become a plain Event, which
                     # silently drops the initializer's fields.
-                    evaluate(page, """
-                        () => {
-                            window.seen = null;
-                            document.getElementById('first')
-                                .addEventListener('keydown', e => { window.seen = e.key; });
-                        }
-                        """)
-                    dispatch_event(locator(page, "#first"), "keydown",
-                                   Dict("key" => "Escape"))
+                    evaluate(
+                        page,
+                        """
+             () => {
+                 window.seen = null;
+                 document.getElementById('first')
+                     .addEventListener('keydown', e => { window.seen = e.key; });
+             }
+             """,
+                    )
+                    dispatch_event(
+                        locator(page, "#first"),
+                        "keydown",
+                        Dict("key" => "Escape"),
+                    )
                     @test evaluate(page, "window.seen") == "Escape"
 
                     close(browser)
@@ -285,7 +294,10 @@ tryrun(cmd) =
                     browser = launch(bt; headless = true)
                     @test isempty(Playwright.contexts(browser))
 
-                    ctx = Playwright.new_context(browser; viewport = (width = 800, height = 600))
+                    ctx = Playwright.new_context(
+                        browser;
+                        viewport = (width = 800, height = 600),
+                    )
                     @test ctx isa Playwright.BrowserContext
                     @test length(Playwright.contexts(browser)) == 1
                     @test isempty(Playwright.pages(ctx))

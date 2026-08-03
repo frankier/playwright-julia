@@ -96,7 +96,8 @@ Nothing is resolved until the resulting locator is used, so this can be built
 before the iframe has loaded. The `FrameLocator` form scopes into an iframe
 nested inside another iframe.
 """
-frame_locator(frame::Frame, selector::AbstractString) = FrameLocator(frame, String(selector))
+frame_locator(frame::Frame, selector::AbstractString) =
+    FrameLocator(frame, String(selector))
 
 frame_locator(page::Page, selector::AbstractString) =
     frame_locator(main_frame(page), selector)

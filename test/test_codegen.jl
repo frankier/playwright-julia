@@ -11,17 +11,23 @@ const REPO = dirname(@__DIR__)
 "Whether the gen/ environment is instantiated and can load its dependencies."
 function gen_available()
     isfile(joinpath(REPO, "gen", "Manifest.toml")) || return false
-    return success(pipeline(
-        Cmd(`$(Base.julia_cmd()) --project=$(joinpath(REPO, "gen")) -e "using YAML, JuliaFormatter"`);
-        stdout = devnull,
-        stderr = devnull,
-    ))
+    return success(
+        pipeline(
+            Cmd(
+                `$(Base.julia_cmd()) --project=$(joinpath(REPO, "gen")) -e "using YAML, JuliaFormatter"`,
+            );
+            stdout = devnull,
+            stderr = devnull,
+        ),
+    )
 end
 
 "Run gen/generate.jl with `args`, returning (success, combined output)."
 function run_generator(args::Vector{String} = String[])
     out = IOBuffer()
-    cmd = Cmd(`$(Base.julia_cmd()) --project=$(joinpath(REPO, "gen")) $(joinpath(REPO, "gen", "generate.jl")) $args`)
+    cmd = Cmd(
+        `$(Base.julia_cmd()) --project=$(joinpath(REPO, "gen")) $(joinpath(REPO, "gen", "generate.jl")) $args`,
+    )
     ok = success(pipeline(cmd; stdout = out, stderr = out))
     return ok, String(take!(out))
 end
@@ -46,8 +52,19 @@ end
 
         # Milestone-1 types must survive the move out of src/objects.jl, and
         # the generated set is much wider than what milestone 1 hand-wrote.
-        for type in [:PlaywrightRoot, :BrowserType, :Browser, :BrowserContext, :Page,
-                     :Frame, :Response, :Request, :JSHandle, :ElementHandle, :Worker]
+        for type in [
+            :PlaywrightRoot,
+            :BrowserType,
+            :Browser,
+            :BrowserContext,
+            :Page,
+            :Frame,
+            :Response,
+            :Request,
+            :JSHandle,
+            :ElementHandle,
+            :Worker,
+        ]
             @test isdefined(Playwright, type)
             @test getfield(Playwright, type) <: Playwright.ChannelOwner
         end
@@ -55,10 +72,18 @@ end
         @test Playwright.CHANNEL_TYPES["Page"] === Playwright.Page
 
         # Commands the milestone-2 API is built on.
-        for fn in [:_frame_goto, :_frame_title, :_frame_click, :_frame_fill,
-                   :_frame_evaluate_expression, :_frame_dispatch_event,
-                   :_frame_query_count, :_page_screenshot, :_browser_type_launch,
-                   :_js_handle_evaluate_expression]
+        for fn in [
+            :_frame_goto,
+            :_frame_title,
+            :_frame_click,
+            :_frame_fill,
+            :_frame_evaluate_expression,
+            :_frame_dispatch_event,
+            :_frame_query_count,
+            :_page_screenshot,
+            :_browser_type_launch,
+            :_js_handle_evaluate_expression,
+        ]
             @test isdefined(Playwright, fn)
         end
 
@@ -133,16 +158,24 @@ end
             @test occursin("position::Union{AbstractDict,Nothing} = nothing", poke)
             @test occursin("var\"end\"", poke)
             # Optional parameters are omitted from the wire when unset.
-            @test occursin("strict === nothing || (params[\"strict\"] = to_wire(strict))", poke)
+            @test occursin(
+                "strict === nothing || (params[\"strict\"] = to_wire(strict))",
+                poke,
+            )
             # A single channel-typed result resolves through from_channel.
             @test occursin("return from_channel(_obj.connection, result[\"gadget\"])", poke)
 
-            @test occursin("return base64decode(result[\"binary\"])", command_body(text, "_widget_snap"))
+            @test occursin(
+                "return base64decode(result[\"binary\"])",
+                command_body(text, "_widget_snap"),
+            )
             @test occursin("return nothing", command_body(text, "_widget_reset"))
             # Several result fields come back as a NamedTuple, in sorted order —
             # everything is emitted sorted so the output is byte-reproducible.
-            @test occursin("return (count = get(result, \"count\", nothing), value = result[\"value\"])",
-                           command_body(text, "_gadget_ping"))
+            @test occursin(
+                "return (count = get(result, \"count\", nothing), value = result[\"value\"])",
+                command_body(text, "_gadget_ping"),
+            )
 
             # An unrecognised type widens to Any, but is reported rather than
             # silently swallowed — that report is what makes reviewing the real

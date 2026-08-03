@@ -86,8 +86,12 @@
                 @test eval_on_selector_all(page, "input", "els => els.map(e => e.value)") ==
                       ["alpha", "beta", "gamma"]
                 # Arguments reach eval_on_selector too.
-                @test eval_on_selector(page, "#two", "(el, suffix) => el.value + suffix",
-                                       "!") == "beta!"
+                @test eval_on_selector(
+                    page,
+                    "#two",
+                    "(el, suffix) => el.value + suffix",
+                    "!",
+                ) == "beta!"
             end
 
             close(browser)

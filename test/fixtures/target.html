@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Target Snippet Fixture</title>
+  </head>
+  <body>
+    <h1>Target</h1>
+
+    <!-- Everything SPEC-M2.md's target snippet touches, on one page, because
+         the snippet navigates to a single URL: two range inputs with a live
+         readout, a same-origin iframe, and a window.app to take a handle on. -->
+    <input type="range" id="first" min="0" max="10" step="1" value="7" />
+    <input type="range" id="second" min="0" max="10" step="1" value="0" />
+
+    <p id="readout">first=7 second=0</p>
+
+    <iframe id="child" src="iframe-child.html" width="400" height="200"></iframe>
+
+    <script>
+      const first = document.getElementById("first");
+      const second = document.getElementById("second");
+      const readout = document.getElementById("readout");
+
+      function render() {
+        readout.textContent = `first=${first.value} second=${second.value}`;
+      }
+
+      first.addEventListener("input", render);
+      second.addEventListener("input", render);
+
+      window.app = { ready: true };
+    </script>
+  </body>
+</html>
