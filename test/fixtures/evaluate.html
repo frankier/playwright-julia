@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Evaluate fixture</title>
+  </head>
+  <body>
+    <h1>Evaluate fixture</h1>
+
+    <!-- eval_on_selector_all counts these; eval_on_selector reads the first. -->
+    <input id="one" value="alpha" />
+    <input id="two" value="beta" />
+    <input id="three" value="gamma" />
+
+    <script>
+      // A handle target with a nested structure, so a JSHandle can be passed
+      // back into a later evaluate as an argument.
+      window.app = {
+        ready: true,
+        name: "fixture",
+        count: 3,
+        nested: { deep: [1, 2, 3] },
+        double: (x) => x * 2,
+      };
+
+      window.boom = () => {
+        throw new Error("fixture exploded on purpose");
+      };
+    </script>
+  </body>
+</html>

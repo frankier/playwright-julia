@@ -10,6 +10,11 @@
         :Playwright,        # the module itself
         :PlaywrightError,
         :click,
+        :dispose,
+        :eval_on_selector,
+        :eval_on_selector_all,
+        :evaluate,
+        :evaluate_handle,
         :goto,
         :input_value,
         :install,

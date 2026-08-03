@@ -36,6 +36,11 @@ export playwright,
     text_content,
     input_value,
     screenshot,
+    evaluate,
+    evaluate_handle,
+    eval_on_selector,
+    eval_on_selector_all,
+    dispose,
     PlaywrightError
 
 include("driver.jl")
