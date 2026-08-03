@@ -4,13 +4,13 @@ Spec: `SPEC-M2.md`. See `tasks/plan.md` for full task descriptions, acceptance
 criteria, and verification steps. Milestone 1 is archived under `tasks/m1/`.
 
 ## Phase 1: Foundation (no browser needed)
-- [ ] Task 1: Vendor protocol spec (`protocol/spec/*.yml`) + `gen/` environment (S)
-- [ ] Task 2: Generator → `src/generated/channels.jl` + `--check` (L) — deps: T1
-- [ ] Task 3: `SerializedValue` codec in `src/serializers.jl` (M) — deps: T1 ∥ T2
+- [x] Task 1: Vendor protocol spec (`protocol/spec/*.yml`) + `gen/` environment (S)
+- [x] Task 2: Generator → `src/generated/channels.jl` + `--check` (L) — deps: T1
+- [x] Task 3: `SerializedValue` codec in `src/serializers.jl` (M) — deps: T1 ∥ T2
 
 ### Checkpoint A
-- [ ] Hermetic `Pkg.test()` green — no Node, no browser, `gen/` not instantiated
-- [ ] `gen/generate.jl --check` green; regeneration is byte-reproducible
+- [x] Hermetic `Pkg.test()` green — no Node, no browser, `gen/` not instantiated
+- [x] `gen/generate.jl --check` green; regeneration is byte-reproducible
 - [ ] Human review of generated code shape **before** building on it
 
 ## Phase 2: Migration, then vertical slices
