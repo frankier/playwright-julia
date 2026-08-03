@@ -1,31 +1,36 @@
-# TODO: Playwright.jl — Milestone 1
+# TODO: Playwright.jl — Milestone 2 (codegen + API expansion)
 
-See `tasks/plan.md` for full task descriptions, acceptance criteria, and verification steps.
+Spec: `SPEC-M2.md`. See `tasks/plan.md` for full task descriptions, acceptance
+criteria, and verification steps. Milestone 1 is archived under `tasks/m1/`.
 
 ## Phase 1: Foundation (no browser needed)
-- [x] Task 1: Package skeleton — Project.toml, module root, empty test suite passes (S)
-- [x] Task 2: Driver download/locate/install in `src/driver.jl` (M) — deps: T1
-- [x] Task 3: Length-prefixed JSON transport in `src/transport.jl` (S) — deps: T1
-- [x] Task 4: Connection & guid object registry in `src/connection.jl` (M) — deps: T3
+- [ ] Task 1: Vendor protocol spec (`protocol/spec/*.yml`) + `gen/` environment (S)
+- [ ] Task 2: Generator → `src/generated/channels.jl` + `--check` (L) — deps: T1
+- [ ] Task 3: `SerializedValue` codec in `src/serializers.jl` (M) — deps: T1 ∥ T2
 
 ### Checkpoint A
-- [x] `Pkg.test()` green with no Node/browser installed
-- [ ] Human review of protocol-layer API
+- [ ] Hermetic `Pkg.test()` green — no Node, no browser, `gen/` not instantiated
+- [ ] `gen/generate.jl --check` green; regeneration is byte-reproducible
+- [ ] Human review of generated code shape **before** building on it
 
-## Phase 2: Vertical slices against a real browser
-- [x] Task 5: Bootstrap handshake + `playwright() do ... end` wrapper (M) — deps: T2, T4
-- [x] Task 6: First browser slice — launch, new_page, goto, title, close + fixture server (M) — deps: T5
-- [x] Task 7: Locator slice — locator, text_content, click, fill (M) — deps: T6
-- [x] Task 8: screenshot + error-path coverage (S) — deps: T6
+## Phase 2: Migration, then vertical slices
+- [ ] Task 4: Migrate milestone-1 API onto the generated layer, split `src/api/` (M) — deps: T2
+- [ ] Task 5: `evaluate` slice — evaluate, handles, scoped disposal (M) — deps: T3, T4
+- [ ] Task 6: Locator expansion — strict=false, count/nth/first/last/iterate, dispatch_event (M) — deps: T4
+- [ ] Task 7: Frames slice — frames, frame_locator, content_frame (M) — deps: T5, T6
+- [ ] Task 8: Launch options + explicit context lifecycle (M) — deps: T4
+- [ ] Task 9: Diagnostics — console_messages, page_errors (S) — deps: T4
+
+T5, T6, T8, T9 are independent of each other and can run in parallel after T4.
 
 ### Checkpoint B
-- [x] SPEC snippet runs end to end on Chromium
-- [x] Unit suite green without browser; smoke suite green with `PLAYWRIGHT_JL_SMOKE=1`
-- [x] Human review before hardening (auto mode: single upfront approval)
+- [ ] `SPEC-M2.md` target snippet runs verbatim against the fixtures
+- [ ] Full smoke suite green on Chromium **and** Firefox
+- [ ] Hermetic suite still green
+- [ ] Human review before docs/polish
 
-## Phase 3: Hardening & polish
-- [x] Task 9: Clean shutdown (no orphan processes) + Firefox smoke matrix (M) — deps: T7, T8
-- [x] Task 10: README + first-use install UX + docstrings + format (S) — deps: T9
+## Phase 3: Parity proof and polish
+- [ ] Task 10: Bonnie-parity shim (<40 lines), README, docstrings, format (M) — deps: T5–T9
 
 ### Checkpoint C
-- [x] All five SPEC success criteria verified
+- [ ] All eight `SPEC-M2.md` success criteria verified
