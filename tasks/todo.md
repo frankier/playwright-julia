@@ -15,9 +15,9 @@ and `tasks/m2/`.
 T2 ∥ T3 — disjoint files.
 
 ### Checkpoint A
-- [ ] Hermetic `Pkg.test()` green — no Node, no browser
-- [ ] Milestone-2 smoke suite still green (nothing regressed under T1/T2)
-- [ ] `gen/generate.jl --check` green
+- [x] Hermetic `Pkg.test()` green — no Node, no browser (407 tests)
+- [x] Milestone-2 smoke suite still green (729 tests, both engines)
+- [x] `gen/generate.jl --check` green
 - [ ] **Human review of the event registry and error taxonomy before anything
       builds on them**
 
