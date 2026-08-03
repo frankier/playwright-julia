@@ -104,6 +104,20 @@ from_channel(conn::Connection, ::Nothing) = nothing
 from_channel(conn::Connection, ref::AbstractDict) = lookup_object(conn, ref["guid"])
 
 """
+    to_wire(x) -> JSON-encodable value
+
+Convert an argument to its protocol representation: channel owners become
+`{"guid" => …}` references and byte vectors become base64 strings, recursively
+through containers. The generated channel layer runs every outgoing parameter
+through this, so wire encoding lives here rather than in generated code.
+"""
+to_wire(x) = x
+to_wire(obj::ChannelOwner) = Dict{String,Any}("guid" => obj.guid)
+to_wire(bytes::Vector{UInt8}) = base64encode(bytes)
+to_wire(v::AbstractVector) = Any[to_wire(x) for x in v]
+to_wire(d::AbstractDict) = Dict{String,Any}(String(k) => to_wire(v) for (k, v) in d)
+
+"""
     send_message(conn, guid, method, params) -> result
 
 Send one protocol request and block until the driver replies. Returns the

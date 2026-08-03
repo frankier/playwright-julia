@@ -9,6 +9,7 @@ using Playwright
 
     include("test_driver.jl")
     include("test_protocol_spec.jl")
+    include("test_codegen.jl")
     include("test_transport.jl")
     include("test_connection.jl")
 

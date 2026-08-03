@@ -40,6 +40,7 @@ export playwright,
 include("driver.jl")
 include("transport.jl")
 include("connection.jl")
+include("generated/channels.jl")
 include("objects.jl")
 include("api.jl")
 

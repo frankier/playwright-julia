@@ -1,0 +1,58 @@
+# Hand-written miniature protocol spec, used by test/test_codegen.jl to pin the
+# generator's output shape without depending on the real 5000-line spec. It
+# exercises the constructs the generator has to get right: mixin inclusion,
+# required vs optional parameters, interface inheritance, channel returns,
+# binary results and a parameter named after a Julia keyword.
+
+TinyOptions:
+  type: mixin
+  properties:
+    timeout: float
+    slowMo: float?
+
+Point:
+  type: object
+  properties:
+    x: float
+    y: float
+
+Widget:
+  type: interface
+
+  commands:
+
+    poke:
+      parameters:
+        $mixin: TinyOptions
+        selector: string
+        strict: boolean?
+        position: Point?
+        end: boolean?
+      returns:
+        gadget: Gadget
+
+    snap:
+      returns:
+        binary: binary
+
+    reset: {}
+
+    # A type the generator has no mapping for. It must widen to Any *and* be
+    # reported, so a protocol change cannot slip past unnoticed.
+    mystery:
+      parameters:
+        thing: NotAThingWeKnow
+
+Gadget:
+  type: interface
+
+  commands:
+
+    ping:
+      returns:
+        value: string
+        count: int?
+
+FancyGadget:
+  type: interface
+  extends: Gadget

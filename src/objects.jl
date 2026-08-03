@@ -1,47 +1,10 @@
-# Concrete channel-owner types for the protocol objects milestone 1 touches,
-# plus the client-side Locator (which is not a protocol object — it lazily
-# holds a selector and resolves inside the browser on every action).
-
-mutable struct PlaywrightRoot <: ChannelOwner
-    @channel_owner_fields
-end
-
-mutable struct BrowserType <: ChannelOwner
-    @channel_owner_fields
-end
-
-mutable struct Browser <: ChannelOwner
-    @channel_owner_fields
-end
-
-mutable struct BrowserContext <: ChannelOwner
-    @channel_owner_fields
-end
-
-mutable struct Page <: ChannelOwner
-    @channel_owner_fields
-end
-
-mutable struct Frame <: ChannelOwner
-    @channel_owner_fields
-end
-
-mutable struct Response <: ChannelOwner
-    @channel_owner_fields
-end
-
-mutable struct Request <: ChannelOwner
-    @channel_owner_fields
-end
-
-CHANNEL_TYPES["Playwright"] = PlaywrightRoot
-CHANNEL_TYPES["BrowserType"] = BrowserType
-CHANNEL_TYPES["Browser"] = Browser
-CHANNEL_TYPES["BrowserContext"] = BrowserContext
-CHANNEL_TYPES["Page"] = Page
-CHANNEL_TYPES["Frame"] = Frame
-CHANNEL_TYPES["Response"] = Response
-CHANNEL_TYPES["Request"] = Request
+# Hand-written companions to the generated channel-owner types.
+#
+# The protocol object types themselves (Browser, Page, Frame, …) and the
+# CHANNEL_TYPES registry now come from src/generated/channels.jl. What stays
+# here is what the protocol has no notion of: Locator, which is a client-side
+# construct, PlaywrightAPI, which is this package's entry handle, and small
+# accessors over channel-owner initializers.
 
 "Name of the browser a `BrowserType` launches: \"chromium\" or \"firefox\"."
 browser_name(bt::BrowserType) = bt.initializer["name"]::String
