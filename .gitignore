@@ -1,3 +1,6 @@
 Manifest.toml
+# ...except the generator's: gen/generate.jl's output is checked in and verified
+# byte-for-byte, so the whole formatter dependency tree has to be pinned.
+!gen/Manifest.toml
 *.png
 .CondaPkg/
