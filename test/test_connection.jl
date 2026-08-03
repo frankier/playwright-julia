@@ -223,4 +223,62 @@ end
         @test true
         close(fake.connection)
     end
+
+    @testset "launch sends only the options that were set" begin
+        fake = FakeDriver()
+        bt = Playwright.BrowserType(
+            fake.connection,
+            "BrowserType",
+            "browserType@1",
+            Dict{String,Any}("name" => "chromium"),
+        )
+
+        # Defaults only: nothing but what launch() itself sets.
+        task = @async launch(bt)
+        msg = take!(fake.client_messages)
+        @test msg["method"] == "launch"
+        @test sort(collect(keys(msg["params"]))) == ["headless", "timeout"]
+        send_create(fake, "browserType@1", "Browser", "browser@1")
+        reply_ok(fake, msg["id"], Dict("browser" => Dict("guid" => "browser@1")))
+        @test fetch(task) isa Playwright.Browser
+
+        # Options that were set, and nothing else. In particular no key with a
+        # null value: an option the caller never mentioned must be absent, not
+        # present-and-null, or the driver applies its own default differently.
+        task = @async launch(
+            bt;
+            headless = false,
+            chromium_sandbox = false,
+            args = ["--disable-dev-shm-usage"],
+            env = Dict("PLAYWRIGHT_JL" => 1),
+            firefox_user_prefs = Dict("dom.max_script_run_time" => 20),
+            executable_path = "/usr/bin/chromium",
+            channel = "chrome",
+            slow_mo = 50,
+            downloads_path = "/tmp/dl",
+            proxy = Dict("server" => "http://127.0.0.1:8080"),
+        )
+        msg = take!(fake.client_messages)
+        params = msg["params"]
+        @test sort(collect(keys(params))) == sort([
+            "headless", "timeout", "chromiumSandbox", "args", "env",
+            "firefoxUserPrefs", "executablePath", "channel", "slowMo",
+            "downloadsPath", "proxy",
+        ])
+        @test params["headless"] === false
+        @test params["chromiumSandbox"] === false
+        @test params["args"] == ["--disable-dev-shm-usage"]
+        # env is a Dict on the Julia side, a NameValue array on the wire.
+        @test params["env"] == [Dict("name" => "PLAYWRIGHT_JL", "value" => "1")]
+        @test params["firefoxUserPrefs"] == Dict("dom.max_script_run_time" => 20)
+        @test params["slowMo"] == 50
+        @test params["proxy"] == Dict("server" => "http://127.0.0.1:8080")
+        send_create(fake, "browserType@1", "Browser", "browser@2")
+        reply_ok(fake, msg["id"], Dict("browser" => Dict("guid" => "browser@2")))
+        @test fetch(task) isa Playwright.Browser
+
+        # ...and no option is ever sent as an explicit null.
+        @test !any(v -> v === nothing, values(params))
+    end
+
 end

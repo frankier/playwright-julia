@@ -56,6 +56,9 @@ export playwright,
     frame_locator,
     content_frame,
     owner_frame,
+    new_context,
+    contexts,
+    pages,
     PlaywrightError
 
 include("driver.jl")

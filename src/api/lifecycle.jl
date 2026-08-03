@@ -95,15 +95,71 @@ function kill_driver(proc::Base.Process)
     return nothing
 end
 
+"The protocol's NameValue array, from the Julia-side Dict callers expect."
+name_value_array(d::AbstractDict) =
+    [Dict{String,Any}("name" => String(k), "value" => string(v)) for (k, v) in d]
+
+"Coerce a Dict/NamedTuple option into the protocol's string-keyed object."
+as_object(x) = Dict{String,Any}(String(k) => v for (k, v) in pairs(x))
+
 """
-    launch(browser_type::BrowserType; headless=true, timeout=180_000) -> Browser
+    launch(browser_type::BrowserType; headless=true, timeout=180_000, kwargs...) -> Browser
 
 Launch a browser instance of `browser_type` (e.g. `pw.chromium`), waiting up
 to `timeout` ms for it to start.
+
+Every option below is optional and is omitted from the protocol message
+entirely when left unset, so the driver's own defaults apply:
+
+| Option | Meaning |
+|---|---|
+| `args` | Extra browser command-line arguments |
+| `chromium_sandbox` | Enable Chromium's sandbox (off by default in containers) |
+| `env` | Environment for the browser process, as a `Dict` |
+| `firefox_user_prefs` | Firefox `about:config` preferences, as a `Dict` |
+| `executable_path` | Run this browser binary instead of the bundled one |
+| `channel` | Branded channel, e.g. `"chrome"` or `"msedge"` |
+| `slow_mo` | Delay each operation by this many ms, for debugging |
+| `proxy` | Proxy settings, e.g. `Dict("server" => "http://…")` |
+| `downloads_path` | Where to put downloads |
+
+`executable_path` and `channel` are what make `CHROME_BIN`-style provisioning
+work on a machine that already has a browser installed.
+
+```julia
+launch(pw.chromium; headless=true, chromium_sandbox=false,
+       args=["--disable-dev-shm-usage"])
+```
 """
-function launch(bt::BrowserType; headless::Bool = true, timeout::Real = 180_000)
+function launch(
+    bt::BrowserType;
+    headless::Bool = true,
+    timeout::Real = 180_000,
+    args::Union{AbstractVector,Nothing} = nothing,
+    chromium_sandbox::Union{Bool,Nothing} = nothing,
+    env::Union{AbstractDict,Nothing} = nothing,
+    firefox_user_prefs::Union{AbstractDict,Nothing} = nothing,
+    executable_path::Union{AbstractString,Nothing} = nothing,
+    channel::Union{AbstractString,Nothing} = nothing,
+    slow_mo::Union{Real,Nothing} = nothing,
+    proxy::Union{AbstractDict,Nothing} = nothing,
+    downloads_path::Union{AbstractString,Nothing} = nothing,
+)
+    options = (;
+        headless,
+        timeout,
+        args,
+        chromiumSandbox = chromium_sandbox,
+        env = env === nothing ? nothing : name_value_array(env),
+        firefoxUserPrefs = firefox_user_prefs,
+        executablePath = executable_path,
+        channel,
+        slowMo = slow_mo,
+        proxy,
+        downloadsPath = downloads_path,
+    )
     return try
-        _browser_type_launch(bt; headless, timeout)::Browser
+        _browser_type_launch(bt; options...)::Browser
     catch err
         # First-use nicety: if this browser was never installed, install it
         # and retry once instead of surfacing the driver's error.
@@ -111,25 +167,153 @@ function launch(bt::BrowserType; headless::Bool = true, timeout::Real = 180_000)
             rethrow()
         @info "Browser $(browser_name(bt)) is not installed yet; installing it now"
         run(driver_cmd("install", browser_name(bt)))
-        _browser_type_launch(bt; headless, timeout)::Browser
+        _browser_type_launch(bt; options...)::Browser
     end
 end
 
 """
-    new_page(browser::Browser) -> Page
+    new_context(browser::Browser; kwargs...) -> BrowserContext
 
-Open a new page in a fresh browser context.
+Open a fresh browser context — an isolated profile with its own cookies,
+storage and permissions, and the unit of isolation between tests. Contexts are
+cheap; a new browser is not.
+
+Options (all optional, omitted from the wire when unset): `viewport` (a `Dict`
+or `NamedTuple` of `width`/`height`), `user_agent`, `locale`, `timezone_id`,
+`color_scheme`, `device_scale_factor`, `is_mobile`, `has_touch`, `offline`,
+`permissions`, `base_url`, `extra_http_headers` (a `Dict`),
+`ignore_https_errors`, `java_script_enabled`.
+
+```julia
+ctx = new_context(browser; viewport=(width=1280, height=720))
+page = new_page(ctx)
+close(ctx)
+```
+"""
+function new_context(
+    browser::Browser;
+    viewport = nothing,
+    user_agent::Union{AbstractString,Nothing} = nothing,
+    locale::Union{AbstractString,Nothing} = nothing,
+    timezone_id::Union{AbstractString,Nothing} = nothing,
+    color_scheme::Union{AbstractString,Nothing} = nothing,
+    device_scale_factor::Union{Real,Nothing} = nothing,
+    is_mobile::Union{Bool,Nothing} = nothing,
+    has_touch::Union{Bool,Nothing} = nothing,
+    offline::Union{Bool,Nothing} = nothing,
+    permissions::Union{AbstractVector,Nothing} = nothing,
+    base_url::Union{AbstractString,Nothing} = nothing,
+    extra_http_headers::Union{AbstractDict,Nothing} = nothing,
+    ignore_https_errors::Union{Bool,Nothing} = nothing,
+    java_script_enabled::Union{Bool,Nothing} = nothing,
+)
+    return _browser_new_context(
+        browser;
+        viewport = viewport === nothing ? nothing : as_object(viewport),
+        userAgent = user_agent,
+        locale,
+        timezoneId = timezone_id,
+        colorScheme = color_scheme,
+        deviceScaleFactor = device_scale_factor,
+        isMobile = is_mobile,
+        hasTouch = has_touch,
+        offline,
+        permissions,
+        baseURL = base_url,
+        extraHTTPHeaders = extra_http_headers === nothing ? nothing :
+                           name_value_array(extra_http_headers),
+        ignoreHTTPSErrors = ignore_https_errors,
+        javaScriptEnabled = java_script_enabled,
+    )::BrowserContext
+end
+
+# Pages opened by new_page(::Browser) own the context created for them, so
+# close(page) can tear it down (D7). A Page is a generated struct with a fixed
+# field layout, so the association lives here rather than on the object.
+const IMPLICIT_CONTEXTS = Dict{String,BrowserContext}()
+const IMPLICIT_CONTEXTS_LOCK = ReentrantLock()
+
+"""
+    new_page(browser::Browser) -> Page
+    new_page(context::BrowserContext) -> Page
+
+Open a new page. Given a `Browser`, a fresh context is created to hold it and
+is closed again by `close(page)` — so a per-test page leaks nothing. Given a
+`BrowserContext`, the page joins that context and its lifetime is yours.
 """
 function new_page(browser::Browser)
-    context = _browser_new_context(browser)::BrowserContext
-    return _browser_context_new_page(context)::Page
+    context = new_context(browser)
+    page = new_page(context)
+    lock(IMPLICIT_CONTEXTS_LOCK) do
+        IMPLICIT_CONTEXTS[page.guid] = context
+    end
+    return page
+end
+
+new_page(context::BrowserContext) = _browser_context_new_page(context)::Page
+
+"""
+    contexts(browser::Browser) -> Vector{BrowserContext}
+
+The browser's currently open contexts. Shrinks as contexts are closed.
+"""
+contexts(browser::Browser) = live_children(browser, BrowserContext)
+
+"""
+    pages(context::BrowserContext) -> Vector{Page}
+
+The context's currently open pages.
+"""
+pages(context::BrowserContext) = live_children(context, Page)
+
+"""
+Children of `parent` of type `T` that are still alive. Disposed objects leave
+a stale guid behind in the parent's child list, so liveness is decided by the
+object registry rather than by that list.
+"""
+function live_children(parent::ChannelOwner, ::Type{T}) where {T}
+    conn = parent.connection
+    return lock(conn.lock) do
+        T[
+            conn.objects[guid] for guid in get(conn.children, parent.guid, String[]) if
+            get(conn.objects, guid, nothing) isa T
+        ]
+    end
 end
 
 """
     close(page::Page)
+    close(context::BrowserContext)
     close(browser::Browser)
 
-Close a page, or a browser and all of its pages.
+Close a page, a context and all of its pages, or a browser and everything in
+it. Closing a page that `new_page(browser)` created also closes the context
+that was created to hold it.
 """
-Base.close(page::Page) = _page_close(page)
-Base.close(browser::Browser) = _browser_close(browser)
+function Base.close(page::Page)
+    context = lock(IMPLICIT_CONTEXTS_LOCK) do
+        pop!(IMPLICIT_CONTEXTS, page.guid, nothing)
+    end
+    # Closing the context closes the page with it.
+    context === nothing ? _page_close(page) : close(context)
+    return nothing
+end
+
+Base.close(context::BrowserContext) = _browser_context_close(context)
+
+function Base.close(browser::Browser)
+    _browser_close(browser)
+    forget_dead_implicit_contexts(browser.connection)
+    return nothing
+end
+
+# close(browser) disposes contexts without going through close(page), so the
+# implicit-context table would otherwise grow for the life of the process.
+function forget_dead_implicit_contexts(conn::Connection)
+    lock(IMPLICIT_CONTEXTS_LOCK) do
+        filter!(IMPLICIT_CONTEXTS) do (_, context)
+            context.connection !== conn || lookup_object(conn, context.guid) !== nothing
+        end
+    end
+    return nothing
+end

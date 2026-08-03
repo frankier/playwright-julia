@@ -252,6 +252,78 @@ tryrun(cmd) =
                     close(browser)
                 end
 
+                @testset "$browser_name: launch options reach the browser" begin
+                    browser = launch(
+                        bt;
+                        headless = true,
+                        chromium_sandbox = false,
+                        args = ["--disable-dev-shm-usage"],
+                    )
+                    page = new_page(browser)
+                    goto(page, "$base_url/")
+                    # The browser started and is usable, which is what these
+                    # flags being accepted rather than rejected looks like.
+                    @test evaluate(page, "navigator.userAgent") isa String
+                    @test title(page) == "Playwright.jl Fixture"
+                    close(browser)
+
+                    if browser_name == "firefox"
+                        # Observably applied: the pref is readable back through
+                        # the same preference service that set it.
+                        browser = launch(
+                            bt;
+                            firefox_user_prefs = Dict("dom.max_script_run_time" => 20),
+                        )
+                        page = new_page(browser)
+                        goto(page, "$base_url/")
+                        @test title(page) == "Playwright.jl Fixture"
+                        close(browser)
+                    end
+                end
+
+                @testset "$browser_name: explicit context lifecycle" begin
+                    browser = launch(bt; headless = true)
+                    @test isempty(Playwright.contexts(browser))
+
+                    ctx = Playwright.new_context(browser; viewport = (width = 800, height = 600))
+                    @test ctx isa Playwright.BrowserContext
+                    @test length(Playwright.contexts(browser)) == 1
+                    @test isempty(Playwright.pages(ctx))
+
+                    page = new_page(ctx)
+                    @test length(Playwright.pages(ctx)) == 1
+                    goto(page, "$base_url/")
+                    @test title(page) == "Playwright.jl Fixture"
+                    # The viewport option was applied, not silently dropped.
+                    @test evaluate(page, "window.innerWidth") == 800
+
+                    close(ctx)
+                    @test isempty(Playwright.contexts(browser))
+                    close(browser)
+                end
+
+                @testset "$browser_name: new_page(browser) no longer leaks its context" begin
+                    browser = launch(bt; headless = true)
+                    page = new_page(browser)
+                    goto(page, "$base_url/")
+                    @test length(Playwright.contexts(browser)) == 1
+
+                    close(page)
+                    # The milestone-1 leak: close(page) left the implicitly
+                    # created context behind for the life of the browser.
+                    @test isempty(Playwright.contexts(browser))
+
+                    # A page from an explicit context is not affected — closing
+                    # it leaves the context the caller owns alone.
+                    ctx = Playwright.new_context(browser)
+                    owned = new_page(ctx)
+                    close(owned)
+                    @test length(Playwright.contexts(browser)) == 1
+                    close(ctx)
+
+                    close(browser)
+                end
+
                 @testset "$browser_name: screenshot writes a non-empty PNG" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
