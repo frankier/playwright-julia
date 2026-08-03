@@ -3,41 +3,6 @@
 # Wire-protocol knowledge stops here — api.jl never sees raw messages.
 
 """
-    PlaywrightError(message; name="Error", stack="")
-
-Error surfaced from the Playwright driver, carrying the driver's message
-(which includes its call log for timeouts and selector failures).
-"""
-struct PlaywrightError <: Exception
-    message::String
-    name::String
-    stack::String
-end
-
-PlaywrightError(message::AbstractString; name = "Error", stack = "") =
-    PlaywrightError(String(message), String(name), String(stack))
-
-"""
-Build a `PlaywrightError` from a protocol error reply: `detail` is the inner
-`{message, name, stack}` payload, `log` the reply's top-level call log
-(actionability retries, selector waits), which is appended to the message
-the way upstream clients do.
-"""
-function PlaywrightError(detail::AbstractDict, log = nothing)
-    message = get(detail, "message", "unknown driver error")
-    if log !== nothing && !isempty(log)
-        message *= "\nCall log:\n" * join(log, "\n")
-    end
-    return PlaywrightError(
-        message;
-        name = get(detail, "name", "Error"),
-        stack = get(detail, "stack", ""),
-    )
-end
-
-Base.showerror(io::IO, e::PlaywrightError) = print(io, "PlaywrightError: ", e.message)
-
-"""
 Remote object owned by the protocol connection. Concrete channel-owner types
 (`Browser`, `Page`, …) are registered in `CHANNEL_TYPES` (see objects.jl);
 protocol types without a registered wrapper become plain `RemoteObject`s.
@@ -169,7 +134,7 @@ function dispatch(conn::Connection, msg::AbstractDict)
         end
         callback === nothing && return   # stray reply; drop it
         if haskey(msg, "error") && !haskey(msg, "result")
-            put!(callback, PlaywrightError(msg["error"]["error"], get(msg, "log", nothing)))
+            put!(callback, driver_error(msg["error"]["error"], get(msg, "log", nothing)))
         else
             put!(callback, get(msg, "result", nothing))
         end
@@ -251,7 +216,11 @@ function dispose_locked(conn::Connection, guid::String)
 end
 
 function handle_transport_close(conn::Connection)
-    err = PlaywrightError("connection closed: the Playwright driver exited")
+    # Deliberately a DriverError, not a TargetClosedError: the driver process
+    # exiting is not an orderly target close, and a caller catching
+    # TargetClosedError to shrug off a closed page should not silently swallow
+    # a driver crash.
+    err = DriverError("connection closed: the Playwright driver exited")
     pending = lock(conn.lock) do
         conn.closed_error = err
         callbacks = collect(values(conn.callbacks))

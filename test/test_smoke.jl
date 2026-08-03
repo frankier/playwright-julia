@@ -143,6 +143,32 @@ tryrun(cmd) =
                     @test occursin("Timeout 500ms exceeded", err.message)
                     @test occursin("does-not-exist", err.message)   # via the call log
 
+                    # SC 4: a selector that never appears and a JS exception are
+                    # different types, both under PlaywrightError. Asserted live
+                    # on both engines, since classification rests on the name
+                    # the driver puts on the reply.
+                    @test err isa TimeoutError
+                    js_err = try
+                        evaluate(page, "() => { throw new Error('boom') }")
+                        nothing
+                    catch e
+                        e
+                    end
+                    @test js_err isa DriverError
+                    @test !(js_err isa TimeoutError)
+
+                    # A call against a closed page classifies as TargetClosedError.
+                    doomed = new_page(browser)
+                    goto(doomed, "$base_url/")
+                    close(doomed)
+                    closed_err = try
+                        screenshot(doomed)
+                        nothing
+                    catch e
+                        e
+                    end
+                    @test closed_err isa TargetClosedError
+
                     close(browser)
                 end
 

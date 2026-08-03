@@ -7,10 +7,14 @@
 
 @testset "exports" begin
     expected = [
+        :AssertionFailure,
         :ConsoleMessage,
+        :DriverError,
         :PageError,
         :Playwright,        # the module itself
         :PlaywrightError,
+        :TargetClosedError,
+        :TimeoutError,
         :clear_console_messages,
         :clear_page_errors,
         :click,

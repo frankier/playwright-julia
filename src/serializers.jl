@@ -18,7 +18,7 @@ const REGEX_FLAGS =
     [(Base.PCRE.CASELESS, 'i'), (Base.PCRE.MULTILINE, 'm'), (Base.PCRE.DOTALL, 's')]
 const JULIA_REGEX_FLAGS = "imsxa"
 
-serialize_error(msg::AbstractString) = throw(PlaywrightError(msg))
+serialize_error(msg::AbstractString) = throw(DriverError(msg))
 
 """
     to_serialized(value) -> (serialized, handles)

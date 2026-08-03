@@ -65,8 +65,13 @@ export playwright,
     clear_page_errors,
     ConsoleMessage,
     PageError,
-    PlaywrightError
+    PlaywrightError,
+    DriverError,
+    TimeoutError,
+    TargetClosedError,
+    AssertionFailure
 
+include("errors.jl")
 include("driver.jl")
 include("transport.jl")
 include("connection.jl")

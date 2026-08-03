@@ -7,7 +7,7 @@ and `tasks/m2/`.
 ## Phase 1: Foundation (no browser needed)
 - [x] T0: Fixtures — late element, `window.ready`, popup, sync-fired event,
       5 000-message page, two range inputs (S)
-- [ ] T1: Error taxonomy — abstract `PlaywrightError` + `DriverError` /
+- [x] T1: Error taxonomy — abstract `PlaywrightError` + `DriverError` /
       `TimeoutError` / `TargetClosedError` / `AssertionFailure` (M)
 - [ ] T2: Timeout settings + `resolve_timeout` cascade, `set_default_timeout!` (M) — deps: T1
 - [ ] T3: Event registry + `Subscription` lifetime, dispatch routing (L) — deps: T1
