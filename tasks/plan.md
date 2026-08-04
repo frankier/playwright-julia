@@ -54,6 +54,7 @@ T1 error taxonomy (src/errors.jl)                                     [hermetic]
 
 T8 engine metadata + launch-option probe   ─ independent, any time after T1
 T9 install ergonomics (bin/install.jl)     ─ independent, no deps at all
+T11 TargetClosedError on closed-page calls ─ independent, any time after T1
 T10 docs, target-snippet verification, format   ← depends on T4–T9
 ```
 
@@ -279,8 +280,30 @@ Critical path: T1 → T2 → T2b → T6 → T10.
   full smoke green on both engines; `gen/generate.jl --check` green.
 - **Files:** `README.md`, `test/test_smoke.jl`, docstrings across `src/api/`.
 
+### T11 — Uniform `TargetClosedError` for calls on a closed page (S) — deps: T1
+
+- **Context:** found during T1. `title(page)` on a closed page does not raise
+  `TargetClosedError`; it raises a Julia `TypeError` from
+  `main_frame` (`src/objects.jl:13`), because the frame's guid is already gone
+  from the connection registry by the time the call runs, so `from_channel`
+  returns something the `::Frame` assertion rejects. Every `Page` method that
+  hops through `main_frame` — `goto!`, `title`, `evaluate`, `locator`,
+  `frames`, `frame_locator` — has the same hole. Pre-existing, and outside T1's
+  scope, so left alone there.
+- **Acceptance:** resolving a channel object that has been disposed because its
+  target closed raises `TargetClosedError` rather than `TypeError` or
+  `KeyError`. Whether that lands in `from_channel`, in `main_frame`, or as a
+  guard on the `Page` entry points is an implementation call; the invariant is
+  that no user-facing call on a closed page escapes with a non-`PlaywrightError`
+  exception.
+- **Verify:** smoke test on both engines — close a page, then call `title`,
+  `evaluate` and `locator` on it; each raises `TargetClosedError`. Hermetic
+  coverage where a canned `__dispose__` trace can stand in for the browser.
+- **Files:** `src/objects.jl`, `src/connection.jl`, `src/api/navigation.jl`,
+  `test/test_smoke.jl`.
+
 ## Sizing
 
 S = under an hour, M = a focused session, L = a long session with review.
 T0 (S), T1 (M), T2 (M), T2b (M), T3 (L), T4 (M), T5 (M), T6 (L), T7 (M),
-T8 (M), T9 (S), T10 (M).
+T8 (M), T9 (S), T10 (M), T11 (S).

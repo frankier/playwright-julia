@@ -18,7 +18,7 @@ T2 ∥ T3 — disjoint files.
 - [x] Hermetic `Pkg.test()` green — no Node, no browser (407 tests)
 - [x] Milestone-2 smoke suite still green (729 tests, both engines)
 - [x] `gen/generate.jl --check` green
-- [ ] **Human review of the event registry and error taxonomy before anything
+- [x] **Human review of the event registry and error taxonomy before anything
       builds on them**
 
 ## Phase 2: Threading, then vertical slices
@@ -29,9 +29,11 @@ T2 ∥ T3 — disjoint files.
 - [ ] T7: Locator ergonomics — `evaluate(loc, …)`, public accessors (M) — deps: T2b
 - [ ] T8: `browser_name` + launch-option probe (M) — deps: T1
 - [ ] T9: `bin/install.jl`, `PLAYWRIGHT_BROWSERS_PATH`, CI recipe (S) — no deps
+- [ ] T11: calls on a closed page raise `TargetClosedError`, not `TypeError`
+      from `main_frame` (S) — deps: T1
 
-T5, T6, T7 are independent of each other after T2b. T8 and T9 are independent of
-the whole chain.
+T5, T6, T7 are independent of each other after T2b. T8, T9 and T11 are
+independent of the whole chain.
 
 ### Checkpoint B
 - [ ] Every slice's smoke tests green on Chromium **and** Firefox
