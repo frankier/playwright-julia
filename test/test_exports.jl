@@ -19,6 +19,12 @@
         :clear_page_errors,
         :set_default_timeout!,
         :set_default_navigation_timeout!,
+        # T7: locator ergonomics
+        :evaluate_all,
+        :element_handle,
+        :frame,
+        :selector,
+        :is_strict,
         # T5: driver-side waiting
         :wait_for_selector,
         :wait_for_function,

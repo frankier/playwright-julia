@@ -255,3 +255,106 @@ dispatch_event(
     eventInit = serialized_argument(event_init),
     timeout = resolve_timeout(loc, timeout),
 )
+
+# --- Evaluating against a locator's element (T7) --------------------------
+#
+# Before this, driving a range input meant reaching into `loc.frame` and
+# `loc.selector` by hand — the `fill_range!` helper in SPEC-M2.md did exactly
+# that. A Locator already knows its selector and its strictness, so making it
+# an evaluate target removes the reason to look inside one.
+
+"""
+    evaluate(loc::Locator, expression, arg=missing; is_function=nothing) -> Any
+
+Evaluate `expression` with the element `loc` matches as its first argument, and
+return the result converted to Julia.
+
+The locator's own selector and `strict` flag are used, so a strict locator
+matching several elements raises here just as it would for [`click`](@ref).
+This is the precise tool for controls that ordinary interaction cannot drive
+exactly — pair it with [`dispatch_event`](@ref) so the page's listeners still
+run:
+
+```julia
+slider = locator(page, "#volume")
+evaluate(slider, "(el, v) => el.value = v", 7)
+dispatch_event(slider, "input")
+```
+
+Raises a [`PlaywrightError`](@ref) when nothing matches. See
+[`evaluate_all`](@ref) for the every-match form.
+"""
+evaluate(loc::Locator, expression::AbstractString, arg = missing; kwargs...) =
+    eval_on_selector(
+        loc.frame,
+        loc.selector,
+        expression,
+        arg;
+        strict = loc.strict,
+        kwargs...,
+    )
+
+"""
+    evaluate_all(loc::Locator, expression, arg=missing; is_function=nothing) -> Any
+
+Evaluate `expression` with an array of **all** the elements `loc` matches as
+its first argument.
+
+Unlike [`evaluate`](@ref) this never raises for a locator that matches nothing
+— the array is simply empty — and it ignores `strict`, because "all of them" is
+not an ambiguity that strictness has anything to decide.
+
+```julia
+evaluate_all(locator(page, "input"; strict=false), "els => els.length")
+```
+"""
+evaluate_all(loc::Locator, expression::AbstractString, arg = missing; kwargs...) =
+    eval_on_selector_all(loc.frame, loc.selector, expression, arg; kwargs...)
+
+"""
+    element_handle(loc::Locator) -> Union{ElementHandle,Nothing}
+
+Resolve `loc` now and return an [`ElementHandle`](@ref) for the match, or
+`nothing` if there is none.
+
+This is a snapshot, and that is the whole difference from a locator: the handle
+keeps pointing at *that* element, so it goes stale if the page re-renders,
+whereas a locator re-resolves on every use. Prefer the locator unless you
+specifically need to hold on to one element — for instance to pass it into
+[`evaluate`](@ref) as an argument. Handles should be [`dispose`](@ref)d when
+you are done with them.
+
+To wait for an element that is not there yet, use
+[`wait_for_selector`](@ref) instead — this does not wait.
+"""
+element_handle(loc::Locator) =
+    _frame_query_selector(loc.frame; selector = loc.selector, strict = loc.strict)
+
+# --- Public accessors -----------------------------------------------------
+#
+# These were readable as fields all along; blessing them as functions is what
+# lets the field access stop being part of the public surface, and gives the
+# three of them somewhere to be documented.
+
+"""
+    frame(loc::Locator) -> Frame
+
+The [`Frame`](@ref) `loc` resolves against.
+"""
+frame(loc::Locator) = loc.frame
+
+"""
+    selector(loc::Locator) -> String
+
+The selector string `loc` was built with, including any `>> nth=` suffix added
+by [`nth`](@ref) or iteration.
+"""
+selector(loc::Locator) = loc.selector
+
+"""
+    is_strict(loc::Locator) -> Bool
+
+Whether `loc` raises when its selector matches more than one element. See
+[`locator`](@ref) for what strictness costs and buys.
+"""
+is_strict(loc::Locator) = loc.strict

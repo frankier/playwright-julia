@@ -51,8 +51,11 @@ include("bonnie_shim.jl")
     # fill_range! helper it names as user-side. If this stops compiling or
     # passing, the milestone's headline promise has broken.
     @testset "SPEC-M2 target snippet" begin
+        # SC 5: exported API only. This used to reach into `slider.frame` and
+        # `slider.selector`, which is the private-field access T7 removed the
+        # need for — `evaluate` now takes the Locator itself.
         fill_range!(slider, value) = begin
-            eval_on_selector(slider.frame, slider.selector, "(el, v) => el.value = v", value)
+            evaluate(slider, "(el, v) => el.value = v", value)
             dispatch_event(slider, "input")
         end
 

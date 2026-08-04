@@ -78,6 +78,9 @@ playwright() do pw
 
     # 4. dispatch_event to drive a range input precisely
     fill_range!(first(sliders), 7)   # user-side helper built on dispatch_event
+    # Milestone 3 note: this helper originally had to reach into `slider.frame`
+    # and `slider.selector`. It is now `evaluate(slider, …)` plus
+    # `dispatch_event(slider, "input")` — exported API only (SPEC-M3 SC 5).
 
     # scoped JSHandle
     evaluate_handle(page, "() => window.app") do app

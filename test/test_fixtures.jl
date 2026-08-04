@@ -27,6 +27,121 @@ function js_wait(page, predicate; timeout_ms = 5_000)
     )
 end
 
+# --- T7: Locator ergonomics against real browsers -------------------------
+
+@testset "locator ergonomics (T7)" begin
+    with_fixture_server() do base_url
+        playwright() do pw
+            for engine in ("chromium", "firefox")
+                bt = getfield(pw, Symbol(engine))
+
+                @testset "$engine: evaluate on a Locator drives a range input" begin
+                    # SC 5. A range input cannot be clicked to an exact value,
+                    # so this is the case that forced private-field access
+                    # before T7.
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    slider = locator(page, "#first")
+                    evaluate(slider, "(el, v) => el.value = v", 7)
+                    dispatch_event(slider, "input")
+
+                    @test input_value(slider) == "7"
+                    # The readout only updates if a real `input` event fired,
+                    # so this proves listeners ran rather than just that the
+                    # value was assigned.
+                    @test text_content(locator(page, "#readout")) == "first=7 second=0"
+
+                    close(browser)
+                end
+
+                @testset "$engine: evaluate on a Locator returns converted values" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    @test evaluate(locator(page, "h1"), "el => el.textContent") == "Hello"
+                    @test evaluate(locator(page, "#first"), "el => el.max") == "10"
+
+                    close(browser)
+                end
+
+                @testset "$engine: a strict Locator still raises on several matches" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    strict_multi = locator(page, "input[type=range]")
+                    @test_throws PlaywrightError evaluate(strict_multi, "el => el.value")
+
+                    close(browser)
+                end
+
+                @testset "$engine: evaluate_all sees every match and ignores strictness" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    sliders = locator(page, "input[type=range]"; strict = false)
+                    @test evaluate_all(sliders, "els => els.length") == 2
+                    @test evaluate_all(sliders, "els => els.map(e => e.id)") ==
+                          ["first", "second"]
+
+                    # ...and a locator that matches nothing gets an empty array
+                    # rather than an error.
+                    @test evaluate_all(
+                        locator(page, ".nope"; strict = false),
+                        "els => els.length",
+                    ) == 0
+
+                    close(browser)
+                end
+
+                @testset "$engine: element_handle resolves, and misses give nothing" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    handle = element_handle(locator(page, "h1"))
+                    @test handle isa Playwright.ElementHandle
+                    @test evaluate(handle, "el => el.textContent") == "Hello"
+                    dispose(handle)
+
+                    @test element_handle(locator(page, "#not-there")) === nothing
+
+                    close(browser)
+                end
+
+                @testset "$engine: the public accessors describe a real locator" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    loc = locator(page, "#first")
+                    @test frame(loc) === Playwright.main_frame(page)
+                    @test selector(loc) == "#first"
+                    @test is_strict(loc)
+
+                    # nth folds into the selector, and the result is strict
+                    second = nth(locator(page, "input[type=range]"; strict = false), 2)
+                    @test occursin("nth=1", selector(second))
+                    @test is_strict(second)
+                    @test evaluate(second, "el => el.id") == "second"
+
+                    close(browser)
+                end
+            end
+        end
+    end
+end
+
 # --- T5: driver-side waiting against real browsers ------------------------
 
 @testset "waiting (T5)" begin

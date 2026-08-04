@@ -18,6 +18,7 @@ using Playwright
     include("test_timeouts.jl")
     include("test_events.jl")
     include("test_waiting.jl")
+    include("test_locator_eval.jl")
 
     if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
         include("test_smoke.jl")
