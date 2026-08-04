@@ -268,6 +268,37 @@ Critical path: T1 → T2 → T2b → T6 → T10.
   element proves retrying actually happens (no `sleep` in the test).
 - **Files:** `src/api/expect.jl`, `src/Playwright.jl`, `test/test_expect.jl`,
   `test/fixtures/` (from T0).
+- **Probe results (1.61.1 driver, Chromium; recorded before the API was written):**
+
+  | Matcher | `expression` | Payload |
+  |---|---|---|
+  | text | `to.have.text` | `expectedText: [{string: "…"}]` |
+  | count | `to.have.count` | `expectedNumber: 3` |
+  | visible / hidden | `to.be.visible` / `to.be.hidden` | — |
+  | value | `to.have.value` | `expectedText: [{string: "…"}]` |
+  | attribute | `to.have.attribute.value` | `expressionArg: "href"` + `expectedText` |
+
+  `isNot: true` inverts as expected. Decisions taken from this:
+  1. **A failure is an error reply, not a result.** There is no `matches: false`
+     to inspect — the driver raises `ExpectError` with the message
+     `"Expect failed"`. The generated `_frame_expect` also ends in
+     `return nothing` (the yml has `errorDetails` but no `returns:`), so the
+     binding discards the reply. The API is therefore built around catching,
+     not around reading a result.
+  2. **`received` is available but was being thrown away.** The error frame
+     carries a top-level `errorDetails` that `connection.jl` never read:
+     `{"received":{"value":{"s":"Hello"},"ariaSnapshot":…},"timedOut":true}`,
+     plus `customErrorMessage` (`"element(s) not found"`) when the selector
+     misses. `received.value` is a plain SerializedValue, so `from_serialized`
+     decodes it. Threading `errorDetails` through `driver_error` is what makes
+     SC 7 structural rather than a scrape of the call-log wording. Agreed with
+     the reviewer; other error types are unaffected, having no `errorDetails`.
+  3. **A bogus expression fails identically** to a real mismatch (`to.be.bogus`
+     → the same generic `"Expect failed"`), so the matcher set stays closed on
+     the Julia side — a typo has to be caught here or not at all.
+  4. **Negation is `Not(x)` per matcher**, not a call-wide `negate` keyword:
+     each matcher is its own protocol call, so one flag for a call carrying
+     several would be ambiguous.
 
 ### T7 — Locator ergonomics (M) — deps: T2b — gap 2
 
@@ -297,6 +328,16 @@ Critical path: T1 → T2 → T2b → T6 → T10.
   probe selects is exercised by a test or, for the docstring branch, by a smoke
   test passing one shared option set to both engines (SC 9, 11).
 - **Files:** `src/api/lifecycle.jl`, `src/Playwright.jl`, `test/test_smoke.jl`.
+- **Probe results (both engines):** engine-irrelevant launch options are
+  **silently ignored, never errors**. Firefox with `args` and
+  `chromium_sandbox`, Chromium with `firefox_user_prefs`, and one shared option
+  set passed to both engines all launched *and* rendered a page. D5 therefore
+  selects the **docstring branch**: no `launch_options(kind; …)` filter ships,
+  because the probe shows it would guard against nothing.
+  Also confirmed: `name` and `browserName` are identical in the Browser
+  initializer on both engines, so `browser_name(::Browser)` reads
+  `initializer["name"]` and returns a `String`, matching the existing
+  `BrowserType` method.
 
 ### T9 — Install ergonomics (S) — gap 7 — no deps
 
