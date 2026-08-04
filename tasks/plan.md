@@ -341,6 +341,18 @@ Critical path: T1 → T2 → T2b → T6 → T10.
   coverage where a canned `__dispose__` trace can stand in for the browser.
 - **Files:** `src/objects.jl`, `src/connection.jl`, `src/api/navigation.jl`,
   `test/test_smoke.jl`.
+- **Finding (implementation):** the guard has to key on the **page**, not on the
+  frame. Probed on both engines: closing a page disposes the page but leaves its
+  main frame registered, because the driver parents a main frame to the browser
+  context rather than to the page (the same protocol shape that bit T2b).
+  Guarding on the frame therefore catches nothing on a page close and only fires
+  when the whole context goes. Guarding on the page catches both, since
+  disposing a context cascades to its pages. This also closed a second hole the
+  task had not anticipated: `title`/`evaluate` were already raising
+  `TargetClosedError` from the driver, but `locator` does no round-trip, so it
+  returned an ordinary `Locator` for a page that no longer existed and failed
+  confusingly later. Caught by smoke — the first hermetic fixture disposed the
+  context rather than the page and hid it.
 
 ## Sizing
 

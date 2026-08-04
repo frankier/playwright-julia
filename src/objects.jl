@@ -9,8 +9,40 @@
 "Name of the browser a `BrowserType` launches: \"chromium\" or \"firefox\"."
 browser_name(bt::BrowserType) = bt.initializer["name"]::String
 
-"Main frame backing `page`; page-level actions delegate to it."
-main_frame(page::Page) = from_channel(page.connection, page.initializer["mainFrame"])::Frame
+"""
+Main frame backing `page`; page-level actions delegate to it.
+
+Raises [`TargetClosedError`](@ref) once the page has closed. Every page-level
+entry point (`goto`, `title`, `evaluate`, `locator`, `frames`, `frame_locator`,
+the waiting calls) hops through here, so this one guard covers them all.
+
+The check is on the **page**, not on the frame, and that distinction is load
+bearing. Probed on both engines: closing a page disposes the page but leaves
+its main frame registered, because the driver parents a main frame to the
+browser context rather than to the page. Guarding on the frame therefore
+catches nothing on a page close — it only fires when the whole context goes.
+Guarding on the page catches both, since disposing a context cascades to its
+pages.
+
+Two failure modes this closes. Calls that do a round-trip (`title`, `evaluate`)
+were already raising `TargetClosedError`, but from the driver and only after a
+protocol call. Calls that do not (`locator`, which is lazy by design) returned
+a perfectly ordinary object that failed confusingly later. And when the context
+had gone, the surviving `::Frame` assertion turned into a Julia `TypeError`,
+which is neither catchable as a `PlaywrightError` nor informative.
+"""
+function main_frame(page::Page)
+    frame = from_channel(page.connection, page.initializer["mainFrame"])
+    if lookup_object(page.connection, page.guid) === nothing || !(frame isa Frame)
+        throw(
+            TargetClosedError(
+                "the page has been closed, so this call has nothing to run against";
+                name = "TargetClosedError",
+            ),
+        )
+    end
+    return frame
+end
 
 """
     Locator

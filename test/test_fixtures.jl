@@ -27,6 +27,61 @@ function js_wait(page, predicate; timeout_ms = 5_000)
     )
 end
 
+# --- T11: calls on a closed page ------------------------------------------
+
+@testset "closed pages (T11)" begin
+    with_fixture_server() do base_url
+        playwright() do pw
+            for engine in ("chromium", "firefox")
+                bt = getfield(pw, Symbol(engine))
+
+                @testset "$engine: calls on a closed page raise TargetClosedError" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+                    @test title(page) == "Milestone 3 fixture"
+
+                    close(page)
+
+                    # The invariant: no user-facing call on a closed page
+                    # escapes with a non-PlaywrightError.
+                    for call in (
+                        p -> title(p),
+                        p -> evaluate(p, "1 + 1"),
+                        p -> locator(p, "h1"),
+                        p -> goto(p, "$base_url/m3.html"),
+                        p -> wait_for_selector(p, "h1"),
+                    )
+                        err = try
+                            call(page)
+                            nothing
+                        catch e
+                            e
+                        end
+                        @test err isa Playwright.TargetClosedError
+                        @test err isa PlaywrightError
+                    end
+
+                    close(browser)
+                end
+
+                @testset "$engine: closing the context closes its pages too" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    close(ctx)
+                    @test_throws Playwright.TargetClosedError title(page)
+
+                    close(browser)
+                end
+            end
+        end
+    end
+end
+
 # --- T7: Locator ergonomics against real browsers -------------------------
 
 @testset "locator ergonomics (T7)" begin
