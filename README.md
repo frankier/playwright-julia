@@ -37,6 +37,61 @@ Browsers land in the standard Playwright cache (`~/.cache/ms-playwright`),
 shared with any other Playwright installation on the machine. The driver
 lives in a Julia scratch space keyed by the pinned Playwright version.
 
+### Installing browsers in CI
+
+`Playwright.install()` needs Playwright.jl to be loadable, which is exactly what
+a project carrying it as a **test** dependency does not have outside
+`Pkg.test()`. `bin/install.jl` is the way in — it runs standalone, activating
+the checkout itself if the active environment cannot load the package:
+
+```console
+$ julia bin/install.jl                 # driver + Chromium + Firefox
+$ julia bin/install.jl chromium        # just the one you need
+```
+
+An unknown browser name is rejected before anything downloads.
+
+Set `PLAYWRIGHT_BROWSERS_PATH` to put browsers somewhere you control, which is
+usually easier to cache and restore in CI than a path in the home directory.
+Installing and launching both read it — the driver subprocess inherits Julia's
+environment — so set it once, in the shell or in `ENV`, and the two agree:
+
+```console
+$ export PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright"
+$ julia bin/install.jl chromium
+```
+
+For a package with Playwright.jl in `[targets] test` rather than `[deps]`, a
+GitHub Actions job looks like this. The cache key is the Playwright version,
+because that is what decides which browser build is needed:
+
+```yaml
+- uses: julia-actions/setup-julia@v2
+- uses: julia-actions/cache@v2
+
+- name: Cache Playwright browsers
+  uses: actions/cache@v4
+  with:
+    path: ~/.cache/ms-playwright
+    key: playwright-${{ runner.os }}-1.61.1
+
+- name: Install browsers
+  run: julia --project=. -e 'using Pkg; Pkg.instantiate()' &&
+       julia --project=. ~/.julia/packages/Playwright/*/bin/install.jl chromium
+
+- uses: julia-actions/julia-runtest@v1
+```
+
+If you would rather not chase the package path, the same thing in one line
+against the test environment:
+
+```console
+$ julia --project=. -e 'using Pkg; Pkg.activate(temp=true); Pkg.add("Playwright"); using Playwright; Playwright.install(browsers=["chromium"])'
+```
+
+`Playwright.browsers_path()` reports where browsers will be looked for, which
+is the first thing to check when a launch cannot find one.
+
 ## A fuller example
 
 ```julia

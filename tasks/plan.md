@@ -308,6 +308,17 @@ Critical path: T1 → T2 → T2b → T6 → T10.
   run with `PLAYWRIGHT_BROWSERS_PATH` set to a temp dir and confirm the browsers
   land there (SC 10).
 - **Files:** `bin/install.jl`, `src/driver.jl`, `README.md`.
+- **Finding (implementation):** `PLAYWRIGHT_BROWSERS_PATH` needed no code at all —
+  the driver reads it itself, and both `install()` and the `run-driver`
+  subprocess inherit Julia's environment, so installing and launching already
+  agree on the location. Verified rather than assumed: installing Chromium with
+  the variable set put 646 MB under the named directory, and a subsequent
+  `launch` + `goto` against that same directory worked (SC 10). The real gap was
+  reachability — `install()` is only callable once Playwright.jl is loadable,
+  which a project carrying it in `[targets] test` cannot do outside
+  `Pkg.test()`. `bin/install.jl` closes that: run from `/tmp` with no project
+  active, it activates the checkout itself and installs. Browser names are
+  validated before any download starts.
 
 ### T10 — Docs, target snippet, polish (M) — deps: T4–T9
 

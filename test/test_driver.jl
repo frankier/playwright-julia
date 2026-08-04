@@ -27,4 +27,43 @@
         @test words[2] == joinpath("/fake/driver", "package", "cli.js")
         @test words[3] == "run-driver"
     end
+
+    # --- T9: install ergonomics -------------------------------------------
+
+    @testset "browser names default, and typos are caught before downloading" begin
+        @test Playwright.browsers_from_args(String[]) == ["chromium", "firefox"]
+        @test Playwright.browsers_from_args(["chromium"]) == ["chromium"]
+        @test Playwright.browsers_from_args(["Firefox"]) == ["firefox"]
+        @test Playwright.browsers_from_args(["chromium", "webkit"]) ==
+              ["chromium", "webkit"]
+        # A typo must fail here rather than after a few hundred MB of download.
+        @test_throws ArgumentError Playwright.browsers_from_args(["chrome"])
+        @test_throws ArgumentError Playwright.browsers_from_args(["chromium", "safari"])
+        # ...and the default list is not aliased, so a caller mutating the
+        # result cannot change what the next caller gets.
+        first_call = Playwright.browsers_from_args(String[])
+        push!(first_call, "webkit")
+        @test Playwright.browsers_from_args(String[]) == ["chromium", "firefox"]
+    end
+
+    @testset "browsers_path reports the PLAYWRIGHT_BROWSERS_PATH override" begin
+        restore = get(ENV, "PLAYWRIGHT_BROWSERS_PATH", nothing)
+        try
+            delete!(ENV, "PLAYWRIGHT_BROWSERS_PATH")
+            @test Playwright.browsers_path() === nothing
+            ENV["PLAYWRIGHT_BROWSERS_PATH"] = "/tmp/somewhere"
+            @test Playwright.browsers_path() == "/tmp/somewhere"
+        finally
+            restore === nothing ? delete!(ENV, "PLAYWRIGHT_BROWSERS_PATH") :
+            (ENV["PLAYWRIGHT_BROWSERS_PATH"] = restore)
+        end
+    end
+
+    @testset "bin/install.jl is present and parses" begin
+        script = joinpath(pkgdir(Playwright), "bin", "install.jl")
+        @test isfile(script)
+        # Parsing it here means a syntax error shows up in the suite rather
+        # than the first time someone runs it in CI.
+        @test Meta.parseall(read(script, String)) isa Expr
+    end
 end

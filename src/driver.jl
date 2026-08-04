@@ -178,3 +178,50 @@ function install(; browsers::Vector{String} = ["chromium", "firefox"])
     run(driver_cmd("install", browsers...; dir))
     return nothing
 end
+
+# --- Install ergonomics (T9) ----------------------------------------------
+
+"""
+    browsers_path() -> Union{String,Nothing}
+
+Where browsers are installed to and looked up from, or `nothing` when the
+Playwright default cache is in use (`~/.cache/ms-playwright` on Linux,
+`~/Library/Caches/ms-playwright` on macOS, `%USERPROFILE%\\AppData\\Local\\ms-playwright`
+on Windows).
+
+Set `PLAYWRIGHT_BROWSERS_PATH` to override it. The driver reads the variable
+itself, and both [`install`](@ref) and the driver process started by
+[`playwright`](@ref) inherit this process's environment, so setting it in
+`ENV` — or in the shell before starting Julia — is enough for installing *and*
+launching to agree on the location.
+
+Worth pointing at a project-local directory in CI, where a cache you control is
+easier to key and restore than one in the home directory.
+"""
+browsers_path() = get(ENV, "PLAYWRIGHT_BROWSERS_PATH", nothing)
+
+"The browsers installed when the caller does not say otherwise."
+const DEFAULT_BROWSERS = ["chromium", "firefox"]
+
+"""
+    browsers_from_args(args) -> Vector{String}
+
+Browser names from a command line, defaulting to [`DEFAULT_BROWSERS`](@ref)
+when none are given. Used by `bin/install.jl`; unknown names are rejected here
+rather than after a download has already started.
+"""
+function browsers_from_args(args)
+    isempty(args) && return copy(DEFAULT_BROWSERS)
+    known = ("chromium", "firefox", "webkit")
+    names = String[]
+    for arg in args
+        name = lowercase(String(arg))
+        name in known || throw(
+            ArgumentError(
+                "unknown browser `$name`. Choose from: " * join(known, ", ") * ".",
+            ),
+        )
+        push!(names, name)
+    end
+    return names
+end
