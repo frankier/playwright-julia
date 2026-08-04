@@ -15,7 +15,39 @@
 end
 
 using Base64: base64encode
-using Playwright: pdf, save_as, path, delete
+using Playwright: pdf, save_as, path, delete, start_tracing, stop_tracing, with_tracing
+
+"""
+Answer a whole `with_tracing` session on the fake driver: the two start calls,
+the archiving stop, the saveAs and the final tracingStop.
+
+Written once because five tests need it and none of them is *about* the
+message sequence — the one that is asserts the sequence itself, above.
+"""
+function drive_tracing_session(f, dest)
+    for _ = 1:2   # tracingStart, tracingStartChunk
+        msg = take!(f.fake.client_messages)
+        reply_ok(f.fake, msg["id"], Dict{String,Any}("traceName" => "trace-1"))
+    end
+    stop = take!(f.fake.client_messages)
+    send_create(
+        f.fake,
+        "context@1",
+        "Artifact",
+        "artifact@trace",
+        Dict("absolutePath" => "/tmp/pw/trace.zip"),
+    )
+    reply_ok(
+        f.fake,
+        stop["id"],
+        Dict{String,Any}("artifact" => Dict("guid" => "artifact@trace")),
+    )
+    save = take!(f.fake.client_messages)
+    reply_ok(f.fake, save["id"], Dict{String,Any}())
+    final = take!(f.fake.client_messages)
+    reply_ok(f.fake, final["id"], Dict{String,Any}())
+    return nothing
+end
 
 """
 A page under a second, **Firefox-named** browser on the same fake connection.
@@ -107,6 +139,220 @@ end
         art = fixture_artifact(f)
         sent = waiting_request(f.fake, () -> delete(art))
         @test sent["method"] == "delete"
+        close(f.fake.connection)
+    end
+end
+
+# --- T5: tracing (SPEC-M4.md A1, D1) --------------------------------------
+#
+# The stop path follows T1's probe: tracingStopChunk(mode="archive") returns a
+# real Artifact whose saveAs writes the zip. No localUtils.zip, no Julia zip
+# dependency. See tasks/m4-probe.md.
+
+"""
+Give the fixture's context a Tracing channel, the way the real driver does —
+via the context initializer rather than a generated accessor.
+"""
+function fixture_tracing(f)
+    send_create(f.fake, "context@1", "Tracing", "tracing@1")
+    @test timedwait(
+        () -> Playwright.lookup_object(f.fake.connection, "tracing@1") !== nothing,
+        5.0,
+    ) === :ok
+    f.context.initializer["tracing"] = Dict("guid" => "tracing@1")
+    return Playwright.lookup_object(f.fake.connection, "tracing@1")
+end
+
+@testset "tracing (T5)" begin
+    @testset "start_tracing starts a recording and opens a chunk" begin
+        # Both calls are needed: tracingStart configures the recording,
+        # tracingStartChunk opens the span that tracingStopChunk closes. A
+        # stop with no chunk open has nothing to archive (probed, T1).
+        f = timeout_fixture()
+        fixture_tracing(f)
+        sent = Vector{Any}()
+        task = @async start_tracing(f.context; screenshots = true, snapshots = true)
+        for _ = 1:2
+            @test timedwait(() -> isready(f.fake.client_messages), 10.0) === :ok
+            msg = take!(f.fake.client_messages)
+            push!(sent, msg)
+            reply_ok(f.fake, msg["id"], Dict{String,Any}("traceName" => "trace-1"))
+        end
+        fetch(task)
+
+        @test sent[1]["method"] == "tracingStart"
+        @test sent[1]["guid"] == "tracing@1"
+        @test sent[1]["params"]["screenshots"] == true
+        @test sent[1]["params"]["snapshots"] == true
+        @test sent[2]["method"] == "tracingStartChunk"
+        close(f.fake.connection)
+    end
+
+    @testset "sources = true is refused rather than silently dropped" begin
+        # 1.61.1's tracingStart has no sources flag, and the archive path does
+        # not go through localUtils.zip's includeSources. A keyword that
+        # quietly does nothing is worse than one that is not offered.
+        f = timeout_fixture()
+        fixture_tracing(f)
+        err = try
+            start_tracing(f.context; sources = true)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("sources", err.msg)
+        @test !isready(f.fake.client_messages)
+        close(f.fake.connection)
+    end
+
+    @testset "stop_tracing archives and saves, in that order" begin
+        f = timeout_fixture()
+        fixture_tracing(f)
+        dest = joinpath(mktempdir(), "trace.zip")
+
+        task = @async stop_tracing(f.context; path = dest)
+
+        stop = take!(f.fake.client_messages)
+        @test stop["method"] == "tracingStopChunk"
+        # D1: archive mode is what makes the driver assemble the zip.
+        @test stop["params"]["mode"] == "archive"
+        # Announce the artifact, then hand it back as the reply.
+        send_create(
+            f.fake,
+            "context@1",
+            "Artifact",
+            "artifact@trace",
+            Dict("absolutePath" => "/tmp/pw/trace.zip"),
+        )
+        reply_ok(
+            f.fake,
+            stop["id"],
+            Dict{String,Any}("artifact" => Dict("guid" => "artifact@trace")),
+        )
+
+        save = take!(f.fake.client_messages)
+        @test save["method"] == "saveAs"
+        @test save["params"]["path"] == dest
+        reply_ok(f.fake, save["id"], Dict{String,Any}())
+
+        stop_msg = take!(f.fake.client_messages)
+        @test stop_msg["method"] == "tracingStop"
+        reply_ok(f.fake, stop_msg["id"], Dict{String,Any}())
+
+        @test fetch(task) == dest
+        close(f.fake.connection)
+    end
+
+    @testset "with_tracing writes the zip when the block returns" begin
+        f = timeout_fixture()
+        fixture_tracing(f)
+        dest = joinpath(mktempdir(), "trace.zip")
+        ran = Ref(false)
+
+        task = @async with_tracing(f.context; path = dest) do
+            ran[] = true
+            return :body_result
+        end
+        drive_tracing_session(f, dest)
+        @test fetch(task) == :body_result
+        @test ran[]
+        close(f.fake.connection)
+    end
+
+    @testset "the zip is written when the block THROWS, and the block's error wins" begin
+        # SC 2, and the milestone's whole point: the run worth tracing is the
+        # one that failed. The trace must still be written, and the caller must
+        # still see their own exception rather than a tracing one.
+        f = timeout_fixture()
+        fixture_tracing(f)
+        dest = joinpath(mktempdir(), "trace.zip")
+
+        task = @async with_tracing(f.context; path = dest) do
+            error("the body blew up")
+        end
+        drive_tracing_session(f, dest)
+
+        err = try
+            fetch(task)
+            nothing
+        catch e
+            e isa TaskFailedException ? e.task.result : e
+        end
+        @test err isa ErrorException
+        @test occursin("the body blew up", err.msg)
+        close(f.fake.connection)
+    end
+
+    # The next two run with_tracing on *this* task and answer the driver from
+    # a spawned one — the opposite way round from the tests above. @test_logs
+    # installs its capture logger where it is written, and a task started
+    # before that inherits the outer logger, so a warning raised inside an
+    # @async body would escape the capture entirely and the test would pass
+    # for the wrong reason.
+    "Answer the two start calls, then fail the archiving stop."
+    function fail_the_stop(f, message)
+        return @async begin
+            for _ = 1:2
+                msg = take!(f.fake.client_messages)
+                reply_ok(f.fake, msg["id"], Dict{String,Any}("traceName" => "t"))
+            end
+            stop = take!(f.fake.client_messages)
+            reply_error(f.fake, stop["id"], message)
+        end
+    end
+
+    @testset "a failure to save the trace is a warning, not an exception" begin
+        # The code-style rule SPEC-M4.md adds this milestone: a teardown-path
+        # function never throws. Otherwise with_tracing re-creates B5 in new
+        # clothes -- replacing the caller's real failure with a worse one.
+        f = timeout_fixture()
+        fixture_tracing(f)
+        dest = joinpath(mktempdir(), "trace.zip")
+        responder = fail_the_stop(f, "tracing exploded")
+
+        traced() =
+            with_tracing(f.context; path = dest) do
+                :fine
+            end
+        result = @test_logs (:warn,) match_mode = :any traced()
+
+        @test result == :fine
+        wait(responder)
+        close(f.fake.connection)
+    end
+
+    @testset "...and it still loses to the body's own exception" begin
+        # Both go wrong at once: the body threw AND the trace could not be
+        # saved. The body's exception is the one that must propagate.
+        f = timeout_fixture()
+        fixture_tracing(f)
+        dest = joinpath(mktempdir(), "trace.zip")
+        responder = fail_the_stop(f, "tracing exploded too")
+
+        traced() =
+            with_tracing(f.context; path = dest) do
+                error("the body blew up")
+            end
+        # collect_test_logs rather than @test_logs: the latter records a
+        # throwing expression as a test Error instead of rethrowing, and an
+        # exception propagating is exactly what this test is about.
+        logs, err = Test.collect_test_logs() do
+            try
+                traced()
+                nothing
+            catch e
+                e
+            end
+        end
+
+        @test err isa ErrorException
+        @test occursin("the body blew up", err.msg)
+        @test !occursin("tracing exploded", err.msg)
+        # The trace failure was still reported — quietly, and as a warning.
+        @test any(l -> l.level == Base.CoreLogging.Warn, logs)
+        @test any(l -> occursin("could not save trace", l.message), logs)
+        wait(responder)
         close(f.fake.connection)
     end
 end
@@ -224,6 +470,65 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
             playwright() do pw
                 for engine in ("chromium", "firefox")
                     bt = getfield(pw, Symbol(engine))
+
+                    @testset "$engine: tracing round-trip (T5, SC 1)" begin
+                        browser = launch(bt; headless = true)
+                        ctx = new_context(browser)
+                        dest = joinpath(ARTIFACT_DIR, "trace-$engine.zip")
+                        isfile(dest) && rm(dest)
+
+                        result = with_tracing(
+                            ctx;
+                            path = dest,
+                            screenshots = true,
+                            snapshots = true,
+                        ) do
+                            page = new_page(ctx)
+                            goto(page, "$base_url/m4.html")
+                            click(locator(page, "h1"))
+                            return :done
+                        end
+
+                        @test result == :done
+                        @test isfile(dest)
+                        @test filesize(dest) > 0
+                        # SC 1: it is a real zip. Asserted on the magic bytes
+                        # rather than by unzipping, because reading the entry
+                        # list would need a Julia zip dependency and the trace
+                        # is an opaque artifact for upstream's viewer.
+                        @test read(dest, 4) == UInt8[0x50, 0x4b, 0x03, 0x04]
+
+                        close(browser)
+                    end
+
+                    @testset "$engine: the trace survives a throwing block (T5, SC 2)" begin
+                        # The case the milestone exists for: the run worth
+                        # tracing is the one that failed.
+                        browser = launch(bt; headless = true)
+                        ctx = new_context(browser)
+                        dest = joinpath(ARTIFACT_DIR, "trace-throw-$engine.zip")
+                        isfile(dest) && rm(dest)
+
+                        err = try
+                            with_tracing(ctx; path = dest) do
+                                page = new_page(ctx)
+                                goto(page, "$base_url/m4.html")
+                                error("deliberate failure mid-trace")
+                            end
+                            nothing
+                        catch e
+                            e
+                        end
+
+                        # The block's exception propagates, not a tracing one.
+                        @test err isa ErrorException
+                        @test occursin("deliberate failure mid-trace", err.msg)
+                        # ...and the evidence was still written.
+                        @test isfile(dest)
+                        @test read(dest, 4) == UInt8[0x50, 0x4b, 0x03, 0x04]
+
+                        close(browser)
+                    end
 
                     @testset "$engine: pdf (T7, SC 5)" begin
                         browser = launch(bt; headless = true)

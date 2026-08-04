@@ -87,6 +87,10 @@
         :save_as,
         :path,
         :delete,
+        # M4 T5: tracing
+        :start_tracing,
+        :stop_tracing,
+        :with_tracing,
         :screenshot,
         :text_content,
         :title,

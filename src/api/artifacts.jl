@@ -75,6 +75,140 @@ function delete(a::Artifact)
     return nothing
 end
 
+# --- Tracing (A1, D1) ------------------------------------------------------
+#
+# The stop path is not a guess. Probed against the live 1.61.1 driver before
+# any of this was written (T1, tasks/m4-probe.md): `tracingStopChunk` with
+# mode="archive" returns a real Artifact whose `saveAs` writes a valid zip, on
+# Chromium and Firefox alike, with or without `tracesDir` set at launch. The
+# alternative the protocol also offers — mode="entries" plus `localUtils.zip`
+# — is therefore not needed, and neither is a Julia zip dependency.
+
+"The context's Tracing channel, which lives in its initializer, not a command."
+tracing_channel(ctx::BrowserContext) =
+    from_channel(ctx.connection, ctx.initializer["tracing"])::Tracing
+
+"""
+    start_tracing(ctx::BrowserContext; screenshots=true, snapshots=true,
+                  sources=false, name=nothing, title=nothing)
+
+Begin recording a Playwright trace on `ctx`. Pair with [`stop_tracing`](@ref),
+or use [`with_tracing`](@ref) to guarantee the pairing.
+
+| Option | Records |
+|---|---|
+| `screenshots` | a screencast, so the trace viewer has a filmstrip |
+| `snapshots` | DOM snapshots, so actions can be inspected before/after |
+| `name`, `title` | naming for the trace and the chunk |
+
+Two protocol calls, not one: the recording is configured, then a *chunk* is
+opened. `stop_tracing` closes the chunk, and a stop with no chunk open has
+nothing to archive.
+
+!!! note "`sources` is not available on this path"
+    Upstream clients embed calling source files by passing `includeSources` to
+    `localUtils.zip`, which they use because they assemble the zip themselves.
+    This package lets the driver assemble it (`tracingStopChunk(mode="archive")`
+    — see D1), and the 1.61.1 `tracingStart` protocol carries no `sources`
+    flag. Passing `sources = true` therefore raises an `ArgumentError` rather
+    than being silently dropped: a flag that quietly does nothing is worse than
+    one that is not offered.
+"""
+function start_tracing(
+    ctx::BrowserContext;
+    screenshots::Bool = true,
+    snapshots::Bool = true,
+    sources::Bool = false,
+    name::Union{AbstractString,Nothing} = nothing,
+    title::Union{AbstractString,Nothing} = nothing,
+)
+    sources && throw(
+        ArgumentError(
+            "`sources = true` is not supported: Playwright 1.61.1's " *
+            "tracingStart has no sources flag, and this package lets the " *
+            "driver assemble the zip rather than calling localUtils.zip " *
+            "with includeSources. Omit it, or open the trace without sources.",
+        ),
+    )
+    tracing = tracing_channel(ctx)
+    _tracing_tracing_start(tracing; screenshots, snapshots, name)
+    _tracing_tracing_start_chunk(tracing; name, title)
+    return nothing
+end
+
+"""
+    stop_tracing(ctx::BrowserContext; path) -> path
+
+Stop the recording started by [`start_tracing`](@ref) and write the trace zip
+to `path`.
+
+Open the result with:
+
+```
+npx playwright@1.61.1 show-trace artifacts/trace.zip
+```
+
+The zip is assembled by the driver, not by Julia — this package has no zip
+dependency and does not parse the trace. It is an opaque artifact for the
+upstream viewer.
+"""
+function stop_tracing(ctx::BrowserContext; path::AbstractString)
+    tracing = tracing_channel(ctx)
+    result = _tracing_tracing_stop_chunk(tracing; mode = "archive")
+    artifact = result.artifact
+    artifact === nothing && throw(
+        DriverError(
+            "tracing stopped without producing an artifact, so there is " *
+            "nothing to write to $path";
+            name = "Error",
+        ),
+    )
+    save_as(artifact, path)
+    _tracing_tracing_stop(tracing)
+    return path
+end
+
+"""
+    with_tracing(f, ctx::BrowserContext; path, screenshots=true, snapshots=true,
+                 sources=false, name=nothing, title=nothing)
+
+Record a Playwright trace around `f()` and write it to `path`.
+
+The zip is written **however the block exits** — that is the point, since the
+run worth tracing is the one that threw:
+
+```julia
+with_tracing(ctx; path = "artifacts/trace.zip") do
+    goto(page, url)
+    click(locator(page, "#submit"))
+end
+```
+
+Returns whatever `f()` returned. Open the trace with
+`npx playwright show-trace artifacts/trace.zip`.
+
+!!! note "A failed save never replaces your exception"
+    Saving the trace happens on the teardown path, while a more important
+    error may already be in flight. If it fails it is reported with `@warn`
+    and the block's own exception — or its return value — is what reaches the
+    caller. A helper that adds evidence must never destroy the thing it was
+    called to explain.
+"""
+function with_tracing(f, ctx::BrowserContext; path::AbstractString, kw...)
+    start_tracing(ctx; kw...)
+    try
+        return f()
+    finally
+        # Teardown: a failure to save the trace must not replace the caller's
+        # exception with a less interesting one.
+        try
+            stop_tracing(ctx; path)
+        catch e
+            @warn "could not save trace" path exception = e
+        end
+    end
+end
+
 # --- PDF (A3) --------------------------------------------------------------
 
 """

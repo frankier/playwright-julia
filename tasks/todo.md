@@ -33,7 +33,7 @@ a browser-free session can start here.
 
 - [x] T7: `pdf(page; …)`, Chromium-only with a client-side check (S) — A3, D7
 - [x] T4: `Artifact` wrapper — `save_as`, `path`, `delete` (S) — A4, deps: T1
-- [ ] T5: tracing — `start_tracing`, `stop_tracing`, `with_tracing` (M) — A1,
+- [x] T5: tracing — `start_tracing`, `stop_tracing`, `with_tracing` (M) — A1,
       deps: T1, T4
 - [ ] T6: video — `record_video` on `new_context`, `video(page)` (M) — A2, deps: T4
 - [ ] T8: `expect(::Page)` / `expect(::Frame)` (M) — B6, deps: T1
