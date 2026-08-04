@@ -7,8 +7,14 @@ criteria, and verification steps. Milestones 1–3 are archived under `tasks/m1/
 ## Phase 1: Foundation and probe
 
 - [x] T0: Fixture `m4.html` + `artifacts/` in `.gitignore` (S) — no deps
-- [ ] T1: **PROBE** — tracing stop path (D1) and document-expect strings (D2),
+- [x] T1: **PROBE** — tracing stop path (D1) and document-expect strings (D2),
       findings to `tasks/m4-probe.md` (M) — **gate**
+      → gate **passes**: `tracingStopChunk(mode="archive")` returns a real
+      `Artifact` on both engines, so `save_as` is the whole implementation and
+      no Julia zip dependency is needed. `tracesDir` at launch is not required.
+      `frame.expect` wants selector `""` (not `:root`) for `to.have.title` /
+      `to.have.url`, and the M3 `received_value` accessor reads the failure
+      unchanged.
 - [ ] T2: `retry_until` gains `target`, `on_timeout`, `on_error` (M) — B1–B3
 - [ ] T3: diagnostics no-throw on a dead target (S) — B5
 
