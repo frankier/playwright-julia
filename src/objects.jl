@@ -97,3 +97,71 @@ struct PlaywrightAPI
     process::Base.Process
     connection::Connection
 end
+
+# --- Docs for the exported channel-owner types ----------------------------
+#
+# The types themselves are generated (src/generated/channels.jl), which is not
+# hand-edited, so the docstrings for the ones callers actually name live here.
+
+@doc """
+    Browser
+
+A running browser process, from [`launch`](@ref). Holds
+[`BrowserContext`](@ref)s; `close` it to shut the process down. Ask
+[`browser_name`](@ref) which engine it is.
+""" Browser
+
+@doc """
+    BrowserContext
+
+An isolated profile inside a [`Browser`](@ref) — its own cookies, storage and
+permissions — from [`new_context`](@ref). The unit of isolation between tests,
+and the owner of the `:page`, `:console` and `:pageerror` events
+([`expect_event`](@ref)). Closing one closes its pages.
+""" BrowserContext
+
+@doc """
+    BrowserType
+
+A launchable engine: `pw.chromium` or `pw.firefox` on the handle
+[`playwright`](@ref) hands you. Pass it to [`launch`](@ref).
+""" BrowserType
+
+@doc """
+    Page
+
+One tab. The main thing you drive: [`goto`](@ref), [`locator`](@ref),
+[`evaluate`](@ref), [`screenshot`](@ref). Created by [`new_page`](@ref), and
+also what arrives from `expect_event(ctx, :page)` when a popup opens.
+
+Calls on a closed page raise [`TargetClosedError`](@ref).
+""" Page
+
+@doc """
+    Frame
+
+A document within a [`Page`](@ref) — the main frame, or one per `<iframe>`. Get
+at them with [`frames`](@ref), or scope into one with
+[`frame_locator`](@ref)/[`content_frame`](@ref). Most page-level calls are
+frame-level calls on the main frame.
+""" Frame
+
+@doc """
+    ElementHandle
+
+A reference to one specific element in the browser, from
+[`element_handle`](@ref) or [`wait_for_selector`](@ref).
+
+A snapshot, unlike a [`Locator`](@ref): it keeps pointing at *that* element and
+goes stale when the page re-renders. Prefer a locator unless you need to hold
+onto one element. [`dispose`](@ref) it when done.
+""" ElementHandle
+
+@doc """
+    JSHandle
+
+A reference to a JavaScript value kept *in the browser*, from
+[`evaluate_handle`](@ref) — for values that cannot cross the wire, like a DOM
+node or a closure. [`dispose`](@ref) it when done, or use the do-block form of
+`evaluate_handle`, which disposes for you.
+""" JSHandle

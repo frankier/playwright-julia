@@ -25,6 +25,15 @@
         :frame,
         :selector,
         :is_strict,
+        # T10: the channel-owner types callers name
+        :Browser,
+        :BrowserContext,
+        :BrowserType,
+        :Page,
+        :Frame,
+        :Locator,
+        :ElementHandle,
+        :JSHandle,
         # T8: engine metadata
         :browser_name,
         # T6: retrying assertions

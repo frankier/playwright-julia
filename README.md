@@ -213,8 +213,140 @@ Numbers come back as `Float64` — JavaScript has one number type — so
 | `page_errors(page)` | Uncaught `PageError`s (`message`, `name`, `stack`) |
 | `clear_console_messages(page)`, `clear_page_errors(page)` | Reset the buffers for per-test isolation |
 
-Failures surface as `PlaywrightError` carrying the driver's message and its
+Failures surface as a `PlaywrightError` carrying the driver's message and its
 call log (so a timeout tells you which selector it was waiting for).
+
+### Waiting
+
+Wait driver-side rather than sleeping. The condition is re-checked *in the
+browser*, so a late element is picked up the moment it arrives:
+
+| Function | Purpose |
+|---|---|
+| `wait_for_selector(target, sel; state)` | Wait for `:attached`, `:detached`, `:visible` or `:hidden` |
+| `wait_for_function(target, expr, arg; polling)` | Wait for a JS predicate to go truthy |
+
+Both work on a `Page`, a `Frame` or a `Locator`.
+
+```julia
+wait_for_selector(page, "#late"; state=:visible)
+wait_for_function(page, "() => window.ready === true")
+```
+
+### Retrying assertions
+
+`expect` retries in the browser until the condition holds or the timeout runs
+out, and returns the locator so calls chain:
+
+```julia
+expect(locator(page, "h1"); to_have_text = "Hello")
+expect(locator(page, "li"; strict=false); to_have_count = 3)
+expect(locator(page, "#box"); to_have_value = r"^se")
+expect(locator(page, "#link"); to_have_attribute = "href" => "/somewhere")
+expect(locator(page, "#gone"); to_be_visible = false)
+expect(locator(page, "h1"); to_have_text = Not("Goodbye"))
+```
+
+Matchers: `to_have_text`, `to_contain_text`, `to_have_value`, `to_have_count`,
+`to_have_attribute`, `to_be_visible`, `to_be_hidden`, `to_be_enabled`,
+`to_be_disabled`, `to_be_checked`. Wrap any expectation in `Not(...)` to negate
+it.
+
+A failure raises `AssertionFailure` naming both values, so you do not have to
+re-run the test to find out what was actually there:
+
+```
+to_have_text failed on locator("h1")
+  expected: "Goodbye"
+  received: "Hello"
+  (gave up after 5000ms of retrying)
+```
+
+`retry_until(f; timeout, interval)` is the escape hatch for conditions `expect`
+cannot express. Prefer `expect` where it fits — it retries inside the browser,
+so it neither round-trips per attempt nor misses a state that flickers between
+polls.
+
+### Events
+
+Subscribing happens *before* the action that triggers the event, which is why
+the primary form takes a block — an event fired synchronously by the action is
+still caught:
+
+```julia
+popup = expect_event(ctx, :page) do
+    click(locator(page, "#open-popup"))
+end
+
+msg = expect_event(ctx, :console; predicate = m -> m.text == "ready") do
+    click(locator(page, "#go"))
+end
+```
+
+| Owner | Event | Payload |
+|---|---|---|
+| `Page` | `:close`, `:crash` | the `Page` |
+| `Page` | `:frameattached`, `:framedetached` | `Frame` |
+| `BrowserContext` | `:page` | `Page` — this is how you catch a popup |
+| `BrowserContext` | `:close` | the `BrowserContext` |
+| `BrowserContext` | `:console` | `ConsoleMessage` |
+| `BrowserContext` | `:pageerror` | `PageError` |
+
+Anything else raises `ArgumentError`. Network events (`:request`, `:response`,
+…), `:dialog` and `:download` are deferred rather than designed away — their
+payload types have no accessors yet, so handing one back would look like
+support without being it.
+
+`wait_for_event(target, event)` waits for something already in flight, and
+`with_events(f, target, event)` collects several:
+
+```julia
+errors = with_events(ctx, :pageerror) do stream
+    click(locator(page, "#break-everything"))
+    retry_until(() -> length(stream) >= 1; timeout=5_000)
+    pending_events(stream)
+end
+```
+
+Buffers are unbounded, so nothing that happens inside the block is dropped.
+`length(stream)` peeks; `pending_events(stream)` drains.
+
+### Default timeouts
+
+Every `timeout` keyword defaults to a cascade — the call's own keyword, then
+the page's setting, then the context's, then 30 s — so one setting shortens
+every wait beneath it, instead of each miss costing 30 s:
+
+```julia
+ctx = new_context(browser)
+set_default_timeout!(ctx, 2_000)       # a missing element fails in 2 s
+page = new_page(ctx)
+set_default_timeout!(page, 5_000)      # ...but this page gets 5 s
+```
+
+`set_default_navigation_timeout!` does the same for navigations, which fall
+back to the action setting when they have none of their own. `launch`'s own
+`timeout` is deliberately outside the cascade: it bounds browser *startup*,
+where there is no page or context to inherit from.
+
+### Errors
+
+Branch on the kind of failure rather than on message text:
+
+| Type | Raised when |
+|---|---|
+| `TimeoutError` | an operation exceeded its timeout |
+| `TargetClosedError` | the page, context or browser closed under the call |
+| `AssertionFailure` | a retrying assertion never matched |
+| `DriverError` | anything else, including JS exceptions |
+
+All four are `<: PlaywrightError` and carry `.message`, `.name` and `.stack`,
+so `catch e isa PlaywrightError` still catches everything.
+
+> **Changed in milestone 3.** `PlaywrightError` was a concrete struct and is now
+> an abstract supertype. `catch e isa PlaywrightError` and `e.message` are
+> unaffected; only `PlaywrightError(msg)` as a *constructor* breaks — use
+> `DriverError(msg)`. Construction was internal to this package.
 
 ## Testing
 
@@ -247,15 +379,23 @@ Julia. Never edit `src/generated/` by hand.
 
 ## Status
 
-Milestone 2: broad enough to write a real end-to-end browser suite in Julia —
+Milestone 3: fast, precise and quiet. Driver-side waiting instead of
+hand-rolled polling, retrying assertions instead of `sleep`, a settable default
+timeout instead of a 30 s stall per miss, an error taxonomy specific enough to
+branch on, race-free event subscription, `evaluate` on a `Locator`, and a
+standalone browser installer. Chromium and Firefox, sync only.
+
+Milestone 2 got the API broad enough to *write* an end-to-end suite:
 `evaluate` and the value codec, frames and iframes, multi-match locators,
 `dispatch_event`, full launch options, explicit context lifecycle, and
-console/error diagnostics. Chromium and Firefox, sync only.
+console/error diagnostics.
 
 [`docs/bonnie-parity.md`](docs/bonnie-parity.md) records the driving use case:
 replacing a hand-rolled CDP test harness with public API, row by row.
 
-Not yet covered: WebKit; event subscription (`expect_*`, `wait_for_event`);
-auto-retrying assertions; network interception and routing; downloads, file
+Not yet covered: WebKit; network interception and routing; downloads, file
 choosers and dialogs; PDF; video and tracing; persistent contexts; an async
-API.
+API. The network events (`:request`, `:response`, …) are deferred rather than
+rejected — `Request` and `Response` exist in the generated layer but have no
+accessors yet, so lifting them is a payload-mapping entry plus a small
+accessor set.

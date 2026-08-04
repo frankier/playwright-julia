@@ -27,6 +27,17 @@ using p7zip_jll: p7zip
 
 export playwright,
     install,
+    # The channel-owner types a caller actually names — in a type annotation,
+    # an `isa` check, or a `Vector{Page}`. The rest of the generated channel
+    # layer stays internal.
+    Browser,
+    BrowserContext,
+    BrowserType,
+    Page,
+    Frame,
+    Locator,
+    ElementHandle,
+    JSHandle,
     launch,
     new_page,
     goto,

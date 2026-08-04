@@ -39,15 +39,29 @@ end
 Block until `expression` evaluates truthy in the page, or raise after
 `timeout` seconds. Dumps any uncaught page errors on timeout, so a hung app
 reports its exception instead of just "timed out".
+
+Keeps cdp.jl's signature (seconds, and an `error` on timeout) because that is
+what callers of the old harness expect, but the waiting itself is now
+[`wait_for_function`](@ref) — the driver re-checks the predicate in the
+browser. `interval` is passed through as the polling interval; the original
+Julia-side `sleep` loop is gone, which is the whole point of milestone 3
+(SC 2: no test sleeps for the DOM).
 """
 function poll_js(page, expression; timeout::Real = 10.0, interval::Real = 0.1)
-    deadline = time() + timeout
-    while time() < deadline
-        evaluate(page, expression) === true && return true
-        sleep(interval)
+    try
+        wait_for_function(
+            page,
+            expression;
+            timeout = round(Int, timeout * 1_000),
+            polling = round(Int, interval * 1_000),
+        )
+        return true
+    catch e
+        e isa PlaywrightError || rethrow()
+        for err in page_errors(page)
+            @warn "page error while polling" err.message
+        end
+        # cdp.jl raised a plain ErrorException here and its callers catch that.
+        error("poll_js timed out after $(timeout)s: $expression")
     end
-    for err in page_errors(page)
-        @warn "page error while polling" err.message
-    end
-    error("poll_js timed out after $(timeout)s: $expression")
 end

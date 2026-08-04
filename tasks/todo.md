@@ -36,12 +36,27 @@ T5, T6, T7 are independent of each other after T2b. T8, T9 and T11 are
 independent of the whole chain.
 
 ### Checkpoint B
-- [ ] Every slice's smoke tests green on Chromium **and** Firefox
-- [ ] Hermetic suite still green
-- [ ] Human review before docs/polish
+- [x] Every slice's smoke tests green on Chromium **and** Firefox
+- [x] Hermetic suite still green
+- [x] Human review before docs/polish
 
 ## Phase 3: Proof and polish
-- [ ] T10: `SPEC-M3.md` target snippet as a test, README, docstrings, format (M) — deps: T4–T9
+- [x] T10: `SPEC-M3.md` target snippet as a test, README, docstrings, format (M) — deps: T4–T9
 
 ### Checkpoint C
-- [ ] All twelve `SPEC-M3.md` success criteria verified
+- [x] All twelve `SPEC-M3.md` success criteria verified
+
+| SC | Verified by |
+|---|---|
+| 1 | `test_parity.jl` runs the target snippet verbatim on both engines |
+| 2 | `wait_for_*` exported for Page/Frame/Locator; `grep -c 'sleep(' test/*.jl` is 0 — `poll_js` now waits driver-side |
+| 3 | `test_smoke.jl` "set_default_timeout! shortens a real miss", `@elapsed` |
+| 4 | `test_fixtures.jl` — missing selector → `TimeoutError`, throwing predicate → `DriverError` |
+| 5 | `fill_range!` is `evaluate(slider, …)`; no `loc.frame`/`loc.selector` in the snippet |
+| 6 | sync-fired console event caught; 5 000-message flood yields 5 000 |
+| 7 | registry asserted directly after normal return, after a throw, and after owner close |
+| 8 | `AssertionFailure` carries expected and received, from the driver's `errorDetails` |
+| 9 | `browser_name(::Browser)` exported, returns `String`, agrees with the `BrowserType` method |
+| 10 | `bin/install.jl` run from `/tmp` with no project; 646 MB landed under `PLAYWRIGHT_BROWSERS_PATH`; README recipe |
+| 11 | probe: irrelevant options ignored → docstring branch + shared-option-set smoke test |
+| 12 | hermetic `Pkg.test()` green with no Node/browser; `gen/generate.jl --check` green |
