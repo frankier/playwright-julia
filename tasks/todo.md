@@ -6,7 +6,7 @@ criteria, and verification steps. Milestones 1–3 are archived under `tasks/m1/
 
 ## Phase 1: Foundation and probe
 
-- [ ] T0: Fixture `m4.html` + `artifacts/` in `.gitignore` (S) — no deps
+- [x] T0: Fixture `m4.html` + `artifacts/` in `.gitignore` (S) — no deps
 - [ ] T1: **PROBE** — tracing stop path (D1) and document-expect strings (D2),
       findings to `tasks/m4-probe.md` (M) — **gate**
 - [ ] T2: `retry_until` gains `target`, `on_timeout`, `on_error` (M) — B1–B3

@@ -4,3 +4,6 @@ Manifest.toml
 !gen/Manifest.toml
 *.png
 .CondaPkg/
+# Traces, video and PDF written by the milestone-4 tests. Binaries, and
+# regenerated on every run — never worth committing.
+artifacts/

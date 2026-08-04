@@ -749,6 +749,31 @@ end
                     close(browser)
                 end
 
+                @testset "$engine: m4.html — late title, console and a page error" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m4.html")
+
+                    # The title is wrong at parse and right later. Asserted from
+                    # the page's own clock, as m3.html's late element is, rather
+                    # than by racing goto to observe the absence.
+                    @test js_wait(page, "document.title === 'M4'")
+                    @test evaluate(page, "() => window.__titleAt > window.__parsedAt")
+
+                    # T9's report_diagnostics dumps both of these, so the
+                    # fixture has to produce both.
+                    @test js_wait(page, "window.__threwAt !== undefined")
+                    @test !isempty(console_messages(page))
+                    @test any(e -> occursin("m4 fixture", e.message), page_errors(page))
+
+                    # Enough rendered content that a screenshot and a PDF are
+                    # more than a blank sheet.
+                    @test evaluate(page, "() => document.body.scrollHeight") > 300
+
+                    close(browser)
+                end
+
                 @testset "$engine: m3-events.html — sync and flooded console" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
