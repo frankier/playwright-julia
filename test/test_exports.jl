@@ -82,6 +82,8 @@
         :pages,
         :parent_frame,
         :playwright,
+        # M4 T7: artifact capture
+        :pdf,
         :screenshot,
         :text_content,
         :title,

@@ -31,6 +31,51 @@ browser_name(bt::BrowserType) = bt.initializer["name"]::String
 browser_name(browser::Browser) = browser.initializer["name"]::String
 
 """
+The [`Browser`](@ref) `obj` ultimately belongs to, or `nothing` if the chain is
+broken — which in practice means something on it has been disposed.
+
+A walk up `conn.parents` rather than a stored back-reference: the generated
+channel-owner structs have a fixed field layout, and the registry already knows
+the tree.
+"""
+function owning_browser(obj::ChannelOwner)
+    conn = obj.connection
+    return lock(conn.lock) do
+        guid = obj.guid
+        while true
+            candidate = get(conn.objects, guid, nothing)
+            candidate isa Browser && return candidate
+            parent = get(conn.parents, guid, nothing)
+            (parent === nothing || isempty(parent)) && return nothing
+            guid = parent
+        end
+    end
+end
+
+"""
+    browser_name(page::Page) -> String
+    browser_name(context::BrowserContext) -> String
+
+Engine a page or context is running on, found by walking up to its
+[`Browser`](@ref). This is what lets a call decide an engine-specific question
+*client-side* — [`pdf`](@ref) refuses to run off Chromium without a round trip
+to be told so (D7).
+
+Raises [`TargetClosedError`](@ref) when the owning browser is gone, since a
+page with no browser above it has been closed.
+"""
+function browser_name(obj::Union{Page,BrowserContext})
+    browser = owning_browser(obj)
+    browser === nothing && throw(
+        TargetClosedError(
+            "no live browser above this object, so it has been closed";
+            name = "TargetClosedError",
+        ),
+    )
+    return browser_name(browser)
+end
+
+"""
 Main frame backing `page`; page-level actions delegate to it.
 
 Raises [`TargetClosedError`](@ref) once the page has closed. Every page-level

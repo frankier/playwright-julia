@@ -22,7 +22,6 @@ using Playwright
     include("test_closed.jl")
     include("test_expect.jl")
     include("test_metadata.jl")
-    include("test_artifacts.jl")
 
     if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
         include("test_smoke.jl")
@@ -33,4 +32,9 @@ using Playwright
     else
         @info "Skipping smoke tests (set PLAYWRIGHT_JL_SMOKE=1 to enable)"
     end
+
+    # Milestone 4's artifact tests are mostly hermetic, so this always runs —
+    # but the few legs that need a real browser are gated inside the file and
+    # use test_smoke.jl's fixture server, which is why it comes last.
+    include("test_artifacts.jl")
 end

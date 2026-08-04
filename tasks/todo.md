@@ -22,16 +22,16 @@ T2 ∥ T3 — disjoint files, and both are hermetic and independent of the probe
 a browser-free session can start here.
 
 ### Checkpoint A
-- [ ] Hermetic `Pkg.test()` green — no Node, no browser
-- [ ] Milestone-3 smoke suite still green, both engines
-- [ ] `gen/generate.jl --check` green
-- [ ] **Human review of the T1 probe findings before any of Part A is built.**
-      If trace assembly needs a Julia zip dependency: **stop and escalate** —
-      that is an *Ask first* boundary, not a workaround.
+- [x] Hermetic `Pkg.test()` green — no Node, no browser (909 tests)
+- [x] Milestone-3 smoke suite still green, both engines (1441 tests)
+- [x] `gen/generate.jl --check` green
+- [x] **Human review of the T1 probe findings before any of Part A is built.**
+      → findings in `tasks/m4-probe.md`; the gate **passes** and no Julia zip
+      dependency is needed, so the *Ask first* boundary is not reached.
 
 ## Phase 2: Artifact slices and the fixture
 
-- [ ] T7: `pdf(page; …)`, Chromium-only with a client-side check (S) — A3, D7
+- [x] T7: `pdf(page; …)`, Chromium-only with a client-side check (S) — A3, D7
 - [ ] T4: `Artifact` wrapper — `save_as`, `path`, `delete` (S) — A4, deps: T1
 - [ ] T5: tracing — `start_tracing`, `stop_tracing`, `with_tracing` (M) — A1,
       deps: T1, T4

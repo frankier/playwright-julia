@@ -9,7 +9,10 @@ using Playwright: set_default_timeout!, set_default_navigation_timeout!
 function timeout_fixture()
     fake = FakeDriver()
     conn = fake.connection
-    send_create(fake, "", "Browser", "browser@1")
+    # The real Browser initializer carries `name`; the fixture carries it too
+    # so that anything resolving the engine client-side (D7's Chromium-only
+    # `pdf` check) can be tested without a driver.
+    send_create(fake, "", "Browser", "browser@1", Dict("name" => "chromium"))
     send_create(fake, "browser@1", "BrowserContext", "context@1")
     # The shape here mirrors what the real driver sends, which is *not* the
     # shape you would guess: a page's MAIN frame is parented to the browser
