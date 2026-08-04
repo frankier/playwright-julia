@@ -82,8 +82,11 @@
         :pages,
         :parent_frame,
         :playwright,
-        # M4 T7: artifact capture
+        # M4 T7/T4: artifact capture and the Artifact surface
         :pdf,
+        :save_as,
+        :path,
+        :delete,
         :screenshot,
         :text_content,
         :title,

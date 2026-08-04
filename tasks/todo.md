@@ -32,7 +32,7 @@ a browser-free session can start here.
 ## Phase 2: Artifact slices and the fixture
 
 - [x] T7: `pdf(page; …)`, Chromium-only with a client-side check (S) — A3, D7
-- [ ] T4: `Artifact` wrapper — `save_as`, `path`, `delete` (S) — A4, deps: T1
+- [x] T4: `Artifact` wrapper — `save_as`, `path`, `delete` (S) — A4, deps: T1
 - [ ] T5: tracing — `start_tracing`, `stop_tracing`, `with_tracing` (M) — A1,
       deps: T1, T4
 - [ ] T6: video — `record_video` on `new_context`, `video(page)` (M) — A2, deps: T4

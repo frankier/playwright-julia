@@ -15,7 +15,7 @@
 end
 
 using Base64: base64encode
-using Playwright: pdf
+using Playwright: pdf, save_as, path, delete
 
 """
 A page under a second, **Firefox-named** browser on the same fake connection.
@@ -40,6 +40,75 @@ function firefox_fixture_page(f)
         5.0,
     ) === :ok
     return Playwright.lookup_object(f.fake.connection, "page@ff")
+end
+
+"An Artifact hanging off the fixture's context, as the driver announces one."
+function fixture_artifact(f, guid = "artifact@1"; absolute_path = "/tmp/pw/thing.zip")
+    send_create(
+        f.fake,
+        "context@1",
+        "Artifact",
+        guid,
+        Dict("absolutePath" => absolute_path),
+    )
+    @test timedwait(
+        () -> Playwright.lookup_object(f.fake.connection, guid) !== nothing,
+        5.0,
+    ) === :ok
+    return Playwright.lookup_object(f.fake.connection, guid)
+end
+
+# --- T4: the Artifact wrapper (SPEC-M4.md A4) -----------------------------
+#
+# The shared surface under tracing and video. The generated _artifact_* calls
+# already exist; this is the hand-written layer over them, and its whole job is
+# to keep wire spellings out of the API layer.
+
+@testset "Artifact (T4)" begin
+    @testset "save_as sends the path and returns it" begin
+        f = timeout_fixture()
+        art = fixture_artifact(f)
+        dest = joinpath(mktempdir(), "saved.zip")
+
+        sent = waiting_request(f.fake, () -> save_as(art, dest))
+        @test sent["guid"] == "artifact@1"
+        @test sent["method"] == "saveAs"
+        @test sent["params"]["path"] == dest
+        close(f.fake.connection)
+    end
+
+    @testset "save_as returns the path it was given, so calls chain" begin
+        f = timeout_fixture()
+        art = fixture_artifact(f)
+        dest = joinpath(mktempdir(), "saved.zip")
+        task = @async save_as(art, dest)
+        msg = take!(f.fake.client_messages)
+        reply_ok(f.fake, msg["id"], Dict{String,Any}())
+        @test fetch(task) == dest
+        close(f.fake.connection)
+    end
+
+    @testset "path blocks on pathAfterFinished, not on the initializer" begin
+        # The initializer's absolutePath is where the file will *end up*; it is
+        # there before the file is. pathAfterFinished is the one that waits,
+        # which is the entire reason this wrapper is not a field read.
+        f = timeout_fixture()
+        art = fixture_artifact(f; absolute_path = "/tmp/pw/not-yet.zip")
+        task = @async path(art)
+        msg = take!(f.fake.client_messages)
+        @test msg["method"] == "pathAfterFinished"
+        reply_ok(f.fake, msg["id"], Dict{String,Any}("value" => "/tmp/pw/finished.zip"))
+        @test fetch(task) == "/tmp/pw/finished.zip"
+        close(f.fake.connection)
+    end
+
+    @testset "delete sends delete" begin
+        f = timeout_fixture()
+        art = fixture_artifact(f)
+        sent = waiting_request(f.fake, () -> delete(art))
+        @test sent["method"] == "delete"
+        close(f.fake.connection)
+    end
 end
 
 # --- T7: pdf (SPEC-M4.md A3, D7) ------------------------------------------
