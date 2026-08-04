@@ -274,3 +274,234 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         @test_throws ErrorException retry_until(() -> error("broken"); timeout = 1_000)
     end
 end
+
+# --- T2: retry_until's three knobs (SPEC-M4.md B1-B3, D5) -----------------
+#
+# All hermetic: the predicates are pure Julia, so none of this needs a driver.
+# Every default is the M3 behaviour, and the tests above still pass unchanged —
+# that is the "purely additive" claim, asserted rather than asserted-to.
+
+"""
+A testset that keeps its results instead of reporting them, so a test can
+assert on what stdlib `Test` *recorded* — the difference between a `Fail` and
+an `Error` is the whole of SC 7, and it cannot be seen from inside a normal
+testset.
+"""
+struct RecordingTestSet <: Test.AbstractTestSet
+    description::String
+    results::Vector{Any}
+end
+RecordingTestSet(description) = RecordingTestSet(description, [])
+Test.record(ts::RecordingTestSet, result) = (push!(ts.results, result); result)
+Test.finish(ts::RecordingTestSet) = ts
+
+@testset "retry_until knobs (T2)" begin
+    @testset "on_timeout = :false returns false instead of raising" begin
+        # B1. The whole point: a value @test can render as a Fail.
+        result = retry_until(() -> false; timeout = 200, interval = 10, on_timeout = :false)
+        @test result === false
+    end
+
+    @testset "on_timeout = :false still returns true when the condition holds" begin
+        @test retry_until(() -> true; timeout = 200, on_timeout = :false) === true
+    end
+
+    @testset ":false and false are the same knob" begin
+        # `:false` is not a Symbol — Julia parses it as the boolean `false`,
+        # unlike `:throw` and `:retry`. SPEC-M4.md spells it `:false`
+        # throughout, so both spellings have to work and mean one thing.
+        @test :false === false
+        @test retry_until(() -> false; timeout = 100, interval = 10, on_timeout = false) ===
+              false
+    end
+
+    @testset "@test retry_until(…; on_timeout = :false) records a Fail, not an Error" begin
+        # SC 7, asserted with a recording testset rather than eyeballed.
+        #
+        # Precisely what changes: stdlib Test records a *throwing* @test as a
+        # Test.Error and a false one as a Test.Fail. Both fail the suite, so
+        # the difference is in the report, and it is not cosmetic — an Error
+        # says "this test is broken", a Fail says "this assertion did not
+        # hold", which is the truth about a condition that never came. A Fail
+        # also renders the expression and its value; an Error renders a
+        # stacktrace into the package internals.
+        recorded = @testset RecordingTestSet "recording" begin
+            @test retry_until(() -> false; timeout = 200, interval = 10, on_timeout = :false)
+            @test true          # the testset carries on to the next assertion
+        end
+        results = recorded.results
+        @test length(results) == 2
+        @test results[1] isa Test.Fail
+        @test !(results[1] isa Test.Error)
+        @test results[2] isa Test.Pass
+
+        # ...and the M3 default is the Error case, which is what B1 reported.
+        under_default = @testset RecordingTestSet "recording" begin
+            @test retry_until(() -> false; timeout = 200, interval = 10)
+        end
+        @test under_default.results[1] isa Test.Error
+    end
+
+    @testset "on_error = :retry treats a throwing predicate as 'not yet'" begin
+        # B3: the HTTP-against-a-warming-server shape.
+        n = Ref(0)
+        ok = retry_until(; timeout = 2_000, interval = 10, on_error = :retry) do
+            n[] += 1
+            n[] < 3 && error("still warming up")
+            return true
+        end
+        @test ok === true
+        @test n[] == 3
+    end
+
+    @testset "on_error = :throw (the default) propagates the first exception" begin
+        n = Ref(0)
+        err = try
+            retry_until(; timeout = 2_000, interval = 10) do
+                n[] += 1
+                error("broken")
+            end
+            nothing
+        catch e
+            e
+        end
+        @test err isa ErrorException
+        @test occursin("broken", err.msg)
+        @test n[] == 1          # it really did not retry
+    end
+
+    @testset "a predicate that always throws under :retry times out, saying why" begin
+        # Deliberate silence has to stay bounded: the retry must not swallow
+        # the reason. The *last* exception rides along on the timeout.
+        err = try
+            retry_until(; timeout = 200, interval = 10, on_error = :retry) do
+                error("connection refused")
+            end
+            nothing
+        catch e
+            e
+        end
+        @test err isa Playwright.AssertionFailure
+        @test occursin("200", err.message)
+        @test occursin("connection refused", err.message)
+    end
+
+    @testset "the two knobs compose in all four corners" begin
+        never = () -> false
+        always_throws = () -> error("nope")
+
+        # :throw × :throw — the M3 behaviour, unchanged
+        @test_throws Playwright.AssertionFailure retry_until(
+            never;
+            timeout = 100,
+            interval = 10,
+        )
+        @test_throws ErrorException retry_until(always_throws; timeout = 100, interval = 10)
+
+        # :false × :throw — a timeout is a value, a predicate bug is still loud
+        @test retry_until(never; timeout = 100, interval = 10, on_timeout = :false) ===
+              false
+        @test_throws ErrorException retry_until(
+            always_throws;
+            timeout = 100,
+            interval = 10,
+            on_timeout = :false,
+        )
+
+        # :throw × :retry
+        @test_throws Playwright.AssertionFailure retry_until(
+            always_throws;
+            timeout = 100,
+            interval = 10,
+            on_error = :retry,
+        )
+
+        # :false × :retry — nothing escapes at all
+        @test retry_until(
+            always_throws;
+            timeout = 100,
+            interval = 10,
+            on_timeout = :false,
+            on_error = :retry,
+        ) === false
+    end
+
+    @testset "a typo'd knob is an ArgumentError listing the valid values" begin
+        # The closed-set discipline MATCHERS already uses: `:allways` must not
+        # silently mean "never".
+        err = try
+            retry_until(() -> true; on_timeout = :bogus)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("on_timeout", err.msg)
+        @test occursin(":throw", err.msg)
+        @test occursin(":false", err.msg)
+
+        err2 = try
+            retry_until(() -> true; on_error = :bogus)
+            nothing
+        catch e
+            e
+        end
+        @test err2 isa ArgumentError
+        @test occursin("on_error", err2.msg)
+        @test occursin(":retry", err2.msg)
+    end
+
+    @testset "the target form joins the timeout cascade" begin
+        # B2. Under M3 this fell back to DEFAULT_TIMEOUT regardless.
+        f = timeout_fixture()
+        set_default_timeout!(f.page, 300)
+
+        elapsed = @elapsed @test retry_until(
+            () -> false,
+            f.page;
+            interval = 10,
+            on_timeout = :false,
+        ) === false
+        # SC 8: it honoured 300ms, not the 30s package default.
+        @test elapsed < 5.0
+
+        err = try
+            retry_until(() -> false, f.page; interval = 10)
+            nothing
+        catch e
+            e
+        end
+        @test err isa Playwright.AssertionFailure
+        @test occursin("300", err.message)
+
+        # ...and an explicit keyword still wins over the setting
+        err2 = try
+            retry_until(() -> false, f.page; timeout = 150, interval = 10)
+            nothing
+        catch e
+            e
+        end
+        @test occursin("150", err2.message)
+
+        # A context works as a target too, and a frame resolves through it.
+        set_default_timeout!(f.context2, 250)
+        err3 = try
+            retry_until(() -> false, f.context2; interval = 10)
+            nothing
+        catch e
+            e
+        end
+        @test occursin("250", err3.message)
+
+        close(f.fake.connection)
+    end
+
+    @testset "the target form still takes a do-block" begin
+        f = timeout_fixture()
+        set_default_timeout!(f.page, 300)
+        @test retry_until(f.page; interval = 10, on_timeout = :false) do
+            false
+        end === false
+        close(f.fake.connection)
+    end
+end

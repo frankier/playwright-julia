@@ -207,11 +207,40 @@ function assertion_failure(
     return AssertionFailure(join(lines, "\n"); name = "AssertionFailure", stack = e.stack)
 end
 
-"""
-    retry_until(f; timeout=nothing, interval=100) -> true
+# The two knobs are closed sets, for the reason MATCHERS is one: a typo'd
+# `:allways` must not silently mean "never". Spelled out here so the error
+# message and the check cannot drift apart.
+#
+# A Julia wrinkle worth stating plainly, because it looks like a bug at every
+# call site: `:false` is **not** a Symbol. `false` is a boolean literal, so
+# `:false` quotes to `false::Bool`, while `:throw` and `:retry` really are
+# Symbols. The keyword therefore takes `Union{Symbol,Bool}` and `on_timeout =
+# :false` and `on_timeout = false` are the same thing — which is what a reader
+# expects them to be anyway. SPEC-M4.md spells it `:false` throughout, so that
+# spelling has to work.
+const ON_TIMEOUT_VALUES = (:throw, false)
+const ON_ERROR_VALUES = (:throw, :retry)
 
-Call `f()` every `interval` ms until it returns `true`, or raise
-[`AssertionFailure`](@ref) when `timeout` ms have passed.
+# `repr(false)` is "false", not ":false"; spell the documented form.
+show_knob(v::Bool) = ":$v"
+show_knob(v::Symbol) = repr(v)
+
+function check_knob(name::Symbol, value, valid::Tuple)
+    any(v -> v === value, valid) && return value
+    throw(
+        ArgumentError(
+            "`$name = $(show_knob(value))` is not valid. Valid values: " *
+            join([show_knob(v) for v in valid], ", "),
+        ),
+    )
+end
+
+"""
+    retry_until(f; timeout=nothing, interval=100, on_timeout=:throw, on_error=:throw)
+    retry_until(f, target; …)
+
+Call `f()` every `interval` ms until it returns `true`, or give up after
+`timeout` ms.
 
 The escape hatch for conditions [`expect`](@ref) cannot express. Prefer
 `expect` where it fits — it retries *inside* the browser, so it neither
@@ -223,24 +252,122 @@ retry_until(; timeout = 5_000) do
 end
 ```
 
-An exception from `f` propagates immediately rather than being retried: a
-predicate that throws is a broken test, not a condition that has not happened
-yet, and swallowing it would hide the bug until the timeout.
+## What happens when it does not hold
 
-`timeout` defaults to [`DEFAULT_TIMEOUT`](@ref); there is no page here to
-inherit a setting from.
+| `on_timeout` | Giving up means |
+|---|---|
+| `:throw` (default) | raise [`AssertionFailure`](@ref) |
+| `:false` | return `false` |
+
+`:false` is what makes `retry_until` usable inside `@test`. stdlib `Test`
+records a *throwing* assertion as an `Error` — "this test is broken" — and a
+false one as a `Fail` — "this assertion did not hold", which is the truth about
+a condition that never arrived, and which renders the expression and its value
+instead of a stacktrace through package internals:
+
+```julia
+@test retry_until(page; on_timeout = :false) do
+    HTTP.get(probe_url).status == 200
+end
+```
+
+!!! note "`:false` is the boolean `false`"
+    Unlike `:throw` and `:retry`, `:false` is not a `Symbol` — `false` is a
+    boolean literal, so Julia parses `:false` as `false`. Both spellings are
+    accepted and mean the same thing; `:false` is written here only because it
+    lines up with the other values at the call site.
+
+## What happens when the predicate throws
+
+| `on_error` | An exception from `f` means |
+|---|---|
+| `:throw` (default) | propagate it immediately |
+| `:retry` | treat it as "not yet" and keep going, under the same deadline |
+
+`:throw` is right for a DOM predicate, where a throw is a broken test rather
+than a condition that has not happened yet, and swallowing it would hide the
+bug until the timeout. `:retry` is right for the common end-to-end shape where
+the predicate is an HTTP call against a server that is still warming up.
+
+The silence stays bounded: under `:retry` the *last* exception is attached to
+the eventual timeout failure, so a predicate that never stops throwing still
+reports why it never stopped.
+
+## Which timeout
+
+Given a `target` — a [`Page`](@ref), [`BrowserContext`](@ref), `Frame` or
+[`Locator`](@ref), positionally, as [`expect_event`](@ref) takes one — the
+timeout comes from the [`set_default_timeout!`](@ref) cascade, so
+`retry_until` follows the same rules as everything else:
+
+```julia
+set_default_timeout!(page, 2_000)
+retry_until(() -> ready(), page)      # gives up after 2 s
+```
+
+Without a target there is nothing to inherit from and `timeout` falls back to
+[`DEFAULT_TIMEOUT`](@ref). An explicit `timeout` keyword always wins.
 """
-function retry_until(f::Function; timeout::MaybeTimeout = nothing, interval::Real = 100)
+function retry_until(
+    f::Function;
+    timeout::MaybeTimeout = nothing,
+    interval::Real = 100,
+    on_timeout::Union{Symbol,Bool} = :throw,
+    on_error::Symbol = :throw,
+)
     ms = timeout === nothing ? DEFAULT_TIMEOUT : Int(timeout)
+    return retry_loop(f, ms, interval, on_timeout, on_error)
+end
+
+function retry_until(
+    f::Function,
+    target::Union{ChannelOwner,Locator};
+    timeout::MaybeTimeout = nothing,
+    interval::Real = 100,
+    on_timeout::Union{Symbol,Bool} = :throw,
+    on_error::Symbol = :throw,
+)
+    return retry_loop(f, resolve_timeout(target, timeout), interval, on_timeout, on_error)
+end
+
+function retry_loop(
+    f::Function,
+    ms::Int,
+    interval::Real,
+    on_timeout::Union{Symbol,Bool},
+    on_error::Symbol,
+)
+    check_knob(:on_timeout, on_timeout, ON_TIMEOUT_VALUES)
+    check_knob(:on_error, on_error, ON_ERROR_VALUES)
+
     deadline = time() + ms / 1_000
+    last_error = nothing
     while true
-        f() === true && return true
-        time() < deadline || throw(
-            AssertionFailure(
-                "condition never held within $(ms)ms";
-                name = "AssertionFailure",
-            ),
-        )
+        held = try
+            f() === true
+        catch e
+            on_error === :retry || rethrow()
+            last_error = e
+            false
+        end
+        held && return true
+
+        if time() >= deadline
+            on_timeout === false && return false
+            throw(
+                AssertionFailure(
+                    timeout_message(ms, last_error);
+                    name = "AssertionFailure",
+                ),
+            )
+        end
         sleep(interval / 1_000)
     end
 end
+
+# Under on_error = :retry the exceptions are the only account of why the
+# condition never held, so the last one rides along on the failure.
+timeout_message(ms::Int, ::Nothing) = "condition never held within $(ms)ms"
+timeout_message(ms::Int, e) =
+    "condition never held within $(ms)ms; last error from the predicate: " *
+    sprint(showerror, e)
