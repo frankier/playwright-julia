@@ -67,6 +67,8 @@ export playwright,
     PageError,
     set_default_timeout!,
     set_default_navigation_timeout!,
+    wait_for_selector,
+    wait_for_function,
     expect_event,
     wait_for_event,
     with_events,
@@ -91,6 +93,7 @@ include("api/events.jl")
 include("api/lifecycle.jl")
 include("api/navigation.jl")
 include("api/locators.jl")
+include("api/waiting.jl")
 include("api/frames.jl")
 include("api/evaluate.jl")
 include("api/diagnostics.jl")

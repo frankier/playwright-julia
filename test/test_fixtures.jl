@@ -27,6 +27,156 @@ function js_wait(page, predicate; timeout_ms = 5_000)
     )
 end
 
+# --- T5: driver-side waiting against real browsers ------------------------
+
+@testset "waiting (T5)" begin
+    with_fixture_server() do base_url
+        playwright() do pw
+            for engine in ("chromium", "firefox")
+                bt = getfield(pw, Symbol(engine))
+
+                @testset "$engine: wait_for_selector waits for a late element" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    # #late is appended 300ms after parse. No sleep here: the
+                    # driver holds the call open until it lands (SC 2).
+                    el = wait_for_selector(page, "#late")
+                    @test el isa Playwright.ElementHandle
+                    @test text_content(locator(page, "#late")) == "late arrival"
+
+                    # ...and it really was late: the fixture timestamps itself,
+                    # so this is deterministic rather than a race.
+                    @test evaluate(page, "() => window.__lateAt > window.__parsedAt")
+
+                    close(browser)
+                end
+
+                @testset "$engine: wait_for_selector honours state" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    @test wait_for_selector(page, "#late"; state = :visible) isa
+                          Playwright.ElementHandle
+                    # :hidden and :detached have no element to hand back
+                    @test wait_for_selector(page, "#nope"; state = :detached) === nothing
+                    @test wait_for_selector(page, "#nope"; state = :hidden) === nothing
+
+                    close(browser)
+                end
+
+                @testset "$engine: wait_for_selector works on a Locator" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    el = wait_for_selector(locator(page, "#late"); state = :visible)
+                    @test el isa Playwright.ElementHandle
+
+                    close(browser)
+                end
+
+                @testset "$engine: a missing selector raises TimeoutError, not DriverError" begin
+                    # SC 4. Branching on "is my element late?" versus "did the
+                    # page break?" is the whole point of the taxonomy.
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    err = try
+                        wait_for_selector(page, "#never-arrives"; timeout = 1_000)
+                        nothing
+                    catch e
+                        e
+                    end
+                    @test err isa Playwright.TimeoutError
+                    @test !(err isa Playwright.DriverError)
+
+                    close(browser)
+                end
+
+                @testset "$engine: wait_for_function waits for window.ready" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    handle = wait_for_function(page, "() => window.ready === true")
+                    @test handle !== nothing
+                    @test evaluate(page, "() => window.__readyAt > window.__parsedAt")
+
+                    close(browser)
+                end
+
+                @testset "$engine: wait_for_function takes an argument and a polling interval" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    wait_for_function(
+                        page,
+                        "since => window.__readyAt > since",
+                        0;
+                        polling = 25,
+                    )
+                    @test evaluate(page, "() => window.ready") === true
+
+                    close(browser)
+                end
+
+                @testset "$engine: a throwing predicate raises DriverError, not TimeoutError" begin
+                    # The other half of SC 4: a predicate that can never
+                    # succeed must not masquerade as one that is merely late.
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    err = try
+                        wait_for_function(
+                            page,
+                            "() => { throw new Error('predicate blew up') }";
+                            timeout = 5_000,
+                        )
+                        nothing
+                    catch e
+                        e
+                    end
+                    @test err isa Playwright.DriverError
+                    @test !(err isa Playwright.TimeoutError)
+                    @test occursin("predicate blew up", err.message)
+
+                    close(browser)
+                end
+
+                @testset "$engine: waiting timeouts come from the cascade" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    set_default_timeout!(ctx, 1_000)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    elapsed =
+                        @elapsed @test_throws Playwright.TimeoutError wait_for_selector(
+                            page,
+                            "#never-arrives",
+                        )
+                    @test elapsed < 10.0
+
+                    close(browser)
+                end
+            end
+        end
+    end
+end
+
 # --- T4: the event surface against real browsers --------------------------
 
 @testset "events (T4)" begin

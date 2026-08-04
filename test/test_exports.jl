@@ -19,6 +19,9 @@
         :clear_page_errors,
         :set_default_timeout!,
         :set_default_navigation_timeout!,
+        # T5: driver-side waiting
+        :wait_for_selector,
+        :wait_for_function,
         # T4: the event surface
         :EventStream,
         :expect_event,
