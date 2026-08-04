@@ -5,10 +5,35 @@
 # behaviour (SC 7): "no event arrived" is also what a silently-broken
 # subscription looks like, so the tests check the registry and the buffer.
 
+"""
+Reply `ok` to every request the client sends, forever.
+
+Opt-in events (`:console`) make `expect_event` send `updateSubscription` and
+wait for the reply, so without a responder on the other end the fake driver
+deadlocks the test rather than failing it.
+
+
+Returns the vector it records each request into, so a test can assert on what
+was sent.
+"""
+function autoreply!(fake::FakeDriver)
+    seen = Vector{Any}()
+    @async try
+        while true
+            msg = take!(fake.client_messages)
+            push!(seen, msg)
+            reply_ok(fake, msg["id"], Dict{String,Any}())
+        end
+    catch
+    end
+    return seen
+end
+
 "Build browser → context → page over a FakeDriver."
 function event_fixture()
     fake = FakeDriver()
     conn = fake.connection
+    requests = autoreply!(fake)
     send_create(fake, "", "Browser", "browser@1")
     send_create(fake, "browser@1", "BrowserContext", "context@1")
     send_create(fake, "context@1", "Page", "page@1")
@@ -17,6 +42,7 @@ function event_fixture()
     return (
         fake = fake,
         conn = conn,
+        requests = requests,
         browser = Playwright.lookup_object(conn, "browser@1"),
         context = Playwright.lookup_object(conn, "context@1"),
         page = Playwright.lookup_object(conn, "page@1"),
@@ -144,12 +170,20 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         @test timedwait(() -> subscription_count(f.conn) == 0, 5.0) === :ok
         @test on_page.closed
         @test on_context.closed
-        @test Base.n_avail(on_page.channel) == 0
+        # Detached, but NOT drained — see close_subscriptions_locked. The
+        # connection has dropped its reference, which is what bounds the
+        # buffer; emptying it here would discard a `close` event that arrived
+        # in the same breath as the dispose.
+        @test !haskey(f.conn.subscriptions, "page@1")
         close(f.conn)
     end
 
     @testset "a dropped page does not keep its backlog alive" begin
         # D1a: buffers are unbounded, so an owner going away has to drop them.
+        # "Drop" means the *connection* lets go — that is what makes the
+        # backlog collectable. The buffer itself stays readable for whoever
+        # still holds the handle, and dies with it; draining eagerly here would
+        # destroy a `close` payload that landed just before the dispose.
         f = event_fixture()
         sub = Playwright.subscribe(f.page, "console")
         for i = 1:100
@@ -159,8 +193,40 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
 
         send_dispose(f.fake, "page@1")
         @test timedwait(() -> sub.closed, 5.0) === :ok
-        @test Base.n_avail(sub.channel) == 0
         @test subscription_count(f.conn) == 0
+        @test !haskey(f.conn.subscriptions, "page@1")
+        # ...and an explicit close still empties it, as it always did.
+        close(sub)
+        @test Base.n_avail(sub.channel) == 0
+        close(f.conn)
+    end
+
+    @testset "a wait on a closed owner gives up at once, not at the timeout" begin
+        f = event_fixture()
+        sub = Playwright.subscribe(f.page, "console")
+        send_dispose(f.fake, "page@1")
+        @test timedwait(() -> sub.closed, 5.0) === :ok
+        elapsed = @elapsed @test_throws Playwright.TargetClosedError Playwright.take_event!(
+            sub,
+            :console,
+            30_000,
+            nothing,
+        )
+        @test elapsed < 5.0
+        close(f.conn)
+    end
+
+    @testset "a buffered payload survives the dispose that follows it" begin
+        # The `:close` case in miniature: the driver emits the event and then
+        # disposes the object, so anything already buffered must still be
+        # readable afterwards.
+        f = event_fixture()
+        sub = Playwright.subscribe(f.page, "console")
+        send_event(f.fake, "page@1", "console", Dict("text" => "last words"))
+        @test timedwait(() -> Base.n_avail(sub.channel) == 1, 5.0) === :ok
+        send_dispose(f.fake, "page@1")
+        @test timedwait(() -> sub.closed, 5.0) === :ok
+        @test Playwright.take_event!(sub, :console, 1_000, nothing)["text"] == "last words"
         close(f.conn)
     end
 
@@ -189,5 +255,388 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
 
         close(a.conn)
         close(b.conn)
+    end
+end
+
+# --- T4: the user-facing surface over the T3 registry ----------------------
+#
+# Still hermetic: canned traces prove the name mapping, payload mapping,
+# predicate filtering and lifetime. Only the things that need a real browser
+# (popup timing, a synchronously-fired console message) go to the smoke suite.
+
+@testset "expect_event / wait_for_event" begin
+    @testset "an event fired inside the body is caught, not missed" begin
+        # The whole reason expect_event takes a do-block: subscribing must
+        # happen before the body runs, or an event the body triggers
+        # synchronously is gone before anyone is listening (SC 6).
+        f = event_fixture()
+        msg = expect_event(f.context, :console) do
+            send_event(
+                f.fake,
+                "context@1",
+                "console",
+                Dict("type" => "log", "text" => "shouted"),
+            )
+        end
+        @test msg isa Playwright.ConsoleMessage
+        @test msg.text == "shouted"
+        close(f.conn)
+    end
+
+    @testset "the block's own return value is not what comes back" begin
+        f = event_fixture()
+        got = expect_event(f.context, :console) do
+            send_event(f.fake, "context@1", "console", Dict("text" => "x"))
+            :block_value
+        end
+        @test got isa Playwright.ConsoleMessage
+        close(f.conn)
+    end
+
+    @testset "event names accept Symbol, wire spelling and String" begin
+        for name in (:console, :Console, "console")
+            f = event_fixture()
+            msg = expect_event(f.context, name) do
+                send_event(f.fake, "context@1", "console", Dict("text" => "hi"))
+            end
+            @test msg.text == "hi"
+            close(f.conn)
+        end
+        # camelCase wire spellings normalise to the same event
+        f = event_fixture()
+        send_create(f.fake, "page@1", "Frame", "frame@9")
+        for name in (:frameattached, :frameAttached, "frameAttached")
+            got = expect_event(f.page, name) do
+                send_event(
+                    f.fake,
+                    "page@1",
+                    "frameAttached",
+                    Dict("frame" => Dict("guid" => "frame@9")),
+                )
+            end
+            @test got isa Playwright.Frame
+        end
+        close(f.conn)
+    end
+
+    @testset "payloads arrive as the milestone's own types" begin
+        f = event_fixture()
+
+        # :page hands back a Page, resolved through the registry
+        popup = expect_event(f.context, :page) do
+            send_event(f.fake, "context@1", "page", Dict("page" => Dict("guid" => "page@2")))
+        end
+        @test popup === f.page2
+
+        # :close on a page hands back the page itself
+        closed = expect_event(f.page, :close) do
+            send_event(f.fake, "page@1", "close")
+        end
+        @test closed === f.page
+
+        # :pageerror hands back a PageError
+        err = expect_event(f.context, :pageerror) do
+            send_event(
+                f.fake,
+                "context@1",
+                "pageError",
+                # Shape probed off the live driver: the SerializedError sits
+                # one level deeper than in the buffered `page_errors` getter.
+                Dict(
+                    "error" => Dict(
+                        "error" => Dict("message" => "boom", "name" => "TypeError"),
+                    ),
+                    "page" => Dict("guid" => "page@1"),
+                ),
+            )
+        end
+        @test err isa Playwright.PageError
+        @test err.message == "boom"
+        @test err.name == "TypeError"
+        close(f.conn)
+    end
+
+    @testset "a console payload carries type, text and location" begin
+        f = event_fixture()
+        msg = expect_event(f.context, :console) do
+            send_event(
+                f.fake,
+                "context@1",
+                "console",
+                Dict(
+                    "type" => "error",
+                    "text" => "bad",
+                    "timestamp" => 1234.0,
+                    "location" => Dict(
+                        "url" => "http://x/a.js",
+                        "lineNumber" => 7,
+                        "columnNumber" => 3,
+                    ),
+                ),
+            )
+        end
+        @test msg.type == "error"
+        @test msg.text == "bad"
+        @test msg.location.url == "http://x/a.js"
+        @test msg.location.line == 7
+        @test msg.location.column == 3
+        @test msg.timestamp == 1234.0
+        close(f.conn)
+    end
+
+    @testset "opt-in events tell the driver to start and stop sending them" begin
+        # `console` is silent until the client asks for it
+        # (browserContext.yml:264). Subscribing to the buffer alone buys a
+        # 30 s wait and nothing else, so the enable has to reach the wire.
+        f = event_fixture()
+        expect_event(f.context, :console) do
+            send_event(f.fake, "context@1", "console", Dict("text" => "x"))
+        end
+        updates = [
+            r for r in f.requests if
+            get(r, "method", "") == "updateSubscription" && r["guid"] == "context@1"
+        ]
+        @test length(updates) == 2
+        @test updates[1]["params"]["event"] == "console"
+        @test updates[1]["params"]["enabled"] == true
+        @test updates[2]["params"]["enabled"] == false
+        close(f.conn)
+    end
+
+    @testset "an event that needs no opt-in does not send one" begin
+        f = event_fixture()
+        expect_event(f.context, :page) do
+            send_event(
+                f.fake,
+                "context@1",
+                "page",
+                Dict("page" => Dict("guid" => "page@2")),
+            )
+        end
+        @test isempty([
+            r for r in f.requests if get(r, "method", "") == "updateSubscription"
+        ])
+        close(f.conn)
+    end
+
+    @testset "nested subscriptions do not switch each other off" begin
+        # Ref-counting: the inner block finishing must not disable the event
+        # the outer block is still waiting on.
+        f = event_fixture()
+        outer = with_events(f.context, :console) do _stream
+            expect_event(f.context, :console) do
+                send_event(f.fake, "context@1", "console", Dict("text" => "inner"))
+            end
+            # The inner block has closed; the driver must still be sending.
+            disables = [
+                r for
+                r in f.requests if get(r, "method", "") == "updateSubscription" &&
+                r["params"]["enabled"] == false
+            ]
+            @test isempty(disables)
+            :ok
+        end
+        @test outer === :ok
+        # ...and once the outer block ends, the last one out turns it off.
+        disables = [
+            r for r in f.requests if get(r, "method", "") == "updateSubscription" &&
+            r["params"]["enabled"] == false
+        ]
+        @test length(disables) == 1
+        close(f.conn)
+    end
+
+    @testset "a predicate skips events that do not match" begin
+        f = event_fixture()
+        msg = expect_event(f.context, :console; predicate = m -> m.text == "second") do
+            send_event(f.fake, "context@1", "console", Dict("text" => "first"))
+            send_event(f.fake, "context@1", "console", Dict("text" => "second"))
+        end
+        @test msg.text == "second"
+        close(f.conn)
+    end
+
+    @testset "a wait that never matches raises TimeoutError" begin
+        f = event_fixture()
+        @test_throws Playwright.TimeoutError expect_event(
+            f.context,
+            :console;
+            timeout = 200,
+        ) do
+        end
+        # ...and the message says which event gave up
+        try
+            expect_event(f.context, :console; timeout = 200) do
+            end
+        catch e
+            @test occursin("console", e.message)
+        end
+        close(f.conn)
+    end
+
+    @testset "the timeout comes from the cascade when none is given" begin
+        f = event_fixture()
+        set_default_timeout!(f.context, 200)
+        elapsed = @elapsed @test_throws Playwright.TimeoutError expect_event(
+            f.context,
+            :console,
+        ) do
+        end
+        @test elapsed < 5.0
+        close(f.conn)
+    end
+
+    @testset "an unsupported event names itself and says it is deferred" begin
+        f = event_fixture()
+        for bad in (:request, :response, :download, :dialog, :websocket)
+            err = try
+                expect_event(f.context, bad) do
+                end
+                nothing
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            @test occursin(String(bad), lowercase(err.msg))
+            @test occursin("deferred", lowercase(err.msg))
+        end
+        # An event that simply does not exist is also an ArgumentError, but
+        # must not claim to be deferred — it is a typo, not a roadmap entry.
+        err = try
+            expect_event(f.context, :not_an_event) do
+            end
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test !occursin("deferred", lowercase(err.msg))
+        close(f.conn)
+    end
+
+    @testset "an event on the wrong owner type is rejected" begin
+        f = event_fixture()
+        # :console lives on the context, not the page
+        @test_throws ArgumentError expect_event(f.page, :console) do
+        end
+        close(f.conn)
+    end
+
+    @testset "the registry is empty after the block, however it ends" begin
+        f = event_fixture()
+        @test subscription_count(f.conn) == 0
+
+        expect_event(f.context, :console) do
+            send_event(f.fake, "context@1", "console", Dict("text" => "x"))
+        end
+        @test subscription_count(f.conn) == 0
+
+        # ...after a timeout
+        try
+            expect_event(f.context, :console; timeout = 100) do
+            end
+        catch
+        end
+        @test subscription_count(f.conn) == 0
+
+        # ...and after the body throws, which must propagate the body's error
+        # rather than a timeout.
+        @test_throws ErrorException expect_event(f.context, :console) do
+            error("body blew up")
+        end
+        @test subscription_count(f.conn) == 0
+        close(f.conn)
+    end
+
+    @testset "wait_for_event waits for something already in flight" begin
+        f = event_fixture()
+        sub_ready = Ref(false)
+        waiter = @async wait_for_event(f.context, :console; timeout = 5_000)
+        @test timedwait(() -> subscription_count(f.conn) == 1, 5.0) === :ok
+        send_event(f.fake, "context@1", "console", Dict("text" => "later"))
+        @test fetch(waiter).text == "later"
+        @test subscription_count(f.conn) == 0
+        close(f.conn)
+    end
+
+    @testset "with_events collects every event in the block" begin
+        f = event_fixture()
+        collected = with_events(f.context, :console) do events
+            for i = 1:5
+                send_event(f.fake, "context@1", "console", Dict("text" => "m$i"))
+            end
+            # The buffer is unbounded, so nothing is dropped while we wait.
+            # `length` peeks; `pending_events` drains, so polling on the latter
+            # would eat the very events it is waiting for.
+            @test timedwait(() -> length(events) == 5, 5.0) === :ok
+            pending_events(events)
+        end
+        @test [m.text for m in collected] == ["m1", "m2", "m3", "m4", "m5"]
+        @test subscription_count(f.conn) == 0
+        close(f.conn)
+    end
+
+    @testset "with_events closes its subscription even when the block throws" begin
+        f = event_fixture()
+        @test_throws ErrorException with_events(f.context, :console) do events
+            error("nope")
+        end
+        @test subscription_count(f.conn) == 0
+        close(f.conn)
+    end
+
+    @testset "next_event pulls one payload at a time" begin
+        f = event_fixture()
+        with_events(f.context, :console) do events
+            send_event(f.fake, "context@1", "console", Dict("text" => "a"))
+            send_event(f.fake, "context@1", "console", Dict("text" => "b"))
+            @test next_event(events; timeout = 5_000).text == "a"
+            @test next_event(events; timeout = 5_000).text == "b"
+            @test_throws Playwright.TimeoutError next_event(events; timeout = 100)
+        end
+        close(f.conn)
+    end
+
+    @testset "no event is dropped across a 5 000-message burst" begin
+        f = event_fixture()
+        with_events(f.context, :console) do events
+            for i = 1:5000
+                send_event(f.fake, "context@1", "console", Dict("text" => "m$i"))
+            end
+            @test timedwait(() -> length(events) == 5000, 60.0) === :ok
+            texts = [m.text for m in pending_events(events)]
+            @test texts[1] == "m1"
+            @test texts[end] == "m5000"
+        end
+        close(f.conn)
+    end
+
+    @testset "framedetached still reaches subscribers despite internal handling" begin
+        # dispatch intercepts frameDetached to prune the frame from the page.
+        # If that interception swallowed the event, a subscriber would never
+        # see it — and the payload must resolve before the frame is disposed.
+        f = event_fixture()
+        send_create(f.fake, "page@1", "Frame", "frame@7")
+        @test timedwait(
+            () -> Playwright.lookup_object(f.conn, "frame@7") !== nothing,
+            5.0,
+        ) === :ok
+        frame = Playwright.lookup_object(f.conn, "frame@7")
+
+        got = expect_event(f.page, :framedetached) do
+            send_event(
+                f.fake,
+                "page@1",
+                "frameDetached",
+                Dict("frame" => Dict("guid" => "frame@7")),
+            )
+        end
+        @test got === frame
+        # ...and the internal handling still happened
+        @test timedwait(
+            () -> Playwright.lookup_object(f.conn, "frame@7") === nothing,
+            5.0,
+        ) === :ok
+        close(f.conn)
     end
 end

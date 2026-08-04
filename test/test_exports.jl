@@ -19,6 +19,13 @@
         :clear_page_errors,
         :set_default_timeout!,
         :set_default_navigation_timeout!,
+        # T4: the event surface
+        :EventStream,
+        :expect_event,
+        :wait_for_event,
+        :with_events,
+        :next_event,
+        :pending_events,
         :click,
         :console_messages,
         :dispose,

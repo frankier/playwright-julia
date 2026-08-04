@@ -34,6 +34,9 @@ mutable struct Connection
     settings_parents::Dict{String,String}
     timeouts::Dict{String,Any}                     # guid → timeout settings (timeouts.jl)
     subscriptions::Dict{String,Vector}              # guid → subscriptions (api/events.jl)
+    # (owner guid, wire event) → how many live subscriptions asked the driver to
+    # send this opt-in event. See update_subscription in api/events.jl.
+    event_optins::Dict{Tuple{String,String},Int}
     callbacks::Dict{Int,Channel{Any}}              # message id → reply slot
     last_id::Int
     closed_error::Union{PlaywrightError,Nothing}
@@ -48,6 +51,7 @@ mutable struct Connection
             Dict{String,String}(),
             Dict{String,Any}(),
             Dict{String,Vector}(),
+            Dict{Tuple{String,String},Int}(),
             Dict{Int,Channel{Any}}(),
             0,
             nothing,
@@ -162,6 +166,10 @@ function dispatch(conn::Connection, msg::AbstractDict)
     elseif method == "navigated"
         frame_navigated(conn, msg["guid"], msg["params"])
     elseif method == "frameDetached"
+        # Deliver before pruning, not instead of it: subscribers get the event
+        # too, and their payload mapper still finds the frame in the registry.
+        # Reversing these two lines makes `:framedetached` hand back nothing.
+        deliver_event(conn, msg["guid"], method, msg["params"])
         frame_detached(conn, msg["params"])
     else
         # Any other server event goes to whoever subscribed. An unknown guid or
@@ -242,6 +250,7 @@ function dispose_locked(conn::Connection, guid::String)
     # the life of the connection. Subscriptions matter most: their buffers are
     # unbounded, so a dropped owner must not keep its backlog alive (D1a).
     delete!(conn.timeouts, guid)
+    filter!(pair -> first(first(pair)) != guid, conn.event_optins)
     close_subscriptions_locked(conn, guid)
     return
 end

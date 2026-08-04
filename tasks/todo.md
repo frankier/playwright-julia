@@ -23,7 +23,7 @@ T2 ∥ T3 — disjoint files.
 
 ## Phase 2: Threading, then vertical slices
 - [x] T2b: Thread `resolve_timeout` through every `src/api/` call site (M) — deps: T2
-- [ ] T4: `expect_event` / `wait_for_event` / `with_events` + event smoke (M) — deps: T0, T2b, T3
+- [x] T4: `expect_event` / `wait_for_event` / `with_events` + event smoke (M) — deps: T0, T2b, T3
 - [ ] T5: `wait_for_selector` / `wait_for_function` (M) — deps: T2b
 - [ ] T6: `expect(...)` over `frame.expect` — probe first, then API (L) — deps: T2b
 - [ ] T7: Locator ergonomics — `evaluate(loc, …)`, public accessors (M) — deps: T2b

@@ -210,6 +210,34 @@ Critical path: T1 → T2 → T2b → T6 → T10.
   block.
 - **Files:** `src/api/events.jl`, `src/Playwright.jl`, `test/test_events.jl`,
   `test/fixtures/` (from T0).
+- **Findings (probed against the 1.61 driver, both engines):**
+  1. **`console` is opt-in.** The driver stays silent until the client sends
+     `updateSubscription` (`browserContext.yml:264`); subscribing to the buffer
+     alone buys a 30 s wait and nothing else. The opt-in set on a
+     `BrowserContext` is console/dialog/request/response/requestFinished/
+     requestFailed, of which only `console` is supported here. `page`, `close`,
+     `crash`, `pageError` and the frame events fire unconditionally. The
+     enable/disable pair is ref-counted per owner+event so nested blocks do not
+     switch each other off.
+  2. **`pageError` nests its payload one level deeper** than the buffered
+     `page_errors` getter: params are
+     `{error: {error: {message, name, stack}}, page, location}`.
+  3. **`frameDetached` was being swallowed.** `dispatch` intercepted it to prune
+     the frame and never forwarded it, so `:framedetached` could not fire. It
+     now delivers *before* pruning. Related: payload mapping moved to delivery
+     time rather than take time, because the frame is disposed moments after
+     the event and a later registry lookup finds nothing.
+  4. **D1a amended (agreed with the human reviewer).** The driver sends `close`
+     and then `__dispose__` back to back for the same page, so draining buffers
+     in `close_subscriptions_locked` destroyed the very event
+     `expect_event(page, :close)` was waiting for. Owner-dispose now **detaches
+     without draining**: the connection dropping its reference is what bounds
+     the buffer, anything still buffered lives only as long as the waiter's
+     handle, and the finalizer drains a leaked one. Explicit
+     `close(sub)`/`unsubscribe` still empties, and connection teardown
+     (`close_all_subscriptions`) still drains.
+  5. A wait on a closed-and-empty subscription raises `TargetClosedError` at
+     once rather than sitting out the timeout — the answer is already settled.
 
 ### T5 — `wait_for_selector` / `wait_for_function` (M) — deps: T2b — gap 1
 

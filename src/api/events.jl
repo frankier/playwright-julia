@@ -26,11 +26,30 @@ mutable struct Subscription
     event::String       # wire spelling, e.g. "console"
     channel::Channel{Any}
     closed::Bool
+    # `owner` is held strongly so a payload mapper has something to resolve
+    # against; the subscription dies with the owner anyway, so this adds no
+    # lifetime beyond the one the registry already gives it. `payload` maps
+    # raw event params to what the caller sees, and runs at delivery time —
+    # see the note on EventSpec for why not at take! time.
+    owner::ChannelOwner
+    payload::Function
 
-    function Subscription(owner::ChannelOwner, event::AbstractString)
+    function Subscription(
+        owner::ChannelOwner,
+        event::AbstractString,
+        payload::Function = (_owner, params) -> params,
+    )
         # Unbounded: put! from the reader task must never block, or a slow
         # consumer would stall the whole protocol connection.
-        sub = new(owner.connection, owner.guid, String(event), Channel{Any}(Inf), false)
+        sub = new(
+            owner.connection,
+            owner.guid,
+            String(event),
+            Channel{Any}(Inf),
+            false,
+            owner,
+            payload,
+        )
         # Last-resort net for a handle the user leaked, not the mechanism the
         # design relies on: the do-block forms and the owner-close cascade are.
         #
@@ -53,8 +72,12 @@ Attach an unbounded buffer to `event` on `owner` (a `Page`, `BrowserContext`,
 The caller owns the returned handle and **must** `close` it. Prefer the
 do-block forms, which close it for you even when the body throws.
 """
-function subscribe(owner::ChannelOwner, event::AbstractString)
-    sub = Subscription(owner, event)
+function subscribe(
+    owner::ChannelOwner,
+    event::AbstractString,
+    payload::Function = (_owner, params) -> params,
+)
+    sub = Subscription(owner, event, payload)
     conn = owner.connection
     lock(conn.lock) do
         push!(get!(Vector{Subscription}, conn.subscriptions, owner.guid), sub)
@@ -125,9 +148,15 @@ function deliver_event(
         # a channel nobody holds — harmless, and cheaper than holding the
         # connection lock across the put!.
         try
-            put!(sub.channel, params)
+            # Mapping here rather than at take! time is what lets a payload
+            # outlive its wire reference: `frameDetached`'s frame is disposed
+            # immediately after this event, so a later lookup would find
+            # nothing. The mapper only reads the object registry — no user code
+            # runs on the reader task (world age).
+            put!(sub.channel, sub.payload(sub.owner, params))
         catch
-            # Channel closed under us; dispatch to a dead subscription is a
+            # Channel closed under us, or a payload that would not map; either
+            # way dispatch must not die. Dispatch to a dead subscription is a
             # no-op by contract, never an error.
         end
     end
@@ -146,7 +175,17 @@ function close_subscriptions_locked(conn::Connection, guid::AbstractString)
     subs === nothing && return nothing
     for sub in subs
         sub.closed = true
-        drain!(sub.channel)
+        # Deliberately detaches WITHOUT draining, unlike `close(sub)`.
+        #
+        # The driver sends `close` and then immediately `__dispose__` for the
+        # same page, so draining here would throw away the very event a
+        # `expect_event(page, :close)` block is sitting waiting for — verified
+        # against both engines. Leak-safety does not depend on draining: what
+        # bounds the buffer is that the connection has just dropped its
+        # reference (`pop!` above), so anything still buffered lives only as
+        # long as the handle the waiter holds, and the finalizer drains it if
+        # that handle is leaked. Explicit `close(sub)`/`unsubscribe` still
+        # empties, because there the caller has said they are done reading.
     end
     return nothing
 end
@@ -163,4 +202,383 @@ function close_all_subscriptions(conn::Connection)
         drain!(sub.channel)
     end
     return nothing
+end
+
+# --- The user-facing surface ----------------------------------------------
+#
+# Everything above is plumbing; this is what callers touch. Two decisions shape
+# it:
+#
+# * The do-block form is primary. Subscribing has to happen *before* the action
+#   that triggers the event, or an event fired synchronously inside that action
+#   is gone before anyone is listening. Taking the action as a block is the only
+#   shape that makes that ordering impossible to get wrong.
+# * Only events whose payload is useful with the types this milestone ships are
+#   supported. Handing back a bare `RemoteObject` for `:request` would look like
+#   support while giving the caller something they cannot read a URL off, so
+#   those raise instead — naming the event and saying it is deferred.
+
+"""
+Payload mapping for one supported event: its wire spelling and how to turn the
+event's params into something worth handing a caller.
+
+Mapping runs on the reader task at delivery time, not when the payload is
+taken. That matters for `frameDetached`, whose frame is disposed moments after
+the event: resolving it later would find nothing in the registry.
+"""
+struct EventSpec
+    wire::String
+    payload::Function   # (owner, params) -> user-facing value
+    # Some events are opt-in: the driver stays silent until the client asks for
+    # them with `updateSubscription`, so subscribing to the buffer alone gets
+    # you a 30 s wait and nothing else. Probed against the 1.61 driver — on a
+    # BrowserContext the opt-in set is console/dialog/request/response/
+    # requestFinished/requestFailed (`browserContext.yml:264`), of which only
+    # `console` is supported here. `page`, `close`, `crash`, `pageError` and
+    # the frame events fire unconditionally.
+    opt_in::Bool
+end
+
+EventSpec(wire, payload) = EventSpec(wire, payload, false)
+
+# The owner itself, for events whose payload is "this thing, and it happened".
+owner_payload(owner, _params) = owner
+
+channel_payload(field, T) =
+    (owner, params) -> begin
+        ref = get(params, field, nothing)
+        obj = ref === nothing ? nothing : from_channel(owner.connection, ref)
+        obj isa T || throw(
+            DriverError("event payload `$field` did not resolve to a $(nameof(T))"),
+        )
+        return obj
+    end
+
+"Build a `ConsoleMessage` from console event params — same mixin the buffered getter reads."
+console_message(params) = ConsoleMessage(
+    get(params, "type", ""),
+    get(params, "text", ""),
+    source_location(get(params, "location", nothing)),
+    Float64(get(params, "timestamp", 0)),
+)
+
+const PAGE_EVENTS = Dict{Symbol,EventSpec}(
+    :close => EventSpec("close", owner_payload),
+    :crash => EventSpec("crash", owner_payload),
+    :frameattached => EventSpec("frameAttached", channel_payload("frame", Frame)),
+    :framedetached => EventSpec("frameDetached", channel_payload("frame", Frame)),
+)
+
+const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
+    :close => EventSpec("close", owner_payload),
+    :page => EventSpec("page", channel_payload("page", Page)),
+    :console => EventSpec("console", (_owner, params) -> console_message(params), true),
+    # The event nests its SerializedError one level deeper than the buffered
+    # getter does: params is {error: {error: {message, name, stack}}, page,
+    # location}, so `page_error` gets the inner object, not the whole params.
+    :pageerror => EventSpec(
+        "pageError",
+        (_owner, params) -> page_error(get(params, "error", params)),
+    ),
+)
+
+# Events the driver really does emit, whose wrapper types this milestone does
+# not ship. Named separately so the error can say "deferred" rather than
+# "no such event" — the difference between a roadmap entry and a typo.
+const DEFERRED_EVENTS = Dict(
+    :request => "Request has no hand-written accessors yet",
+    :response => "Response has no hand-written accessors yet",
+    :requestfailed => "Request has no hand-written accessors yet",
+    :requestfinished => "Request has no hand-written accessors yet",
+    :download => "Artifact is not wrapped yet",
+    :dialog => "Dialog is not wrapped yet",
+    :filechooser => "no file-chooser wrapper yet",
+    :worker => "Worker is not wrapped yet",
+    :websocket => "WebSocket is not wrapped yet",
+    :route => "Route is not wrapped yet",
+    :bindingcall => "BindingCall is not wrapped yet",
+)
+
+events_for(::Page) = PAGE_EVENTS
+events_for(::BrowserContext) = CONTEXT_EVENTS
+events_for(owner::ChannelOwner) = Dict{Symbol,EventSpec}()
+
+# `:frameAttached`, `:frameattached` and `"frameAttached"` are the same event.
+# Case is the only thing that differs between the wire spelling and the natural
+# Julia one, so folding it is the whole of the normalisation.
+normalize_event(event) = Symbol(lowercase(String(event)))
+
+function event_spec(owner::ChannelOwner, event)
+    key = normalize_event(event)
+    table = events_for(owner)
+    spec = get(table, key, nothing)
+    spec === nothing || return spec
+
+    kind = nameof(typeof(owner))
+    if haskey(DEFERRED_EVENTS, key)
+        # It might be supported on this owner one day, or supported on another
+        # owner today; either way, say why rather than listing alternatives.
+        throw(
+            ArgumentError(
+                "event `:$key` is not supported yet — deferred: $(DEFERRED_EVENTS[key]). " *
+                "Supported on $kind: $(supported_list(table)).",
+            ),
+        )
+    end
+    throw(
+        ArgumentError(
+            "unknown event `:$key` for $kind. Supported: $(supported_list(table)).",
+        ),
+    )
+end
+
+supported_list(table) = join(sort!([":$k" for k in keys(table)]), ", ")
+
+"""
+    EventStream
+
+Live handle to the events of one kind on one owner, handed to a
+[`with_events`](@ref) block. Read from it with [`next_event`](@ref) (blocking,
+one at a time) or [`pending_events`](@ref) (everything buffered right now).
+
+The buffer is unbounded, so nothing that happens inside the block is dropped
+while you are not looking. It is closed when the block ends.
+"""
+struct EventStream
+    subscription::Subscription
+    event::Symbol
+end
+
+"""
+    length(stream::EventStream) -> Int
+
+How many events are buffered right now, without consuming any. This is the
+one to poll on — `pending_events` drains, so it cannot be used to wait for a
+count to be reached.
+
+```julia
+timedwait(() -> length(stream) >= 3, 5.0)
+```
+"""
+Base.length(stream::EventStream) = Base.n_avail(stream.subscription.channel)
+
+"""
+    pending_events(stream::EventStream) -> Vector
+
+Everything buffered right now, in arrival order. **Drains** the stream: a
+second call returns only what arrived since the first, which is what makes it
+usable in a loop. Does not block and does not wait for more — to wait for a
+particular count, poll [`length`](@ref) first.
+"""
+function pending_events(stream::EventStream)
+    out = Any[]
+    while isready(stream.subscription.channel)
+        push!(out, take!(stream.subscription.channel))
+    end
+    return out
+end
+
+"""
+    next_event(stream::EventStream; timeout=nothing, predicate=nothing) -> payload
+
+Take the next event off `stream`, waiting up to `timeout` ms for one to arrive.
+Raises [`TimeoutError`](@ref) if none does.
+
+`predicate` skips payloads it returns `false` for; they are consumed, not
+requeued.
+"""
+next_event(stream::EventStream; timeout = nothing, predicate = nothing) =
+    take_event!(stream.subscription, stream.event, timeout, predicate)
+
+# The one wait loop behind expect_event / wait_for_event / next_event.
+#
+# Polls rather than blocking on `take!` because a predicate can reject a
+# payload, and because a blocking take cannot be given a deadline. The poll
+# interval only bounds how late a *match* is noticed, never whether events are
+# kept: the buffer is unbounded and filled by the reader task regardless.
+function take_event!(sub::Subscription, event::Symbol, timeout, predicate)
+    ms = resolve_event_timeout(sub, timeout)
+    deadline = ms == 0 ? nothing : time() + ms / 1_000
+    while true
+        while isready(sub.channel)
+            payload = take!(sub.channel)
+            predicate === nothing && return payload
+            predicate(payload) && return payload
+        end
+        # The owner went away with nothing left in the buffer, so no event of
+        # this kind can ever arrive. Say that, rather than making the caller
+        # sit out a timeout for an answer that is already settled. Checked
+        # after the drain above, so a `:close` event that arrived alongside the
+        # dispose is still returned.
+        if sub.closed
+            throw(
+                TargetClosedError(
+                    "the target closed while waiting for event `:$event`";
+                    name = "TargetClosedError",
+                ),
+            )
+        end
+        if deadline !== nothing && time() >= deadline
+            throw(
+                TimeoutError(
+                    "timed out after $(ms)ms waiting for event `:$event`";
+                    name = "TimeoutError",
+                ),
+            )
+        end
+        sleep(0.005)
+    end
+end
+
+# A Subscription holds a guid, not the owner, so the cascade is resolved through
+# whatever object that guid still refers to. A disposed owner leaves nothing to
+# inherit from, which correctly falls back to the package default.
+function resolve_event_timeout(sub::Subscription, timeout)
+    timeout === nothing || return Int(timeout)
+    owner = lookup_object(sub.connection, sub.guid)
+    return owner === nothing ? DEFAULT_TIMEOUT : resolve_timeout(owner, nothing)
+end
+
+"""
+    expect_event(f, target, event; timeout=nothing, predicate=nothing) -> payload
+
+Run `f()` and return the first `event` on `target` that it produces.
+
+The subscription is attached **before** `f` runs, so an event the body fires
+synchronously is still caught — which is why this takes a block rather than
+letting you subscribe and act in two statements:
+
+```julia
+popup = expect_event(ctx, :page) do
+    click(locator(page, "#open-popup"))
+end
+title(popup)
+```
+
+`f`'s own return value is discarded; the event payload is what comes back. An
+exception from `f` propagates unchanged, and the subscription is released
+either way.
+
+`predicate` filters payloads — the first one it accepts is returned. `timeout`
+is in milliseconds and defaults to the [`set_default_timeout!`](@ref) cascade;
+[`TimeoutError`](@ref) is raised if no matching event arrives.
+
+Supported events, by owner:
+
+| Owner | Event | Payload |
+|---|---|---|
+| `Page` | `:close`, `:crash` | the `Page` |
+| `Page` | `:frameattached`, `:framedetached` | [`Frame`](@ref) |
+| `BrowserContext` | `:page` | [`Page`](@ref) — this is how you catch a popup |
+| `BrowserContext` | `:close` | the `BrowserContext` |
+| `BrowserContext` | `:console` | [`ConsoleMessage`](@ref) |
+| `BrowserContext` | `:pageerror` | [`PageError`](@ref) |
+
+Anything else raises `ArgumentError`. Network events (`:request`, `:response`,
+…) and `:dialog`, `:download` and friends are deferred rather than designed
+away — their payload types have no accessors yet.
+
+See also [`wait_for_event`](@ref) and [`with_events`](@ref).
+"""
+function expect_event(
+    f::Function,
+    target::ChannelOwner,
+    event;
+    timeout = nothing,
+    predicate = nothing,
+)
+    spec = event_spec(target, event)
+    key = normalize_event(event)
+    sub = subscribe_spec(target, spec)
+    try
+        f()
+        return take_event!(sub, key, timeout, predicate)
+    finally
+        release_spec(target, spec, sub)
+    end
+end
+
+# Subscribe and, for opt-in events, tell the driver to start sending them.
+#
+# The enable/disable pair is ref-counted per owner+event: two overlapping
+# `expect_event(ctx, :console)` blocks must not have the inner one switch the
+# outer one's events off when it finishes.
+function subscribe_spec(target::ChannelOwner, spec::EventSpec)
+    spec.opt_in && update_subscription(target, spec.wire, true)
+    return subscribe(target, spec.wire, spec.payload)
+end
+
+function release_spec(target::ChannelOwner, spec::EventSpec, sub::Subscription)
+    close(sub)
+    spec.opt_in && update_subscription(target, spec.wire, false)
+    return nothing
+end
+
+function update_subscription(target::ChannelOwner, event::AbstractString, enabled::Bool)
+    conn = target.connection
+    key = (target.guid, String(event))
+    send = lock(conn.lock) do
+        n = get(conn.event_optins, key, 0)
+        n = enabled ? n + 1 : max(0, n - 1)
+        n == 0 ? delete!(conn.event_optins, key) : (conn.event_optins[key] = n)
+        # Only the 0↔1 transitions reach the driver.
+        enabled ? n == 1 : n == 0
+    end
+    send || return nothing
+    try
+        raw_update_subscription(target, event, enabled)
+    catch e
+        # Disabling an event on an owner that has already closed is not a
+        # failure worth surfacing — the subscription is gone either way.
+        enabled && rethrow()
+    end
+    return nothing
+end
+
+raw_update_subscription(ctx::BrowserContext, event, enabled) =
+    _browser_context_update_subscription(ctx; event = String(event), enabled)
+raw_update_subscription(page::Page, event, enabled) =
+    _page_update_subscription(page; event = String(event), enabled)
+
+"""
+    wait_for_event(target, event; timeout=nothing, predicate=nothing) -> payload
+
+Wait for the next `event` on `target` without running anything first.
+
+Use this only when whatever triggers the event is already in flight — a page
+closing on its own, say. When *you* trigger it, use [`expect_event`](@ref):
+subscribing after the trigger is a race this cannot protect you from.
+
+Same events, payloads, `predicate` and `timeout` as [`expect_event`](@ref).
+"""
+wait_for_event(target::ChannelOwner, event; timeout = nothing, predicate = nothing) =
+    expect_event(() -> nothing, target, event; timeout, predicate)
+
+"""
+    with_events(f, target, event) -> f's return value
+
+Run `f(stream)` with a live [`EventStream`](@ref) of every `event` on `target`,
+for collecting several events rather than waiting for one:
+
+```julia
+errors = with_events(ctx, :pageerror) do stream
+    click(locator(page, "#break-everything"))
+    sleep(0.5)
+    pending_events(stream)
+end
+```
+
+The buffer is unbounded and attached before `f` runs, so nothing that happens
+inside the block is missed. It is released when the block ends, however it
+ends. Read the stream with [`next_event`](@ref) or [`pending_events`](@ref).
+"""
+function with_events(f::Function, target::ChannelOwner, event)
+    spec = event_spec(target, event)
+    sub = subscribe_spec(target, spec)
+    stream = EventStream(sub, normalize_event(event))
+    try
+        return f(stream)
+    finally
+        release_spec(target, spec, sub)
+    end
 end
