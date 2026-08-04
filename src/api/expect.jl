@@ -86,6 +86,57 @@ const MATCHERS = Dict{Symbol,Any}(
     ),
 )
 
+# Document-level matchers (D2). Same protocol command, same table shape — the
+# only difference is what they run against.
+#
+# The selector for these is the **empty string**, which is the one thing here
+# that could not be guessed: probed on both engines (T1, tasks/m4-probe.md),
+# `":root"` and `"html"` both fail, and they fail with the same generic "Expect
+# failed" a real mismatch gives. Hence a closed table here too.
+const DOCUMENT_MATCHERS = Dict{Symbol,Any}(
+    :to_have_title => (
+        expression = "to.have.title",
+        params = v -> (; expectedText = [expected_text(v)]),
+    ),
+    :to_have_url => (
+        expression = "to.have.url",
+        params = v -> (; expectedText = [expected_text(v)]),
+    ),
+)
+
+const DOCUMENT_SELECTOR = ""
+
+matcher_names(table) = join(sort!([":$k" for k in keys(table)]), ", ")
+
+# Matchers are partitioned by target, and a matcher used on the wrong one is an
+# ArgumentError naming the target that *would* work. Sent to the driver it
+# would come back as the same generic failure a real mismatch produces, so the
+# mistake has to be caught here or it masquerades as a failing assertion.
+function lookup_matcher(
+    table,
+    other,
+    name::Symbol,
+    this_target::String,
+    other_target::String,
+)
+    spec = get(table, name, nothing)
+    spec === nothing || return spec
+    if haskey(other, name)
+        throw(
+            ArgumentError(
+                "`$name` asserts about $other_target, not $this_target. " *
+                "Available for $this_target: " *
+                matcher_names(table),
+            ),
+        )
+    end
+    throw(
+        ArgumentError(
+            "unknown matcher `$name`. Available for $this_target: " * matcher_names(table),
+        ),
+    )
+end
+
 # The boolean matchers take `true`/`false` rather than a value, and `false`
 # simply inverts the check — `to_be_visible = false` is `to.be.visible` negated,
 # which is what a reader expects it to mean.
@@ -142,12 +193,12 @@ function expect(loc::Locator; timeout::MaybeTimeout = nothing, matchers...)
     )
     ms = resolve_timeout(loc, timeout)
     for (name, raw) in pairs(matchers)
-        spec = get(MATCHERS, name, nothing)
-        spec === nothing && throw(
-            ArgumentError(
-                "unknown matcher `$name`. Available: " *
-                join(sort!([":$k" for k in keys(MATCHERS)]), ", "),
-            ),
+        spec = lookup_matcher(
+            MATCHERS,
+            DOCUMENT_MATCHERS,
+            name,
+            "a Locator",
+            "the whole page or frame",
         )
         expected, is_not = negated(raw)
         # `to_be_visible = false` reads as "assert it is not visible".
@@ -156,16 +207,92 @@ function expect(loc::Locator; timeout::MaybeTimeout = nothing, matchers...)
                 throw(ArgumentError("`$name` takes true or false, got $(repr(expected))"))
             is_not = is_not ⊻ !expected
         end
-        run_expect(loc, name, spec, expected, is_not, ms)
+        run_expect(
+            loc.frame,
+            loc.selector,
+            "locator($(repr(loc.selector)))",
+            name,
+            spec,
+            expected,
+            is_not,
+            ms,
+        )
     end
     return loc
 end
 
-function run_expect(loc::Locator, name::Symbol, spec, expected, is_not::Bool, ms::Int)
+"""
+    expect(page::Page; timeout=nothing, matchers...) -> page
+    expect(frame::Frame; timeout=nothing, matchers...) -> frame
+
+Assert something about the *document* rather than about an element, retrying in
+the browser until it holds or `timeout` runs out. Returns its target, so
+assertions chain; raises [`AssertionFailure`](@ref) on failure, carrying the
+value that was actually there.
+
+```julia
+expect(page; to_have_title = "M4")
+expect(page; to_have_url = r"m4\\.html\$")
+```
+
+| Matcher | Expects |
+|---|---|
+| `to_have_title` | the document title — a `String` or a `Regex` |
+| `to_have_url` | the current URL — a `String` or a `Regex` |
+
+`expect(page; …)` delegates to the page's main frame; pass a `Frame` directly
+to assert about an iframe's document instead.
+
+Matchers are partitioned by target: the element matchers
+(`to_have_text`, `to_be_visible`, …) belong to
+[`expect(::Locator)`](@ref) and passing one here is an `ArgumentError` naming
+the target that would work. That check is local on purpose — sent to the
+driver, a matcher against the wrong target fails with the same generic
+message a real mismatch produces.
+"""
+expect(page::Page; kw...) = (expect(main_frame(page); kw...); page)
+
+function expect(frame::Frame; timeout::MaybeTimeout = nothing, matchers...)
+    isempty(matchers) && throw(
+        ArgumentError(
+            "expect needs at least one matcher, e.g. " *
+            "`expect(page; to_have_title = \"…\")`. Available: " *
+            matcher_names(DOCUMENT_MATCHERS),
+        ),
+    )
+    ms = resolve_timeout(frame, timeout)
+    for (name, raw) in pairs(matchers)
+        spec = lookup_matcher(
+            DOCUMENT_MATCHERS,
+            MATCHERS,
+            name,
+            "the whole page or frame",
+            "a Locator",
+        )
+        expected, is_not = negated(raw)
+        run_expect(frame, DOCUMENT_SELECTOR, "the page", name, spec, expected, is_not, ms)
+    end
+    return frame
+end
+
+# Every assertion is one `frame.expect` against a frame and a selector — an
+# element matcher supplies the locator's, a document matcher the empty string.
+# `described` is what the failure message calls the target, since `locator("")`
+# would read like a bug in the package rather than a page-level assertion.
+function run_expect(
+    frame::Frame,
+    selector::AbstractString,
+    described::AbstractString,
+    name::Symbol,
+    spec,
+    expected,
+    is_not::Bool,
+    ms::Int,
+)
     try
         _frame_expect(
-            loc.frame;
-            selector = loc.selector,
+            frame;
+            selector,
             expression = spec.expression,
             isNot = is_not,
             timeout = ms,
@@ -173,7 +300,7 @@ function run_expect(loc::Locator, name::Symbol, spec, expected, is_not::Bool, ms
         )
     catch e
         e isa ExpectFailure || rethrow()
-        throw(assertion_failure(e, loc, name, expected, is_not, ms))
+        throw(assertion_failure(e, described, name, expected, is_not, ms))
     end
     return nothing
 end
@@ -182,7 +309,7 @@ end
 # reader is back to re-running the test by hand to find out what was there.
 function assertion_failure(
     e::ExpectFailure,
-    loc::Locator,
+    described::AbstractString,
     name::Symbol,
     expected,
     is_not::Bool,
@@ -192,7 +319,7 @@ function assertion_failure(
     custom = custom_error_message(e)
     want = is_not ? "not $(repr(expected))" : repr(expected)
 
-    lines = ["$name failed on locator($(repr(loc.selector)))", "  expected: $want"]
+    lines = ["$name failed on $described", "  expected: $want"]
     if custom !== nothing
         push!(lines, "  received: $custom")
     else

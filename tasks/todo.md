@@ -36,7 +36,7 @@ a browser-free session can start here.
 - [x] T5: tracing — `start_tracing`, `stop_tracing`, `with_tracing` (M) — A1,
       deps: T1, T4
 - [x] T6: video — `record_video` on `new_context`, `video(page)` (M) — A2, deps: T4
-- [ ] T8: `expect(::Page)` / `expect(::Frame)` (M) — B6, deps: T1
+- [x] T8: `expect(::Page)` / `expect(::Frame)` (M) — B6, deps: T1
 - [ ] T9: `with_page` + `report_diagnostics` + `artifacts_on` (M) — B4, deps: T3
 
 T7 → T4 → T5 → T6 share `src/api/artifacts.jl` and land one at a time; T7 goes

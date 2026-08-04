@@ -210,6 +210,38 @@ end
                     close(browser)
                 end
 
+                @testset "$engine: expect on the document (M4 T8, SC 6)" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m4.html")
+
+                    # m4.html loads as "M4 (loading)" and renames itself 300ms
+                    # later, so this can only pass by retrying driver-side.
+                    @test expect(page; to_have_title = "M4") === page
+                    @test evaluate(page, "() => window.__titleAt > window.__parsedAt")
+
+                    expect(page; to_have_url = r"m4\.html$")
+                    expect(page; to_have_url = "$base_url/m4.html")
+                    expect(page; to_have_title = Not("something else"))
+
+                    # A mismatch names what was actually there.
+                    err = try
+                        expect(page; to_have_title = "Not The Title", timeout = 1_000)
+                        nothing
+                    catch e
+                        e
+                    end
+                    @test err isa Playwright.AssertionFailure
+                    @test occursin("Not The Title", err.message)  # expected
+                    @test occursin("M4", err.message)             # received
+
+                    # And the wrong-target matcher is refused locally (SC 6).
+                    @test_throws ArgumentError expect(page; to_have_text = "M4")
+
+                    close(browser)
+                end
+
                 @testset "$engine: retry_until is the escape hatch" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)

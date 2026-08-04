@@ -275,6 +275,170 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
     end
 end
 
+# --- T8: document-level assertions (SPEC-M4.md B6, D2) --------------------
+#
+# The selector and expression strings are not guesses. Probed against the live
+# 1.61.1 driver on both engines (T1, tasks/m4-probe.md): the selector for a
+# document-level assertion is the **empty string**, and ":root" or "html" fail
+# with the same generic ExpectFailure a real mismatch produces.
+
+@testset "expect on a document (T8)" begin
+    @testset "to_have_title goes out with the probed selector and expression" begin
+        f = timeout_fixture()
+        set_default_timeout!(f.context, 2_000)
+
+        sent = waiting_request(f.fake, () -> expect(f.page; to_have_title = "M4"))
+        # It runs against the page's main frame...
+        @test sent["guid"] == "frame@1"
+        @test sent["method"] == "expect"
+        @test sent["params"]["expression"] == "to.have.title"
+        # ...with the empty selector. This is the probed value, and the one
+        # thing here that cannot be guessed from the yml.
+        @test sent["params"]["selector"] == ""
+        @test sent["params"]["expectedText"] == [Dict("string" => "M4")]
+        @test sent["params"]["isNot"] == false
+        @test sent["params"]["timeout"] == 2_000
+        close(f.fake.connection)
+    end
+
+    @testset "to_have_url does the same with its own expression" begin
+        f = timeout_fixture()
+        sent = waiting_request(
+            f.fake,
+            () -> expect(f.page; to_have_url = "https://example.com/x"),
+        )
+        @test sent["params"]["expression"] == "to.have.url"
+        @test sent["params"]["selector"] == ""
+        @test sent["params"]["expectedText"] == [Dict("string" => "https://example.com/x")]
+        close(f.fake.connection)
+    end
+
+    @testset "a Regex expectation works, as it does for locators" begin
+        f = timeout_fixture()
+        sent = waiting_request(f.fake, () -> expect(f.page; to_have_url = r"m4\.html$"))
+        expected = sent["params"]["expectedText"][1]
+        @test expected["regexSource"] == "m4\\.html\$"
+        @test !haskey(expected, "string")
+        close(f.fake.connection)
+    end
+
+    @testset "expect(::Frame) works directly, and on a child frame" begin
+        f = timeout_fixture()
+        sent = waiting_request(f.fake, () -> expect(f.childframe; to_have_title = "child"))
+        @test sent["guid"] == "childframe@1"
+        @test sent["params"]["selector"] == ""
+        close(f.fake.connection)
+    end
+
+    @testset "a passing assertion returns its target, so calls chain" begin
+        f = timeout_fixture()
+        task = @async expect(f.page; to_have_title = "M4")
+        msg = take!(f.fake.client_messages)
+        reply_ok(f.fake, msg["id"], Dict{String,Any}())
+        @test fetch(task) === f.page
+        close(f.fake.connection)
+    end
+
+    @testset "several matchers in one call are each checked" begin
+        f = timeout_fixture()
+        sent = Vector{Any}()
+        task = @async expect(f.page; to_have_title = "M4", to_have_url = r"m4")
+        for _ = 1:2
+            @test timedwait(() -> isready(f.fake.client_messages), 10.0) === :ok
+            msg = take!(f.fake.client_messages)
+            push!(sent, msg)
+            reply_ok(f.fake, msg["id"], Dict{String,Any}())
+        end
+        fetch(task)
+        @test Set(m["params"]["expression"] for m in sent) ==
+              Set(["to.have.title", "to.have.url"])
+        close(f.fake.connection)
+    end
+
+    @testset "a failure carries the received value and names the target" begin
+        f = timeout_fixture()
+        task = @async expect(f.page; to_have_title = "Wrong")
+        msg = take!(f.fake.client_messages)
+        expect_failure_reply(f.fake, msg["id"]; received = Dict("s" => "M4"))
+        err = try
+            fetch(task)
+            nothing
+        catch e
+            e isa TaskFailedException ? e.task.result : e
+        end
+        @test err isa Playwright.AssertionFailure
+        @test occursin("Wrong", err.message)          # expected
+        @test occursin("M4", err.message)             # received
+        @test occursin("to_have_title", err.message)  # which matcher
+        # ...and it says *page*, not locator("") — an empty selector in an
+        # error message reads like a bug in the package.
+        @test occursin("page", lowercase(err.message))
+        @test !occursin("locator(\"\")", err.message)
+        close(f.fake.connection)
+    end
+
+    @testset "matchers stay type-partitioned, both ways" begin
+        # SC 6. A document matcher on a Locator, or an element matcher on a
+        # Page, is a mistake worth catching here — sent to the driver it would
+        # come back as the same generic "Expect failed" a real mismatch gives.
+        f = timeout_fixture()
+        loc = Playwright.locator(f.frame, "h1")
+
+        err = try
+            expect(f.page; to_have_text = "nope")
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("to_have_text", err.msg)
+        # The message has to point at the right target, not merely refuse.
+        @test occursin("Locator", err.msg)
+        @test occursin("to_have_title", err.msg)   # ...and list what does work
+
+        err2 = try
+            expect(loc; to_have_title = "nope")
+            nothing
+        catch e
+            e
+        end
+        @test err2 isa ArgumentError
+        @test occursin("to_have_title", err2.msg)
+        @test occursin("page", lowercase(err2.msg))
+
+        # Nothing reached the driver in either direction.
+        @test !isready(f.fake.client_messages)
+        close(f.fake.connection)
+    end
+
+    @testset "an unknown matcher is refused, and lists the document matchers" begin
+        f = timeout_fixture()
+        err = try
+            expect(f.page; to_have_titel = "typo")
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("to_have_title", err.msg)
+        close(f.fake.connection)
+    end
+
+    @testset "expect with no matcher at all is refused" begin
+        f = timeout_fixture()
+        @test_throws ArgumentError expect(f.page)
+        close(f.fake.connection)
+    end
+
+    @testset "Not negates a document matcher too" begin
+        f = timeout_fixture()
+        sent = waiting_request(f.fake, () -> expect(f.page; to_have_title = Not("Wrong")))
+        @test sent["params"]["isNot"] == true
+        @test sent["params"]["expectedText"] == [Dict("string" => "Wrong")]
+        close(f.fake.connection)
+    end
+end
+
 # --- T2: retry_until's three knobs (SPEC-M4.md B1-B3, D5) -----------------
 #
 # All hermetic: the predicates are pure Julia, so none of this needs a driver.
