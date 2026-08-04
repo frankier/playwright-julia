@@ -22,6 +22,12 @@ const NO_TIMEOUTS = (action = nothing, navigation = nothing)
 "Owners that can carry a timeout setting."
 const TimeoutOwner = Union{Page,BrowserContext}
 
+# The type of every user-facing `timeout` keyword in src/api/. `nothing` is the
+# default and means "resolve the cascade"; an explicit number short-circuits it.
+# Spelling it once keeps a call site from quietly reverting to a literal
+# default, which is exactly the regression T2b exists to prevent.
+const MaybeTimeout = Union{Real,Nothing}
+
 function set_timeout_setting!(owner::TimeoutOwner, key::Symbol, ms::Integer)
     ms < 0 && throw(ArgumentError("timeout must be non-negative, got $ms"))
     conn = owner.connection
@@ -70,8 +76,14 @@ set_default_navigation_timeout!(target::TimeoutOwner, milliseconds::Integer) =
     set_timeout_setting!(target, :navigation, milliseconds)
 
 # Frames sit under their page and pages under their context, so one generic
-# walk up the parent chain covers the whole cascade without any type having to
-# know its own position in it.
+# walk up the chain covers the whole cascade without any type having to know
+# its own position in it.
+#
+# The chain is *not* quite the __create__ tree: a page's main frame is parented
+# to the browser context, so `conn.settings_parents` supplies the missing
+# frame → page hop and is consulted first. Without it every `locator(page, …)`
+# — which always resolves through the main frame — would silently skip any
+# `set_default_timeout!(page, …)`.
 function inherited_setting(obj::ChannelOwner, key::Symbol)
     conn = obj.connection
     lock(conn.lock) do
@@ -82,7 +94,8 @@ function inherited_setting(obj::ChannelOwner, key::Symbol)
                 value = getfield(setting, key)
                 value === nothing || return value
             end
-            parent = get(conn.parents, guid, nothing)
+            parent = get(conn.settings_parents, guid, nothing)
+            parent === nothing && (parent = get(conn.parents, guid, nothing))
             (parent === nothing || isempty(parent)) && return nothing
             guid = parent
         end

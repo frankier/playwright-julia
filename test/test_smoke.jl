@@ -111,6 +111,40 @@ tryrun(cmd) =
                     close(browser)
                 end
 
+                @testset "$browser_name: set_default_timeout! shortens a real miss" begin
+                    # SC 3. The point of the cascade is that a missing selector
+                    # fails in the time you asked for, not in 30 s. Measuring
+                    # the elapsed time is the only way to tell a resolved
+                    # timeout from a hardcoded one that happens to raise.
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    set_default_timeout!(ctx, 2_000)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/")
+
+                    missing_el = locator(page, "#definitely-not-here")
+                    elapsed = @elapsed @test_throws Playwright.TimeoutError text_content(
+                        missing_el,
+                    )
+                    @test 1.0 < elapsed < 10.0
+
+                    # A page-level setting overrides the context it inherits.
+                    set_default_timeout!(page, 500)
+                    quick = @elapsed @test_throws Playwright.TimeoutError text_content(
+                        missing_el,
+                    )
+                    @test quick < elapsed
+
+                    # ...and an explicit keyword still beats both.
+                    slower = @elapsed @test_throws Playwright.TimeoutError text_content(
+                        missing_el;
+                        timeout = 3_000,
+                    )
+                    @test slower > quick
+
+                    close(browser)
+                end
+
                 @testset "$browser_name: locators — text_content, click, fill" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)

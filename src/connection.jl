@@ -25,6 +25,13 @@ mutable struct Connection
     objects::Dict{String,ChannelOwner}
     children::Dict{String,Vector{String}}          # parent guid → child guids
     parents::Dict{String,String}                   # child guid → parent guid
+    # Main frame guid → its page's guid. The protocol parents a page's MAIN
+    # frame to the browser context, not to the page (only child frames hang off
+    # the page), so the __create__ tree alone walks straight past the page when
+    # inheriting a setting. This records the hop the protocol leaves out; it is
+    # deliberately separate from `parents`, which stays the protocol's own tree
+    # so the dispose cascade is unaffected.
+    settings_parents::Dict{String,String}
     timeouts::Dict{String,Any}                     # guid → timeout settings (timeouts.jl)
     subscriptions::Dict{String,Vector}              # guid → subscriptions (api/events.jl)
     callbacks::Dict{Int,Channel{Any}}              # message id → reply slot
@@ -37,6 +44,7 @@ mutable struct Connection
             transport,
             Dict{String,ChannelOwner}(),
             Dict{String,Vector{String}}(),
+            Dict{String,String}(),
             Dict{String,String}(),
             Dict{String,Any}(),
             Dict{String,Vector}(),
@@ -205,6 +213,10 @@ function create_remote_object(
         conn.objects[guid] = obj
         push!(get!(Vector{String}, conn.children, parent_guid), guid)
         conn.parents[guid] = String(parent_guid)
+        main = get(initializer, "mainFrame", nothing)
+        if type == "Page" && main isa AbstractDict && haskey(main, "guid")
+            conn.settings_parents[String(main["guid"])] = String(guid)
+        end
     end
     return obj
 end
@@ -221,6 +233,11 @@ function dispose_locked(conn::Connection, guid::String)
     end
     delete!(conn.objects, guid)
     delete!(conn.parents, guid)
+    # Both ends of the hop have to go: the frame's own entry, and any entry
+    # pointing at this guid when it is the page that just died. A stale entry
+    # would send the walk into a disposed page and lose the context's setting.
+    delete!(conn.settings_parents, guid)
+    filter!(pair -> last(pair) != guid, conn.settings_parents)
     # Side tables keyed by guid have to be pruned here too, or they grow for
     # the life of the connection. Subscriptions matter most: their buffers are
     # unbounded, so a dropped owner must not keep its backlog alive (D1a).

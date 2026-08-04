@@ -108,6 +108,12 @@ as_object(x) = Dict{String,Any}(String(k) => v for (k, v) in pairs(x))
 Launch a browser instance of `browser_type` (e.g. `pw.chromium`), waiting up
 to `timeout` ms for it to start.
 
+`timeout` here is the one timeout in the package that does **not** follow the
+[`set_default_timeout!`](@ref) cascade, and deliberately so: it bounds browser
+process startup, not an action on a page, and at launch time there is no page
+or context in existence to inherit a setting from. It keeps its own 180 s
+default because a cold browser start is far slower than any action.
+
 Every option below is optional and is omitted from the protocol message
 entirely when left unset, so the driver's own defaults apply:
 

@@ -138,6 +138,18 @@ Critical path: T1 → T2 → T2b → T6 → T10.
   missing selector fail in ≈2 s via `@elapsed` (SC 3).
 - **Files:** `src/api/navigation.jl`, `src/api/locators.jl`, `src/api/frames.jl`,
   `src/api/evaluate.jl`, `test/test_smoke.jl`.
+- **Finding (implementation):** T2's cascade was walking the `__create__` tree,
+  which does **not** contain a frame → page link for the frame that matters. The
+  driver parents a page's *main* frame to the **browser context** and sends it
+  *before* the page; only child frames (iframes) are parented to the page.
+  Verified on Chromium and Firefox alike. The effect was that
+  `set_default_timeout!(page, …)` was silently ignored by every
+  `locator(page, …)`, since page-level locators always resolve through the main
+  frame — the context's setting won instead. `test_timeouts.jl`'s fixture had
+  parented the main frame to the page and so hid this. Fixed with
+  `Connection.settings_parents`, a frame → page hop consulted before
+  `conn.parents`, kept separate from the protocol tree so the dispose cascade is
+  untouched, and pruned from both ends in `dispose_locked`.
 
 ### T3 — Event registry and subscription lifetime (L) — deps: T1, D1/D1a
 

@@ -99,45 +99,57 @@ Base.last(loc::Locator) = nth(loc, count(loc))
 # --- Content and state ----------------------------------------------------
 
 """
-    text_content(loc::Locator; timeout=30_000) -> Union{String,Nothing}
+    text_content(loc::Locator; timeout=nothing) -> Union{String,Nothing}
 
 The `textContent` of the matched element (`nothing` for elements without one).
 Includes text that is not rendered; see [`inner_text`](@ref) for what a user
 would actually see.
 """
-text_content(loc::Locator; timeout::Real = 30_000) =
-    _frame_text_content(loc.frame; selector = loc.selector, strict = loc.strict, timeout)
+text_content(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_text_content(
+    loc.frame;
+    selector = loc.selector,
+    strict = loc.strict,
+    timeout = resolve_timeout(loc, timeout),
+)
 
 """
-    inner_text(loc::Locator; timeout=30_000) -> String
+    inner_text(loc::Locator; timeout=nothing) -> String
 
 The `innerText` of the matched element: the *rendered* text, so hidden
 elements and collapsed whitespace are excluded. Contrast
 [`text_content`](@ref), which returns the raw text including hidden nodes.
 """
-inner_text(loc::Locator; timeout::Real = 30_000) =
-    _frame_inner_text(loc.frame; selector = loc.selector, strict = loc.strict, timeout)
+inner_text(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_inner_text(
+    loc.frame;
+    selector = loc.selector,
+    strict = loc.strict,
+    timeout = resolve_timeout(loc, timeout),
+)
 
 """
-    inner_html(loc::Locator; timeout=30_000) -> String
+    inner_html(loc::Locator; timeout=nothing) -> String
 
 The `innerHTML` of the matched element.
 """
-inner_html(loc::Locator; timeout::Real = 30_000) =
-    _frame_inner_html(loc.frame; selector = loc.selector, strict = loc.strict, timeout)
+inner_html(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_inner_html(
+    loc.frame;
+    selector = loc.selector,
+    strict = loc.strict,
+    timeout = resolve_timeout(loc, timeout),
+)
 
 """
-    get_attribute(loc::Locator, name; timeout=30_000) -> Union{String,Nothing}
+    get_attribute(loc::Locator, name; timeout=nothing) -> Union{String,Nothing}
 
 The matched element's `name` attribute, or `nothing` when it has none.
 """
-get_attribute(loc::Locator, name::AbstractString; timeout::Real = 30_000) =
+get_attribute(loc::Locator, name::AbstractString; timeout::MaybeTimeout = nothing) =
     _frame_get_attribute(
         loc.frame;
         selector = loc.selector,
         strict = loc.strict,
         name,
-        timeout,
+        timeout = resolve_timeout(loc, timeout),
     )
 
 """
@@ -150,54 +162,71 @@ is_visible(loc::Locator) =
     _frame_is_visible(loc.frame; selector = loc.selector, strict = loc.strict)
 
 """
-    is_checked(loc::Locator; timeout=30_000) -> Bool
+    is_checked(loc::Locator; timeout=nothing) -> Bool
 
 Whether the matched checkbox or radio input is checked.
 """
-is_checked(loc::Locator; timeout::Real = 30_000) =
-    _frame_is_checked(loc.frame; selector = loc.selector, strict = loc.strict, timeout)
+is_checked(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_is_checked(
+    loc.frame;
+    selector = loc.selector,
+    strict = loc.strict,
+    timeout = resolve_timeout(loc, timeout),
+)
 
 """
-    is_enabled(loc::Locator; timeout=30_000) -> Bool
+    is_enabled(loc::Locator; timeout=nothing) -> Bool
 
 Whether the matched element is enabled (not `disabled`).
 """
-is_enabled(loc::Locator; timeout::Real = 30_000) =
-    _frame_is_enabled(loc.frame; selector = loc.selector, strict = loc.strict, timeout)
+is_enabled(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_is_enabled(
+    loc.frame;
+    selector = loc.selector,
+    strict = loc.strict,
+    timeout = resolve_timeout(loc, timeout),
+)
 
 """
-    input_value(loc::Locator; timeout=30_000) -> String
+    input_value(loc::Locator; timeout=nothing) -> String
 
 Current value of the matched input, textarea or select element.
 """
-input_value(loc::Locator; timeout::Real = 30_000) =
-    _frame_input_value(loc.frame; selector = loc.selector, strict = loc.strict, timeout)
+input_value(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_input_value(
+    loc.frame;
+    selector = loc.selector,
+    strict = loc.strict,
+    timeout = resolve_timeout(loc, timeout),
+)
 
 # --- Actions --------------------------------------------------------------
 
 """
-    click(loc::Locator; timeout=30_000)
+    click(loc::Locator; timeout=nothing)
 
 Click the matched element, waiting for it to be actionable first.
 """
-click(loc::Locator; timeout::Real = 30_000) =
-    _frame_click(loc.frame; selector = loc.selector, strict = loc.strict, timeout)
-
-"""
-    fill(loc::Locator, value; timeout=30_000)
-
-Set the matched input/textarea's value to `value` (extends `Base.fill`).
-"""
-Base.fill(loc::Locator, value::AbstractString; timeout::Real = 30_000) = _frame_fill(
+click(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_click(
     loc.frame;
     selector = loc.selector,
     strict = loc.strict,
-    timeout,
-    value = String(value),
+    timeout = resolve_timeout(loc, timeout),
 )
 
 """
-    dispatch_event(loc::Locator, type, event_init=missing; timeout=30_000)
+    fill(loc::Locator, value; timeout=nothing)
+
+Set the matched input/textarea's value to `value` (extends `Base.fill`).
+"""
+Base.fill(loc::Locator, value::AbstractString; timeout::MaybeTimeout = nothing) =
+    _frame_fill(
+        loc.frame;
+        selector = loc.selector,
+        strict = loc.strict,
+        timeout = resolve_timeout(loc, timeout),
+        value = String(value),
+    )
+
+"""
+    dispatch_event(loc::Locator, type, event_init=missing; timeout=nothing)
 
 Dispatch a DOM event of `type` (`"input"`, `"change"`, `"click"`, …) on the
 matched element. `event_init` is serialized with the same mapping as
@@ -217,12 +246,12 @@ dispatch_event(
     loc::Locator,
     type::AbstractString,
     event_init = missing;
-    timeout::Real = 30_000,
+    timeout::MaybeTimeout = nothing,
 ) = _frame_dispatch_event(
     loc.frame;
     selector = loc.selector,
     strict = loc.strict,
     type,
     eventInit = serialized_argument(event_init),
-    timeout,
+    timeout = resolve_timeout(loc, timeout),
 )
