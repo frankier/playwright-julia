@@ -131,4 +131,144 @@
         @test Playwright.lookup_object(f.fake.connection, "page@2") !== nothing
         close(f.fake.connection)
     end
+
+    # --- T3: the postmortem readers are no-throw (SPEC-M4.md B5, D4) ------
+    #
+    # These live here rather than in a test_diagnostics.jl of their own
+    # because the thing under test *is* the closed-target behaviour, and
+    # close_page!/close_context! above are what reproduce it faithfully.
+    #
+    # B5 is the masked-failure bug: console_messages and page_errors are
+    # exactly what a `finally` block calls, and exactly when the page may
+    # already be gone. Throwing there replaces the caller's real failure with
+    # a less interesting one.
+
+    "A TargetClosedError exactly as the driver sends it."
+    target_closed_reply(fake, id) = driver_send(
+        fake,
+        Dict(
+            "id" => id,
+            "error" => Dict(
+                "error" => Dict(
+                    "message" => "Target page, context or browser has been closed",
+                    "name" => "TargetClosedError",
+                    "stack" => "",
+                ),
+            ),
+        ),
+    )
+
+    @testset "console_messages and page_errors are empty, not throwing, on a closed page" begin
+        # Note this must not even round-trip: these readers do not hop through
+        # main_frame, so on a disposed page there is nobody left to answer and
+        # a call that went out anyway would hang rather than throw. The guard
+        # is therefore *before* the send, not only a catch after it.
+        f = close_page!(timeout_fixture())
+        @test console_messages(f.page) == ConsoleMessage[]
+        @test page_errors(f.page) == PageError[]
+        # Nothing was sent.
+        @test !isready(f.fake.client_messages)
+        close(f.fake.connection)
+    end
+
+    @testset "...and on a closed context" begin
+        # SC 10's shape: close the context, then read. The frame is gone here
+        # too, which is the harder case.
+        f = close_context!(timeout_fixture())
+        @test isempty(console_messages(f.page))
+        @test isempty(page_errors(f.page))
+        close(f.fake.connection)
+    end
+
+    @testset "a page that closes mid-call is swallowed too" begin
+        # The race the guard alone cannot cover: the page was alive when the
+        # message went out and gone by the time the reply came back. This is
+        # the shape B5 actually reported from a real suite.
+        for reader in (console_messages, page_errors)
+            f = timeout_fixture()
+            task = @async reader(f.page)
+            msg = take!(f.fake.client_messages)
+            target_closed_reply(f.fake, msg["id"])
+            @test isempty(fetch(task))
+            close(f.fake.connection)
+        end
+    end
+
+    @testset "the silence is bounded to TargetClosedError" begin
+        # Deliberate silence is how masked failures start, so the swallow has
+        # to be narrow: any *other* driver error still propagates. A live page
+        # whose call fails for an unrelated reason must still say so.
+        for reader in (console_messages, page_errors)
+            f = timeout_fixture()
+            task = @async reader(f.page)
+            msg = take!(f.fake.client_messages)
+            driver_send(
+                f.fake,
+                Dict(
+                    "id" => msg["id"],
+                    "error" => Dict(
+                        "error" => Dict(
+                            "message" => "something else went wrong",
+                            "name" => "Error",
+                            "stack" => "Error: something else went wrong",
+                        ),
+                    ),
+                ),
+            )
+            err = try
+                fetch(task)
+                nothing
+            catch e
+                e isa TaskFailedException ? e.task.result : e
+            end
+            @test err isa Playwright.DriverError
+            @test !(err isa Playwright.TargetClosedError)
+            @test occursin("something else", err.message)
+            close(f.fake.connection)
+        end
+    end
+
+    @testset "a live page still reports what it has" begin
+        # The swallow must not have turned the readers into stubs.
+        f = timeout_fixture()
+        task = @async console_messages(f.page)
+        msg = take!(f.fake.client_messages)
+        reply_ok(
+            f.fake,
+            msg["id"],
+            Dict{String,Any}(
+                "messages" => [
+                    Dict(
+                        "type" => "log",
+                        "text" => "hello",
+                        "location" =>
+                            Dict("url" => "u", "lineNumber" => 1, "columnNumber" => 2),
+                        "timestamp" => 1.0,
+                    ),
+                ],
+            ),
+        )
+        msgs = fetch(task)
+        @test length(msgs) == 1
+        @test msgs[1].text == "hello"
+        close(f.fake.connection)
+    end
+
+    @testset "screenshot still throws on a closed target" begin
+        # Resolved open question 2: screenshot returns bytes, so it has no
+        # natural empty answer, and it is a real action rather than a buffer
+        # read. It keeps throwing; report_diagnostics (T9) catches for it.
+        f = timeout_fixture()
+        task = @async screenshot(f.page)
+        msg = take!(f.fake.client_messages)
+        target_closed_reply(f.fake, msg["id"])
+        err = try
+            fetch(task)
+            nothing
+        catch e
+            e isa TaskFailedException ? e.task.result : e
+        end
+        @test err isa Playwright.TargetClosedError
+        close(f.fake.connection)
+    end
 end

@@ -57,6 +57,37 @@ function source_location(raw)
     )
 end
 
+# D4: the postmortem readers never throw on a dead target.
+#
+# These run in `finally` blocks, which is exactly when the page may already be
+# gone — and a throw there replaces the caller's real failure with a less
+# interesting one (B5). "The page is closed" is not news to someone who is
+# already handling an error, so the answer is "nothing to report" rather than a
+# second exception.
+#
+# Two guards, because a closed page fails in two different ways:
+#
+#   * Already disposed when the call starts. These readers do not hop through
+#     `main_frame`, so they get no guard from it — and the driver has nothing
+#     left to answer with, so a message sent anyway would wait forever. The
+#     liveness check therefore happens *before* the send.
+#   * Closed under the call. The message went out to a live page and the reply
+#     came back as a TargetClosedError. Nothing can prevent that race; it is
+#     caught.
+#
+# The silence is bounded twice over: only this error type, only these readers.
+# Any other failure still propagates, so a genuine bug is not hidden — and
+# `screenshot` is deliberately not in the list (open question 2).
+function postmortem_read(f::Function, page::Page, empty::T) where {T}
+    lookup_object(page.connection, page.guid) === nothing && return empty
+    return try
+        f()
+    catch e
+        e isa TargetClosedError || rethrow()
+        empty
+    end
+end
+
 """
     console_messages(page::Page) -> Vector{ConsoleMessage}
 
@@ -68,9 +99,18 @@ for msg in console_messages(page)
     msg.type == "error" && @warn "console error" msg.text
 end
 ```
+
+Returns an empty vector — rather than raising [`TargetClosedError`](@ref) — if
+the page or its context has already closed. This is a postmortem reader,
+typically called from a `finally` block while a more important error is in
+flight; throwing there would mask that error, and "the page is gone" tells a
+caller who is already handling a failure nothing it can use. Any *other* error
+still propagates.
 """
 function console_messages(page::Page)
-    raw = _page_console_messages(page)
+    raw = postmortem_read(page, Any[]) do
+        _page_console_messages(page)
+    end
     return ConsoleMessage[
         ConsoleMessage(
             get(m, "type", ""),
@@ -93,9 +133,15 @@ for err in page_errors(page)
     @warn "page error" err.message err.stack
 end
 ```
+
+Like [`console_messages`](@ref), returns an empty vector rather than raising
+when the page or its context has already closed — see that docstring for why.
 """
 function page_errors(page::Page)
-    return PageError[page_error(raw) for raw in _page_page_errors(page)]
+    raw = postmortem_read(page, Any[]) do
+        _page_page_errors(page)
+    end
+    return PageError[page_error(r) for r in raw]
 end
 
 # A SerializedError carries either a real Error object or, when the page threw

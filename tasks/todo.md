@@ -16,7 +16,7 @@ criteria, and verification steps. Milestones 1–3 are archived under `tasks/m1/
       `to.have.url`, and the M3 `received_value` accessor reads the failure
       unchanged.
 - [x] T2: `retry_until` gains `target`, `on_timeout`, `on_error` (M) — B1–B3
-- [ ] T3: diagnostics no-throw on a dead target (S) — B5
+- [x] T3: diagnostics no-throw on a dead target (S) — B5
 
 T2 ∥ T3 — disjoint files, and both are hermetic and independent of the probe, so
 a browser-free session can start here.

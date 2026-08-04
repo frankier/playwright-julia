@@ -284,6 +284,31 @@ end
 
                     close(browser)
                 end
+
+                @testset "$engine: the postmortem readers survive a closed context (T3)" begin
+                    # SC 10, against a real driver. This is the regression B5
+                    # reported: these two are what a `finally` block calls, and
+                    # a throw here masks the failure that sent it there.
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m4.html")
+
+                    # Alive: they report what the page really produced.
+                    @test js_wait(page, "window.__threwAt !== undefined")
+                    @test !isempty(console_messages(page))
+                    @test !isempty(page_errors(page))
+
+                    close(ctx)
+
+                    # Dead: empty, and above all not raising.
+                    @test console_messages(page) == Playwright.ConsoleMessage[]
+                    @test page_errors(page) == Playwright.PageError[]
+                    # ...while a real action on the same dead page still says so.
+                    @test_throws Playwright.TargetClosedError screenshot(page)
+
+                    close(browser)
+                end
             end
         end
     end
