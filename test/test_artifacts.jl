@@ -15,7 +15,8 @@
 end
 
 using Base64: base64encode
-using Playwright: pdf, save_as, path, delete, start_tracing, stop_tracing, with_tracing
+using Playwright:
+    pdf, save_as, path, delete, start_tracing, stop_tracing, with_tracing, video
 
 """
 Answer a whole `with_tracing` session on the fake driver: the two start calls,
@@ -357,6 +358,92 @@ end
     end
 end
 
+# --- T6: video (SPEC-M4.md A2, D6) ----------------------------------------
+
+@testset "video (T6)" begin
+    @testset "record_video marshals to the recordVideo object" begin
+        f = timeout_fixture()
+        sent = waiting_request(
+            f.fake,
+            () -> new_context(
+                f.browser;
+                record_video = (
+                    dir = "artifacts/video",
+                    size = (width = 640, height = 480),
+                ),
+            ),
+        )
+        @test sent["method"] == "newContext"
+        rv = sent["params"]["recordVideo"]
+        @test rv["dir"] == "artifacts/video"
+        @test rv["size"] == Dict("width" => 640, "height" => 480)
+        close(f.fake.connection)
+    end
+
+    @testset "size is optional; dir alone is enough" begin
+        f = timeout_fixture()
+        sent = waiting_request(
+            f.fake,
+            () -> new_context(f.browser; record_video = (dir = "artifacts/video",)),
+        )
+        rv = sent["params"]["recordVideo"]
+        @test rv["dir"] == "artifacts/video"
+        @test !haskey(rv, "size")
+        close(f.fake.connection)
+    end
+
+    @testset "no record_video means no recordVideo key at all" begin
+        f = timeout_fixture()
+        sent = waiting_request(f.fake, () -> new_context(f.browser))
+        @test !haskey(sent["params"], "recordVideo")
+        close(f.fake.connection)
+    end
+
+    @testset "a Dict works as well as a NamedTuple" begin
+        f = timeout_fixture()
+        sent = waiting_request(
+            f.fake,
+            () -> new_context(f.browser; record_video = Dict("dir" => "artifacts/v")),
+        )
+        @test sent["params"]["recordVideo"]["dir"] == "artifacts/v"
+        close(f.fake.connection)
+    end
+
+    @testset "video(page) is nothing without recording" begin
+        # The fixture's page initializer has no `video` key, which is exactly
+        # what the driver sends for a context that is not recording.
+        f = timeout_fixture()
+        @test video(f.page) === nothing
+        close(f.fake.connection)
+    end
+
+    @testset "video(page) resolves the Artifact when there is one" begin
+        f = timeout_fixture()
+        send_create(
+            f.fake,
+            "context@1",
+            "Artifact",
+            "artifact@video",
+            Dict("absolutePath" => "/tmp/pw/video.webm"),
+        )
+        @test timedwait(
+            () -> Playwright.lookup_object(f.fake.connection, "artifact@video") !== nothing,
+            5.0,
+        ) === :ok
+        f.page.initializer["video"] = Dict("guid" => "artifact@video")
+
+        v = video(f.page)
+        @test v isa Playwright.Artifact
+        # ...and it is the Artifact surface, so T4's verbs work on it.
+        task = @async path(v)
+        msg = take!(f.fake.client_messages)
+        @test msg["method"] == "pathAfterFinished"
+        reply_ok(f.fake, msg["id"], Dict{String,Any}("value" => "/tmp/pw/video.webm"))
+        @test fetch(task) == "/tmp/pw/video.webm"
+        close(f.fake.connection)
+    end
+end
+
 # --- T7: pdf (SPEC-M4.md A3, D7) ------------------------------------------
 
 @testset "pdf (T7)" begin
@@ -527,6 +614,51 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         @test isfile(dest)
                         @test read(dest, 4) == UInt8[0x50, 0x4b, 0x03, 0x04]
 
+                        close(browser)
+                    end
+
+                    @testset "$engine: video (T6, SC 4)" begin
+                        browser = launch(bt; headless = true)
+                        video_dir = joinpath(ARTIFACT_DIR, "video-$engine")
+                        ispath(video_dir) && rm(video_dir; recursive = true)
+
+                        ctx = new_context(
+                            browser;
+                            record_video = (
+                                dir = video_dir,
+                                size = (width = 640, height = 480),
+                            ),
+                        )
+                        page = new_page(ctx)
+                        goto(page, "$base_url/m4.html")
+                        click(locator(page, "h1"))
+
+                        v = video(page)
+                        @test v isa Playwright.Artifact
+
+                        # D6's sharp edge, stated as an assertion: the file is
+                        # not finished until the page closes. Closing first is
+                        # what makes `path` return rather than block.
+                        close(page)
+                        file = path(v)
+                        @test isfile(file)
+                        @test filesize(file) > 0
+
+                        # ...and save_as puts a copy where the caller wants it.
+                        dest = joinpath(ARTIFACT_DIR, "run-$engine.webm")
+                        isfile(dest) && rm(dest)
+                        @test save_as(v, dest) == dest
+                        @test filesize(dest) > 0
+
+                        close(browser)
+                    end
+
+                    @testset "$engine: no recording means video(page) is nothing (SC 4)" begin
+                        browser = launch(bt; headless = true)
+                        ctx = new_context(browser)
+                        page = new_page(ctx)
+                        goto(page, "$base_url/m4.html")
+                        @test video(page) === nothing
                         close(browser)
                     end
 

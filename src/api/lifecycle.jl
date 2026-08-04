@@ -102,6 +102,16 @@ name_value_array(d::AbstractDict) =
 "Coerce a Dict/NamedTuple option into the protocol's string-keyed object."
 as_object(x) = Dict{String,Any}(String(k) => v for (k, v) in pairs(x))
 
+# `recordVideo` nests an object inside an object, so its `size` needs the same
+# coercion the outer option gets — otherwise a NamedTuple size would go out as
+# something the driver cannot read.
+record_video_option(::Nothing) = nothing
+function record_video_option(opt)
+    out = as_object(opt)
+    haskey(out, "size") && (out["size"] = as_object(out["size"]))
+    return out
+end
+
 """
     launch(browser_type::BrowserType; headless=true, timeout=180_000, kwargs...) -> Browser
 
@@ -211,17 +221,27 @@ Options (all optional, omitted from the wire when unset): `viewport` (a `Dict`
 or `NamedTuple` of `width`/`height`), `user_agent`, `locale`, `timezone_id`,
 `color_scheme`, `device_scale_factor`, `is_mobile`, `has_touch`, `offline`,
 `permissions`, `base_url`, `extra_http_headers` (a `Dict`),
-`ignore_https_errors`, `java_script_enabled`.
+`ignore_https_errors`, `java_script_enabled`, `record_video`.
 
 ```julia
 ctx = new_context(browser; viewport=(width=1280, height=720))
 page = new_page(ctx)
 close(ctx)
 ```
+
+`record_video` takes a `dir` and an optional `size`, and recording is
+context-scoped because that is what the protocol offers — there is no per-page
+switch. See [`video`](@ref) for reading the result, and note that the file is
+not complete until the page or context closes:
+
+```julia
+ctx = new_context(browser; record_video = (dir = "artifacts/video",))
+```
 """
 function new_context(
     browser::Browser;
     viewport = nothing,
+    record_video = nothing,
     user_agent::Union{AbstractString,Nothing} = nothing,
     locale::Union{AbstractString,Nothing} = nothing,
     timezone_id::Union{AbstractString,Nothing} = nothing,
@@ -239,6 +259,7 @@ function new_context(
     return _browser_new_context(
         browser;
         viewport = viewport === nothing ? nothing : as_object(viewport),
+        recordVideo = record_video_option(record_video),
         userAgent = user_agent,
         locale,
         timezoneId = timezone_id,

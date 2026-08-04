@@ -91,6 +91,9 @@
         :start_tracing,
         :stop_tracing,
         :with_tracing,
+        # M4 T6: video
+        :video,
+        :Artifact,
         :screenshot,
         :text_content,
         :title,

@@ -209,6 +209,44 @@ function with_tracing(f, ctx::BrowserContext; path::AbstractString, kw...)
     end
 end
 
+# --- Video (A2, D6) --------------------------------------------------------
+
+"""
+    video(page::Page) -> Union{Artifact,Nothing}
+
+The video being recorded for `page`, or `nothing` if its context was not
+created with `record_video`.
+
+Recording is switched on per **context**, not per page, because that is what
+the protocol offers:
+
+```julia
+ctx = new_context(browser; record_video = (dir = "artifacts/video",))
+page = new_page(ctx)
+goto(page, url)
+
+close(page)                          # ...the file is finished by this
+@test isfile(path(video(page)))
+```
+
+!!! warning "The file does not exist until the page or context closes"
+    This is an upstream sharp edge, not a Playwright.jl one. The video is
+    still being written while the page is open, so `path(video(page))` called
+    too early **blocks** until the recording is finalized — and a naive test
+    that asserts `isfile` before closing sees nothing and looks like a bug in
+    this package. Close the page first, as above.
+
+The result is an ordinary [`Artifact`](@ref), so [`path`](@ref),
+[`save_as`](@ref) and [`delete`](@ref) all work on it — `save_as` being the way
+to move it somewhere of your choosing rather than the driver's temporary
+directory.
+"""
+function video(page::Page)
+    raw = get(page.initializer, "video", nothing)
+    raw === nothing && return nothing
+    return from_channel(page.connection, raw)::Artifact
+end
+
 # --- PDF (A3) --------------------------------------------------------------
 
 """
