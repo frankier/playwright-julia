@@ -27,6 +27,46 @@ function js_wait(page, predicate; timeout_ms = 5_000)
     )
 end
 
+# --- T8: engine metadata and launch options -------------------------------
+
+@testset "engine metadata (T8)" begin
+    playwright() do pw
+        @testset "browser_name on a running Browser (SC 9)" begin
+            for engine in ("chromium", "firefox")
+                bt = getfield(pw, Symbol(engine))
+                browser = launch(bt; headless = true)
+                @test browser_name(browser) == engine
+                @test browser_name(browser) isa String
+                # ...and it agrees with the BrowserType it came from
+                @test browser_name(browser) == browser_name(bt)
+                close(browser)
+            end
+        end
+
+        @testset "one shared option set launches both engines (SC 11)" begin
+            # The docstring branch D5 selected: engine-irrelevant options are
+            # ignored rather than rejected, so this option set — half of which
+            # applies to neither engine — must work on both. If a future driver
+            # starts rejecting them, this is what says so.
+            opts = (;
+                args = ["--disable-dev-shm-usage"],
+                chromium_sandbox = false,
+                firefox_user_prefs = Dict("dom.disable_beforeunload" => true),
+            )
+            for engine in ("chromium", "firefox")
+                bt = getfield(pw, Symbol(engine))
+                browser = launch(bt; headless = true, opts...)
+                @test browser_name(browser) == engine
+                # Launching is not enough — the browser has to be usable.
+                page = new_page(browser)
+                goto(page, "data:text/html,<h1>shared options</h1>")
+                @test text_content(locator(page, "h1")) == "shared options"
+                close(browser)
+            end
+        end
+    end
+end
+
 # --- T6: retrying assertions against real browsers ------------------------
 
 @testset "expect (T6)" begin

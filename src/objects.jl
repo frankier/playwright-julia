@@ -6,8 +6,29 @@
 # construct, PlaywrightAPI, which is this package's entry handle, and small
 # accessors over channel-owner initializers.
 
-"Name of the browser a `BrowserType` launches: \"chromium\" or \"firefox\"."
+"""
+    browser_name(bt::BrowserType) -> String
+    browser_name(browser::Browser) -> String
+
+Engine behind a [`BrowserType`](@ref) or a running [`Browser`](@ref):
+`"chromium"` or `"firefox"`.
+
+Useful for the cases where the engines genuinely differ and a test has to say
+so out loud rather than paper over it:
+
+```julia
+if browser_name(browser) == "firefox"
+    # ...the one thing Firefox does differently
+end
+```
+
+A `String` from both methods, not a `Symbol` — one name, one return type. The
+`Browser` initializer carries both `name` and `browserName`; they are identical
+on both engines (probed — see T8 in `tasks/plan.md`), and `name` is read
+because that is what the `BrowserType` method already used.
+"""
 browser_name(bt::BrowserType) = bt.initializer["name"]::String
+browser_name(browser::Browser) = browser.initializer["name"]::String
 
 """
 Main frame backing `page`; page-level actions delegate to it.

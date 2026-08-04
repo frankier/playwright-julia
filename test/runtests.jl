@@ -21,6 +21,7 @@ using Playwright
     include("test_locator_eval.jl")
     include("test_closed.jl")
     include("test_expect.jl")
+    include("test_metadata.jl")
 
     if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
         include("test_smoke.jl")

@@ -27,7 +27,7 @@ T2 ∥ T3 — disjoint files.
 - [x] T5: `wait_for_selector` / `wait_for_function` (M) — deps: T2b
 - [x] T6: `expect(...)` over `frame.expect` — probe first, then API (L) — deps: T2b
 - [x] T7: Locator ergonomics — `evaluate(loc, …)`, public accessors (M) — deps: T2b
-- [ ] T8: `browser_name` + launch-option probe (M) — deps: T1
+- [x] T8: `browser_name` + launch-option probe (M) — deps: T1
 - [x] T9: `bin/install.jl`, `PLAYWRIGHT_BROWSERS_PATH`, CI recipe (S) — no deps
 - [x] T11: calls on a closed page raise `TargetClosedError`, not `TypeError`
       from `main_frame` (S) — deps: T1

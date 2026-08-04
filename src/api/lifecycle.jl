@@ -132,6 +132,29 @@ entirely when left unset, so the driver's own defaults apply:
 `executable_path` and `channel` are what make `CHROME_BIN`-style provisioning
 work on a machine that already has a browser installed.
 
+!!! note "Options for the other engine are ignored, not errors"
+    `args` and `chromium_sandbox` mean nothing to Firefox, and
+    `firefox_user_prefs` means nothing to Chromium — but passing them anyway is
+    harmless. The driver ignores what does not apply to the engine it is
+    launching.
+
+    Probed against the 1.61.1 driver on both engines: Firefox launched with
+    `args` and `chromium_sandbox`, Chromium launched with `firefox_user_prefs`,
+    and one shared option set launched both — every combination started *and*
+    rendered a page. So one option set can be shared across engines without
+    partitioning it per engine, which is why this package ships no
+    `launch_options(engine; …)` filter: there is nothing for it to prevent.
+
+```julia
+# Fine on both engines, despite half of it applying to neither.
+opts = (; args = ["--disable-dev-shm-usage"], chromium_sandbox = false,
+          firefox_user_prefs = Dict("dom.disable_beforeunload" => true))
+for bt in (pw.chromium, pw.firefox)
+    browser = launch(bt; headless = true, opts...)
+    # ...
+end
+```
+
 ```julia
 launch(pw.chromium; headless=true, chromium_sandbox=false,
        args=["--disable-dev-shm-usage"])

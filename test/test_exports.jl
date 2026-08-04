@@ -25,6 +25,8 @@
         :frame,
         :selector,
         :is_strict,
+        # T8: engine metadata
+        :browser_name,
         # T6: retrying assertions
         :expect,
         :Not,
