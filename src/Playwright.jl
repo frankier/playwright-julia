@@ -72,6 +72,9 @@ export playwright,
     frame,
     selector,
     is_strict,
+    expect,
+    Not,
+    retry_until,
     wait_for_selector,
     wait_for_function,
     expect_event,
@@ -99,6 +102,7 @@ include("api/lifecycle.jl")
 include("api/navigation.jl")
 include("api/locators.jl")
 include("api/waiting.jl")
+include("api/expect.jl")
 include("api/frames.jl")
 include("api/evaluate.jl")
 include("api/diagnostics.jl")

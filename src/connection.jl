@@ -152,7 +152,17 @@ function dispatch(conn::Connection, msg::AbstractDict)
         end
         callback === nothing && return   # stray reply; drop it
         if haskey(msg, "error") && !haskey(msg, "result")
-            put!(callback, driver_error(msg["error"]["error"], get(msg, "log", nothing)))
+            # `errorDetails` is a sibling of `error`, not a field inside it.
+            # `frame.expect` puts the *received* value there, which is the only
+            # structured route to it — the call log has it as prose only.
+            put!(
+                callback,
+                driver_error(
+                    msg["error"]["error"],
+                    get(msg, "log", nothing),
+                    get(msg, "errorDetails", nothing),
+                ),
+            )
         else
             put!(callback, get(msg, "result", nothing))
         end

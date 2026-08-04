@@ -27,6 +27,173 @@ function js_wait(page, predicate; timeout_ms = 5_000)
     )
 end
 
+# --- T6: retrying assertions against real browsers ------------------------
+
+@testset "expect (T6)" begin
+    with_fixture_server() do base_url
+        playwright() do pw
+            for engine in ("chromium", "firefox")
+                bt = getfield(pw, Symbol(engine))
+
+                @testset "$engine: expect retries until a late element arrives" begin
+                    # The headline claim. #late appears 300ms after parse and
+                    # there is no sleep anywhere in this test — if expect did
+                    # not retry driver-side, this could only fail.
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    late = locator(page, "#late")
+                    @test expect(late; to_have_text = "late arrival") === late
+                    @test evaluate(page, "() => window.__lateAt > window.__parsedAt")
+
+                    close(browser)
+                end
+
+                @testset "$engine: the passing matchers" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    expect(locator(page, "h1"); to_have_text = "Hello")
+                    expect(locator(page, "h1"); to_have_text = r"^Hel")
+                    expect(locator(page, "h1"); to_contain_text = "ell")
+                    expect(
+                        locator(page, "input[type=range]"; strict = false);
+                        to_have_count = 2,
+                    )
+                    expect(locator(page, "h1"); to_be_visible = true)
+                    expect(locator(page, "#first"); to_have_value = "0")
+                    expect(locator(page, "#first"); to_have_attribute = "max" => "10")
+                    expect(locator(page, "#first"); to_be_enabled = true)
+
+                    close(browser)
+                end
+
+                @testset "$engine: negation, by Not and by false" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    expect(locator(page, "h1"); to_have_text = Not("Goodbye"))
+                    expect(locator(page, "#nope"); to_be_visible = false)
+                    # ...and both spellings agree
+                    expect(locator(page, "#nope"); to_be_visible = Not(true))
+
+                    close(browser)
+                end
+
+                @testset "$engine: a failure names expected AND received" begin
+                    # SC 7. Without the received value the reader has to re-run
+                    # the test by hand to find out what was actually there.
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    err = try
+                        expect(locator(page, "h1"); to_have_text = "Goodbye", timeout = 1_000)
+                        nothing
+                    catch e
+                        e
+                    end
+                    @test err isa Playwright.AssertionFailure
+                    @test err isa PlaywrightError
+                    @test occursin("Goodbye", err.message)   # expected
+                    @test occursin("Hello", err.message)     # received, from the driver
+                    @test occursin("h1", err.message)        # which locator
+
+                    close(browser)
+                end
+
+                @testset "$engine: a count failure reports the real count" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    err = try
+                        expect(
+                            locator(page, "input[type=range]"; strict = false);
+                            to_have_count = 99,
+                            timeout = 1_000,
+                        )
+                        nothing
+                    catch e
+                        e
+                    end
+                    @test err isa Playwright.AssertionFailure
+                    @test occursin("99", err.message)
+                    @test occursin("2", err.message)
+
+                    close(browser)
+                end
+
+                @testset "$engine: a missing element says so" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    err = try
+                        expect(
+                            locator(page, "#never-there");
+                            to_have_text = "x",
+                            timeout = 1_000,
+                        )
+                        nothing
+                    catch e
+                        e
+                    end
+                    @test err isa Playwright.AssertionFailure
+                    @test occursin("not found", lowercase(err.message))
+
+                    close(browser)
+                end
+
+                @testset "$engine: expect timeouts come from the cascade" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    set_default_timeout!(ctx, 1_000)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    elapsed = @elapsed @test_throws Playwright.AssertionFailure expect(
+                        locator(page, "h1");
+                        to_have_text = "Goodbye",
+                    )
+                    @test elapsed < 10.0
+
+                    close(browser)
+                end
+
+                @testset "$engine: retry_until is the escape hatch" begin
+                    browser = launch(bt; headless = true)
+                    ctx = new_context(browser)
+                    page = new_page(ctx)
+                    goto(page, "$base_url/m3.html")
+
+                    # A condition expect cannot express: a JS flag flipping.
+                    @test retry_until(; timeout = 10_000, interval = 50) do
+                        evaluate(page, "() => window.ready === true")
+                    end
+
+                    @test_throws Playwright.AssertionFailure retry_until(
+                        () -> false;
+                        timeout = 300,
+                        interval = 50,
+                    )
+
+                    close(browser)
+                end
+            end
+        end
+    end
+end
+
 # --- T11: calls on a closed page ------------------------------------------
 
 @testset "closed pages (T11)" begin

@@ -25,6 +25,10 @@
         :frame,
         :selector,
         :is_strict,
+        # T6: retrying assertions
+        :expect,
+        :Not,
+        :retry_until,
         # T5: driver-side waiting
         :wait_for_selector,
         :wait_for_function,

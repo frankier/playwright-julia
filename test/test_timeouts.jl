@@ -269,7 +269,17 @@ end
         for (root, _, files) in walkdir(apidir), file in files
             endswith(file, ".jl") || continue
             path = joinpath(root, file)
+            in_docstring = false
             for (i, line) in enumerate(eachline(path))
+                # Docstrings show *calls* like `retry_until(; timeout = 5_000)`,
+                # which are examples rather than call-site defaults. Only real
+                # signatures count, so track and skip docstring bodies.
+                fences = count("\"\"\"", line)
+                if isodd(fences)
+                    in_docstring = !in_docstring
+                    continue
+                end
+                in_docstring && continue
                 # launch's driver-startup timeout is a different thing entirely
                 # and is exempt by design; it is not a page/action timeout and
                 # has no owner to inherit from.

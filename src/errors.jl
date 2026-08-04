@@ -89,17 +89,18 @@ the expected and the received value.
 Base.showerror(io::IO, e::PlaywrightError) = print(io, nameof(typeof(e)), ": ", e.message)
 
 """
-    driver_error(detail, log=nothing) -> PlaywrightError
+    driver_error(detail, log=nothing, details=nothing) -> PlaywrightError
 
 Build the right `PlaywrightError` subtype from a protocol error reply. `detail`
 is the inner `{message, name, stack}` payload; `log` is the reply's top-level
 call log (actionability retries, selector waits), appended to the message the
-way upstream clients do.
+way upstream clients do; `details` is the reply's top-level `errorDetails`,
+which `frame.expect` uses to report what it actually received.
 
 An unrecognised `name` yields a [`DriverError`](@ref) rather than an error of
 its own — the driver is free to introduce names this package has not seen.
 """
-function driver_error(detail::AbstractDict, log = nothing)
+function driver_error(detail::AbstractDict, log = nothing, details = nothing)
     message = get(detail, "message", "unknown driver error")
     if log !== nothing && !isempty(log)
         message *= "\nCall log:\n" * join(log, "\n")
@@ -110,8 +111,52 @@ function driver_error(detail::AbstractDict, log = nothing)
         TimeoutError
     elseif name == "TargetClosedError"
         TargetClosedError
+    elseif name == "ExpectError"
+        # A failed assertion, which api/expect.jl re-raises with the expected
+        # and received values spelled out. Left as an ExpectFailure here rather
+        # than an AssertionFailure because only the caller knows what was
+        # expected — this end only knows what came back.
+        ExpectFailure
     else
         DriverError
     end
+    T === ExpectFailure && return ExpectFailure(message, name, stack, details)
     return T(message; name, stack)
 end
+
+"""
+    ExpectFailure
+
+Internal: a raw `frame.expect` rejection, before the caller has turned it into
+an [`AssertionFailure`](@ref). Carries the driver's `errorDetails`, which is
+where the *received* value lives — the call log has it only as prose.
+
+Users never see this; `expect` catches it and re-raises an `AssertionFailure`
+whose message names both values. It is a `PlaywrightError` so that an escape
+through some path `expect` does not cover still satisfies the taxonomy.
+"""
+struct ExpectFailure <: PlaywrightError
+    message::String
+    name::String
+    stack::String
+    details::Any
+end
+
+"Received value from an `expect` rejection, decoded, or `nothing` if absent."
+function received_value(e::ExpectFailure)
+    e.details isa AbstractDict || return nothing
+    received = get(e.details, "received", nothing)
+    received isa AbstractDict || return nothing
+    haskey(received, "value") || return nothing
+    return from_serialized(received["value"])
+end
+
+"The driver's own explanation, when it gave one (e.g. \"element(s) not found\")."
+function custom_error_message(e::ExpectFailure)
+    e.details isa AbstractDict || return nothing
+    return get(e.details, "customErrorMessage", nothing)
+end
+
+"Whether the assertion ran out of time rather than failing outright."
+timed_out(e::ExpectFailure) =
+    e.details isa AbstractDict && get(e.details, "timedOut", false) === true
