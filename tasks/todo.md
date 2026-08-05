@@ -71,8 +71,11 @@ sequence the dependency additions.
 - [x] T13: doctests on a browser-free path (S) — deps: T10
       - gate proved by breaking it: changing one expected value to `7.5` turned
         the build red on `doctest failure`; restored
-- [ ] T14: README slims to a landing page (S) — deps: **T11**
-- [ ] T15: docs workflow + deploy (M) — deps: T10
+- [x] T14: README slims to a landing page (S) — deps: **T11**
+      - 137 lines, down from 517; no API reference material left
+- [x] T15: docs workflow + deploy (M) — deps: T10
+      - build green in CI: run `30995545900`
+      - ⛔ deploy and the Pages repo-setting are only exercised on `main`
 
 T9 needs no browser, no network and no CI — the ideal offline task, and the
 longest. T11 ∥ T12 ∥ T13 ∥ T15 once T10 is in.
