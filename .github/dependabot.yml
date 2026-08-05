@@ -1,0 +1,8 @@
+# Keeps the action versions in .github/workflows/ current. Actions are the one
+# dependency here that Julia's own tooling cannot see.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly

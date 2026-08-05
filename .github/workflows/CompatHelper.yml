@@ -1,0 +1,29 @@
+# Opens a PR when a dependency's [compat] bound can be widened. T0 gave every
+# dependency a bound; this is what keeps them from going stale.
+name: CompatHelper
+
+on:
+  schedule:
+    - cron: "0 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  CompatHelper:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+      - name: Install CompatHelper
+        run: julia -e 'using Pkg; Pkg.add("CompatHelper")'
+      - name: Run CompatHelper
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The docs and examples environments are separate projects (D2), and
+        # examples/Manifest.toml is pinned on purpose — the weekly drift job
+        # is what watches those, not this.
+        run: julia -e 'using CompatHelper; CompatHelper.main(; subdirs = ["", "docs"])'

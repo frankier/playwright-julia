@@ -94,7 +94,9 @@ longest. T11 ∥ T12 ∥ T13 ∥ T15 once T10 is in.
 
 ## Phase 4: Release metadata and proof
 
-- [ ] T16: TagBot, CompatHelper, Dependabot, README badges (S) — deps: T2, T15
+- [x] T16: TagBot, CompatHelper, Dependabot, README badges (S) — deps: T2, T15
+      - badges added in T14; workflows parse and appear in the Actions tab
+      - ⛔ CompatHelper's manual trigger needs the workflow on `main` first
 - [ ] T17: final verification of all sixteen success criteria (M) — deps: all
 
 ### Checkpoint D
