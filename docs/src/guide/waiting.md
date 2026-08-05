@@ -98,9 +98,11 @@ function wait_for_server(url; timeout = 60_000)
 end
 ```
 
-The Genie.jl example measures what this is worth: 25 seconds between `up()`
-returning and the first request being answered, on an idle workstation. A `sleep` long enough to cover that is a `sleep` paid on every
-other example forever.
+The [Genie.jl](@ref) example measures what this is worth: 25 seconds between
+`up()` returning and the first request being answered, on an idle workstation.
+A `sleep` long enough to cover that is a `sleep` paid on every other example
+forever. [WGLMakie.jl](@ref) does the same for rendering, where a cold first
+paint took 57.9 seconds.
 
 `on_timeout = :false` is what lets a check sit inside `@test` and report a
 `Test.Fail` rather than an `Error`, so the testset summary reads correctly:

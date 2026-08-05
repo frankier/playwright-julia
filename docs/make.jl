@@ -53,7 +53,7 @@ makedocs(;
             "examples/http.md",
             "examples/oxygen.md",
             "examples/genie.md",
-            # examples/wglmakie.md is gated on T7.
+            "examples/wglmakie.md",
         ],
         "API reference" => "api.md",
     ],

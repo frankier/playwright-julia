@@ -33,9 +33,10 @@ run.
 
 ## What it is for
 
-Testing Julia web applications in a real browser. The examples drive HTTP.jl,
-Oxygen.jl, Genie.jl and WGLMakie.jl — a plain server, a micro-framework, a full
-framework, and a WebGL app — and each one is a script you can copy.
+Testing Julia web applications in a real browser. The examples drive
+[HTTP.jl](@ref), [Oxygen.jl](@ref), [Genie.jl](@ref) and [WGLMakie.jl](@ref) —
+a plain server, a micro-framework, a full framework, and a WebGL app — and each
+one is a script you can copy.
 
 The design leans hard on one idea, inherited from Playwright: **waiting is not
 sleeping**. Every assertion retries until it holds or its timeout runs out, so

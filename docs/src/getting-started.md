@@ -162,7 +162,8 @@ Two things that are easy to get wrong:
 Everything here passes `headless = true`, and on a CI runner there is no
 alternative. Headless Chromium in particular ships a software rasteriser, so
 even WebGL content renders with no GPU and no X display. Headless Firefox has
-no WebGL at all, which the WGLMakie example page covers.
+no WebGL at all — see [WGLMakie.jl](@ref) for what that does and does not
+cover.
 
 ## Where to go next
 
