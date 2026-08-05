@@ -49,7 +49,12 @@ makedocs(;
             "guide/artifacts.md",
             "guide/errors.md",
         ],
-        # The example pages arrive with T12.
+        "Examples" => [
+            "examples/http.md",
+            "examples/oxygen.md",
+            "examples/genie.md",
+            # examples/wglmakie.md is gated on T7.
+        ],
         "API reference" => "api.md",
     ],
 )

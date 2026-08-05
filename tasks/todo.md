@@ -66,8 +66,12 @@ sequence the dependency additions.
       - zero-warning build; gate proved by deleting `title`'s docstring —
         build red on `:docs_block` and `:cross_references` — then restored
 - [x] T11: guide pages (L) — deps: T10
-- [ ] T12: example pages, source included from the executed file (S) —
+- [~] T12: example pages, source included from the executed file (S) —
       deps: T10, T4–T7
+      - HTTP, Oxygen and Genie pages done; **SC 9 verified** — a marker added
+        to `examples/http_jl.jl` appeared in the built page with `http.md`
+        byte-identical (md5 unchanged)
+      - ⛔ `examples/wglmakie.md` blocked on T7
 - [x] T13: doctests on a browser-free path (S) — deps: T10
       - gate proved by breaking it: changing one expected value to `7.5` turned
         the build red on `doctest failure`; restored
