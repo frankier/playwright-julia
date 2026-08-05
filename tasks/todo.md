@@ -12,8 +12,11 @@ Sizes: (S) small, (M) medium, (L) large.
       no deps
 - [ ] T1: **PROBE** — headless WebGL for WGLMakie on both engines, findings to
       `tasks/m5-probe.md` (M) — **gate**: fixes B4's assertion level (D8)
-- [ ] T2: CI — hermetic matrix (1.10, `1`) + codegen check + format check (M) —
+- [x] T2: CI — hermetic matrix (1.10, `1`) + codegen check + format check (M) —
       **gate**: the first green run on a pushed branch
+      - green: run `30989693673` (all four jobs, branch `m5-ci`, PR #1)
+      - gate proved by breaking it: run `30989885239` — Formatting red on a
+        deliberately misformatted line, the other three still green; reverted
 - [ ] T3: CI — smoke job, both engines, browsers cached (M) — deps: T2
 
 T0 ∥ T1 ∥ T2 — disjoint. T1 needs a browser; T0 and T2 do not.
