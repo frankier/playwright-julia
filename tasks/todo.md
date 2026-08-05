@@ -10,8 +10,12 @@ Sizes: (S) small, (M) medium, (L) large.
 
 - [x] T0: `LICENSE` (MIT) + compat bounds on every dep + ignore rules (S) —
       no deps
-- [ ] T1: **PROBE** — headless WebGL for WGLMakie on both engines, findings to
+- [x] T1: **PROBE** — headless WebGL for WGLMakie on both engines, findings to
       `tasks/m5-probe.md` (M) — **gate**: fixes B4's assertion level (D8)
+      - Chromium renders in full with **no launch flags**; Firefox has no WebGL
+        at all and cannot be given one. Recommends **D8 level 3** with the
+        Firefox leg kept as a structural assertion.
+      - ⛔ **awaiting human review — T7 is blocked on it**
 - [x] T2: CI — hermetic matrix (1.10, `1`) + codegen check + format check (M) —
       **gate**: the first green run on a pushed branch
       - green: run `30989693673` (all four jobs, branch `m5-ci`, PR #1)
