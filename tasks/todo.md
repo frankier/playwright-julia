@@ -48,7 +48,8 @@ T9 is independent of Part A once T3 is in.
 - [x] Hermetic suite still green
 - [x] A trace zip opened once by hand: `npx playwright@1.61.1 show-trace
       artifacts/trace-chromium.zip` (SC 3 — the one criterion that cannot be
-      automated, and the only unchecked box in this milestone)
+      automated). **Confirmed by hand 2026-08-05: the trace opens and shows
+      the recorded actions.**
 - [ ] Human review before docs/polish
 
 ## Phase 3: Proof and polish
@@ -66,7 +67,7 @@ Every row was run, not reasoned about. "smoke" means both engines under
 |---|---|
 | 1 | `test_artifacts.jl` "tracing round-trip" — smoke, both engines: the file exists and its first four bytes are `PK\x03\x04` |
 | 2 | `test_artifacts.jl` "the trace survives a throwing block" — smoke, both engines: the zip is written *and* `ErrorException("deliberate failure mid-trace")` is what propagates. Hermetic twin covers the case where saving *also* fails: the body's exception still wins and the trace failure is only a `@warn` |
-| 3 | **Human step, not automated.** `npx playwright@1.61.1 show-trace artifacts/trace-chromium.zip`. Evidence short of that: a `p7zip` listing of the produced zip shows `trace.trace`, `trace.network`, screencast JPEGs and the HTML resource — so `screenshots` and `snapshots` both recorded. Recorded in `tasks/m4-probe.md` and the T5 commit |
+| 3 | **Human step, not automated — done 2026-08-05.** `npx playwright@1.61.1 show-trace artifacts/trace-chromium.zip` opens the produced zip and shows the recorded actions; confirmed by hand, as the criterion requires. Corroborating evidence gathered automatically: a `p7zip` listing shows `trace.trace`, `trace.network`, screencast JPEGs and the HTML resource — so `screenshots` and `snapshots` both recorded |
 | 4 | `test_artifacts.jl` "video" — smoke, both engines: non-empty file at `path(video(page))` after `close(page)`, and `save_as` copies it out. "no recording means video(page) is nothing" covers the negative leg |
 | 5 | `test_artifacts.jl` "pdf" — smoke: Chromium writes non-empty bytes starting `%PDF`; Firefox raises `ArgumentError` naming Chromium. Hermetic "off Chromium ... without a round trip" asserts *nothing was sent* |
 | 6 | `test_fixtures.jl` "expect on the document" — smoke, both engines: passes for the late-set title (proved late by the page's own clock), and a mismatch carries the received value. `test_expect.jl` "matchers stay type-partitioned, both ways" — hermetic, covers `to_have_text` on a `Page` |
