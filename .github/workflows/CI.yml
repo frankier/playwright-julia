@@ -67,7 +67,7 @@ jobs:
 
       - name: Restore browsers and driver
         id: browsers
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           # Browsers only. The driver bundle lands in a Scratch.jl directory,
           # which julia-actions/cache above already covers
@@ -120,7 +120,7 @@ jobs:
         id: browsers
         # The same key the smoke job uses, so whichever runs first pays for
         # the download and the other one does not.
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ${{ github.workspace }}/.playwright
           key: playwright-${{ runner.os }}-pw${{ steps.pins.outputs.playwright }}-node${{ steps.pins.outputs.node }}
