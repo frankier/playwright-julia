@@ -33,7 +33,7 @@ jobs:
         with:
           version: "1"
           arch: x64
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
 
       - name: Install driver and browsers
         # No cache restore: this job runs weekly and is about finding out what

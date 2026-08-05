@@ -30,7 +30,7 @@ jobs:
         with:
           version: ${{ matrix.version }}
           arch: x64
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
 
@@ -49,7 +49,7 @@ jobs:
         with:
           version: "1.10"
           arch: x64
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
 
       - name: Read the pinned driver versions
         id: pins
@@ -102,7 +102,7 @@ jobs:
         with:
           version: "1"
           arch: x64
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
 
       - name: Read the pinned driver versions
         id: pins
@@ -160,7 +160,7 @@ jobs:
           # of the package's supported matrix.
           version: "1"
           arch: x64
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
       - name: Instantiate the generator environment
         run: julia --project=gen -e 'using Pkg; Pkg.instantiate()'
       - name: gen/generate.jl --check
@@ -182,7 +182,7 @@ jobs:
           # of the package's supported matrix.
           version: "1"
           arch: x64
-      - uses: julia-actions/cache@v2
+      - uses: julia-actions/cache@v3
       - name: Instantiate the generator environment
         run: julia --project=gen -e 'using Pkg; Pkg.instantiate()'
       - name: Check formatting
