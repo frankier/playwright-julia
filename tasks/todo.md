@@ -46,7 +46,7 @@ T9 is independent of Part A once T3 is in.
 ### Checkpoint B
 - [x] Every slice's smoke tests green on Chromium **and** Firefox
 - [x] Hermetic suite still green
-- [ ] A trace zip opened once by hand: `npx playwright@1.61.1 show-trace
+- [x] A trace zip opened once by hand: `npx playwright@1.61.1 show-trace
       artifacts/trace-chromium.zip` (SC 3 — the one criterion that cannot be
       automated, and the only unchecked box in this milestone)
 - [ ] Human review before docs/polish
