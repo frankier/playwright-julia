@@ -48,7 +48,7 @@ screenshot
 pdf
 ```
 
-## Locators
+## Locator construction
 
 ```@docs
 locator
@@ -79,7 +79,7 @@ dispatch_event
 element_handle
 ```
 
-## Frames
+## Frame navigation
 
 ```@docs
 frames
@@ -101,7 +101,7 @@ eval_on_selector_all
 dispose
 ```
 
-## Assertions
+## Assertion functions
 
 ```@docs
 expect
@@ -109,7 +109,7 @@ Not
 retry_until
 ```
 
-## Waiting
+## Waiting functions
 
 ```@docs
 wait_for_selector
@@ -122,7 +122,7 @@ next_event
 pending_events
 ```
 
-## Artifacts
+## Artifact capture
 
 ```@docs
 Artifact
@@ -135,7 +135,7 @@ path
 delete
 ```
 
-## Diagnostics
+## Diagnostic readers
 
 ```@docs
 console_messages
@@ -147,14 +147,14 @@ ConsoleMessage
 PageError
 ```
 
-## Timeouts
+## Timeout settings
 
 ```@docs
 set_default_timeout!
 set_default_navigation_timeout!
 ```
 
-## Errors
+## Error types
 
 ```@docs
 PlaywrightError
@@ -189,4 +189,5 @@ docstrings above refer to them.
 ```@docs
 Playwright.PlaywrightAPI
 Playwright.DEFAULT_TIMEOUT
+Playwright.browsers_path
 ```

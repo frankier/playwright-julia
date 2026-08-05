@@ -27,8 +27,9 @@ no scraping of anyone's internals: the driver is the upstream
 assembled on first use.
 
 That has one consequence worth stating up front, because it decides whether
-this package suits you: **the first run downloads a driver and a browser.** The
-Getting started page covers doing that once, in CI, rather than on every run.
+this package suits you: **the first run downloads a driver and a browser.** See
+[Getting started](@ref) for how to do that once, in CI, rather than on every
+run.
 
 ## What it is for
 
@@ -53,10 +54,13 @@ expect(locator(page, "#status"); to_have_text = "ready")
 
 | If you want to | Read |
 |---|---|
+| install it and write a first test | [Getting started](@ref) |
+| find elements | [Locators](@ref) |
+| stop using `sleep` | [Waiting](@ref) and [Assertions](@ref) |
+| catch popups, console output, page errors | [Events](@ref) |
+| get a screenshot or a trace out of a failing test | [Artifacts](@ref) |
+| know which error means what | [Errors and timeouts](@ref) |
 | look a function up | [API reference](@ref) |
-
-The guide and example pages are added by the next two tasks in this milestone;
-this table grows with them.
 
 ## Status
 

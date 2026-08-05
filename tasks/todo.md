@@ -65,7 +65,7 @@ sequence the dependency additions.
 - [x] T10: Documenter scaffold + `api.md` + `checkdocs` gate (M) — deps: T9
       - zero-warning build; gate proved by deleting `title`'s docstring —
         build red on `:docs_block` and `:cross_references` — then restored
-- [ ] T11: guide pages (L) — deps: T10
+- [x] T11: guide pages (L) — deps: T10
 - [ ] T12: example pages, source included from the executed file (S) —
       deps: T10, T4–T7
 - [ ] T13: doctests on a browser-free path (S) — deps: T10

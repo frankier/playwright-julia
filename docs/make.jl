@@ -33,9 +33,16 @@ makedocs(;
     ),
     pages = [
         "Home" => "index.md",
-        # Getting started, the guide pages and the examples arrive with T11
-        # and T12. A page listed here before its file exists is a failed
-        # build, and this build is gated on being warning-free.
+        "Getting started" => "getting-started.md",
+        "Guide" => [
+            "guide/locators.md",
+            "guide/waiting.md",
+            "guide/assertions.md",
+            "guide/events.md",
+            "guide/artifacts.md",
+            "guide/errors.md",
+        ],
+        # The example pages arrive with T12.
         "API reference" => "api.md",
     ],
 )
