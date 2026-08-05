@@ -343,6 +343,16 @@ one at a time) or [`pending_events`](@ref) (everything buffered right now).
 
 The buffer is unbounded, so nothing that happens inside the block is dropped
 while you are not looking. It is closed when the block ends.
+
+```julia
+with_events(ctx, :pageerror) do stream
+    click(locator(page, "#break-everything"))
+    next_event(stream; timeout = 5_000).message
+end
+```
+
+`length(stream)` is the non-consuming count, which is the thing to poll on —
+see [`length`](@ref).
 """
 struct EventStream
     subscription::Subscription
@@ -369,6 +379,17 @@ Everything buffered right now, in arrival order. **Drains** the stream: a
 second call returns only what arrived since the first, which is what makes it
 usable in a loop. Does not block and does not wait for more — to wait for a
 particular count, poll [`length`](@ref) first.
+
+```julia
+with_events(ctx, :pageerror) do stream
+    click(locator(page, "#break-everything"))
+    retry_until(() -> length(stream) >= 2; timeout = 5_000)
+    pending_events(stream)         # both of them, and the buffer is now empty
+end
+```
+
+For one event at a time, blocking, use [`next_event`](@ref); see
+[`EventStream`](@ref).
 """
 function pending_events(stream::EventStream)
     out = Any[]
@@ -382,10 +403,22 @@ end
     next_event(stream::EventStream; timeout=nothing, predicate=nothing) -> payload
 
 Take the next event off `stream`, waiting up to `timeout` ms for one to arrive.
-Raises [`TimeoutError`](@ref) if none does.
+Raises [`TimeoutError`](@ref) if none does. `timeout` defaults to the
+[`set_default_timeout!`](@ref) cascade.
 
 `predicate` skips payloads it returns `false` for; they are consumed, not
-requeued.
+requeued — so a rejected payload is gone, not left for the next call.
+
+```julia
+with_events(page, :console) do stream
+    click(locator(page, "#log"))
+    msg = next_event(stream; predicate = m -> m.type == "error")
+    @info "first console error" msg.text
+end
+```
+
+Blocking and one at a time; [`pending_events`](@ref) is the drain-everything
+form, and [`EventStream`](@ref) has the pair side by side.
 """
 next_event(stream::EventStream; timeout = nothing, predicate = nothing) =
     take_event!(stream.subscription, stream.event, timeout, predicate)
@@ -550,6 +583,13 @@ closing on its own, say. When *you* trigger it, use [`expect_event`](@ref):
 subscribing after the trigger is a race this cannot protect you from.
 
 Same events, payloads, `predicate` and `timeout` as [`expect_event`](@ref).
+
+```julia
+# The page closes itself after a countdown that is already running.
+wait_for_event(page, :close; timeout = 10_000)
+```
+
+Raises [`TimeoutError`](@ref) if nothing arrives in time.
 """
 wait_for_event(target::ChannelOwner, event; timeout = nothing, predicate = nothing) =
     expect_event(() -> nothing, target, event; timeout, predicate)

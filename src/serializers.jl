@@ -116,6 +116,25 @@ Convert a protocol `SerializedValue` back to Julia. `handles` is the
 Numbers always come back as `Float64` — JavaScript has a single number type,
 so reporting `7` rather than `7.0` would misrepresent what the page returned.
 `==` comparisons are unaffected.
+
+```jldoctest
+julia> Playwright.from_serialized(Dict("n" => 7))
+7.0
+
+julia> Playwright.from_serialized(Dict("n" => 7)) == 7
+true
+
+julia> Playwright.from_serialized(Dict("s" => "hi"))
+"hi"
+
+julia> Playwright.from_serialized(Dict("v" => "null")) === nothing
+true
+
+julia> Playwright.from_serialized(Dict("a" => [Dict("n" => 1), Dict("n" => 2)], "id" => 1))
+2-element Vector{Any}:
+ 1.0
+ 2.0
+```
 """
 from_serialized(value, handles = nothing) = _deserialize(value, handles, Dict{Int,Any}())
 

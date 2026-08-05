@@ -1,0 +1,21 @@
+# A separate project from the package (D2), with a committed Manifest.
+#
+# The examples drive four heavy web stacks. Keeping them out of the package's
+# own Project.toml means a Genie release cannot redden `Pkg.test()`, and the
+# committed Manifest means the examples job in CI tests *these* versions.
+# Upstream drift is caught on a cadence instead, by the weekly job that
+# resolves without the Manifest.
+
+[deps]
+Bonito = "824d6782-a2ef-11e9-3a09-e5662e0c26f8"
+Genie = "c43c736e-a2d1-11e8-161f-af95117fbd1e"
+HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
+PNGFiles = "f57f5aa1-a3ce-4bc8-8ab9-96f992907883"
+Playwright = "d777c63b-3b21-49c6-865f-99d0e068a423"
+Sockets = "6462fe0b-24de-5631-8697-dd941f90decc"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+WGLMakie = "276b4fcb-3e11-5398-bf8b-a0c2d153d008"
+
+[compat]
+julia = "1.10"

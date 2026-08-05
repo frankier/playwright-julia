@@ -1,0 +1,62 @@
+# Upstream drift detection (D2).
+#
+# examples/Manifest.toml is committed and pinned so that a Genie or Makie
+# release cannot redden a pull request. The cost of that is not noticing when
+# the ecosystem moves — so this job deletes the Manifest, resolves fresh, and
+# runs the same examples on a weekly cadence.
+#
+# **A failure here does not mean this repository is broken.** It means the
+# examples no longer work against current upstream versions, which is worth
+# knowing and is not worth blocking anyone's PR over. Nothing in this workflow
+# runs on push or pull_request, deliberately.
+name: Upstream drift
+
+on:
+  schedule:
+    # Mondays, 05:00 UTC — after the weekend, before the week.
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unpinned-examples:
+    name: Examples against freshly resolved dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+          arch: x64
+      - uses: julia-actions/cache@v2
+
+      - name: Install driver and browsers
+        # No cache restore: this job runs weekly and is about finding out what
+        # a clean resolve does, so it starts from nothing on purpose.
+        run: julia bin/install.jl
+
+      - name: Drop the pin and resolve fresh
+        run: |
+          rm -f examples/Manifest.toml
+          julia --project=examples -e 'using Pkg; Pkg.resolve(); Pkg.instantiate(); Pkg.status()'
+
+      - name: Run every example on both engines
+        run: julia --project=examples examples/runexamples.jl
+
+      - name: What resolved, for the record
+        if: always()
+        run: julia --project=examples -e 'using Pkg; Pkg.status(; outdated = false)'
+
+      - name: Say plainly what a failure here means
+        if: failure()
+        run: |
+          echo "::warning::Upstream drift: the examples no longer pass against"\
+               "freshly resolved dependencies. The committed"\
+               "examples/Manifest.toml is unaffected and CI on pull requests is"\
+               "unaffected. Compare the resolved versions above against"\
+               "examples/Manifest.toml to find what moved."

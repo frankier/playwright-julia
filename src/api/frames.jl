@@ -23,12 +23,17 @@ end
 """
     frames(page::Page) -> Vector{Frame}
 
-Every frame in `page`: the main frame first, then its descendants in
+Every [`Frame`](@ref) in `page`: the main frame first, then its descendants in
 breadth-first order. Frames detached at runtime drop out of this list.
 
 ```julia
-length(frames(page))   # 2 for a page with one iframe
+length(frames(page))                  # 2 for a page with one iframe
+[url(f) for f in frames(page)]
 ```
+
+This is for *inspecting* the frame tree. To act on elements inside an iframe,
+scope into it with [`frame_locator`](@ref) instead — that does not care where
+the frame sits in this list.
 """
 function frames(page::Page)
     conn = page.connection
@@ -59,7 +64,15 @@ end
 """
     parent_frame(frame::Frame) -> Union{Frame,Nothing}
 
-The frame containing `frame`, or `nothing` for a page's main frame.
+The [`Frame`](@ref) containing `frame`, or `nothing` for a page's main frame —
+which is how you tell the main frame apart from the rest.
+
+```julia
+main = only(filter(f -> parent_frame(f) === nothing, frames(page)))
+```
+
+The downward direction is [`frames`](@ref); from an element, it is
+[`owner_frame`](@ref).
 """
 parent_frame(frame::Frame) =
     from_channel(frame.connection, get(frame.initializer, "parentFrame", nothing))
@@ -67,14 +80,31 @@ parent_frame(frame::Frame) =
 """
     url(frame::Frame) -> String
 
-The URL currently loaded in `frame`, kept up to date as it navigates.
+The URL currently loaded in `frame`, kept up to date as it navigates. For a
+page, ask its main frame — or assert on it, which waits:
+
+```julia
+url(main_frame(page))
+expect(page; to_have_url = r"/checkout\$")   # the assertion form
+```
+
+See [`expect`](@ref), and [`title`](@ref) for the document's title.
 """
 url(frame::Frame) = get(frame.initializer, "url", "")::String
 
 """
     name(frame::Frame) -> String
 
-The frame's `name` attribute, or `""` when it has none.
+The frame's `name` attribute, or `""` when it has none — an unnamed frame and a
+frame named `""` are indistinguishable here.
+
+```julia
+findfirst(f -> name(f) == "checkout", frames(page))
+```
+
+Names are a convenience for finding a known frame; [`frame_locator`](@ref) is
+the way to actually work inside one. Note this is unrelated to
+[`browser_name`](@ref).
 """
 name(frame::Frame) = get(frame.initializer, "name", "")::String
 
@@ -154,7 +184,16 @@ end
     owner_frame(loc::Locator) -> Union{Frame,Nothing}
 
 The frame that *contains* the element `loc` matches — the inverse of
-[`content_frame`](@ref), which returns the frame an element contains.
+[`content_frame`](@ref), which returns the frame an element contains. `nothing`
+when the locator matches no element.
+
+```julia
+inner = locator(frame_locator(page, "#embed"), "h1")
+owner_frame(inner) === main_frame(page)    # false: it lives in the iframe
+```
+
+Both of these resolve the locator immediately, so neither waits; see
+[`wait_for_selector`](@ref) for an element that is not there yet.
 """
 function owner_frame(loc::Locator)
     handle = _frame_query_selector(loc.frame; selector = loc.selector, strict = loc.strict)

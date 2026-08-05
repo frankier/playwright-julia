@@ -31,6 +31,11 @@ save_as(video(page), "artifacts/run.webm")
 
 Parent directories are created if they do not exist, because the caller
 supplying `"artifacts/run.webm"` on a fresh checkout means it.
+
+The blocking is the useful part: [`path`](@ref) tells you where the driver
+*will* put the file, but a video is not finished until its page closes. Use
+[`delete`](@ref) for an artifact a passing test does not need to keep, and see
+[`Artifact`](@ref) for the three verbs together.
 """
 function save_as(a::Artifact, path::AbstractString)
     dir = dirname(path)
@@ -69,6 +74,19 @@ path(a::Artifact) = _artifact_path_after_finished(a)::String
 Delete the artifact's driver-side file. Worth calling for artifacts a passing
 test does not need to keep — the driver writes them into a temporary directory
 that lives as long as the browser does.
+
+```julia
+recording = video(page)
+close(page)
+if test_passed
+    delete(recording)                       # nothing to look at
+else
+    save_as(recording, "artifacts/run.webm")
+end
+```
+
+This deletes the *driver's* copy; a file already copied out with
+[`save_as`](@ref) is yours and is untouched. See [`Artifact`](@ref).
 """
 function delete(a::Artifact)
     _artifact_delete(a)
@@ -92,8 +110,20 @@ tracing_channel(ctx::BrowserContext) =
     start_tracing(ctx::BrowserContext; screenshots=true, snapshots=true,
                   sources=false, name=nothing, title=nothing)
 
-Begin recording a Playwright trace on `ctx`. Pair with [`stop_tracing`](@ref),
-or use [`with_tracing`](@ref) to guarantee the pairing.
+Begin recording a Playwright trace on `ctx` — the full record of what the
+browser did, viewable afterwards in Playwright's own trace viewer. Pair with
+[`stop_tracing`](@ref), or use [`with_tracing`](@ref) to guarantee the pairing
+even when the block throws, which is the run worth tracing.
+
+```julia
+start_tracing(ctx; title = "checkout")
+try
+    goto(page, url)
+    click(locator(page, "#submit"))
+finally
+    stop_tracing(ctx; path = "artifacts/trace.zip")
+end
+```
 
 | Option | Records |
 |---|---|
@@ -140,9 +170,17 @@ end
     stop_tracing(ctx::BrowserContext; path) -> path
 
 Stop the recording started by [`start_tracing`](@ref) and write the trace zip
-to `path`.
+to `path`, returning `path`. Parent directories are created as needed.
 
-Open the result with:
+```julia
+start_tracing(ctx)
+goto(page, url)
+stop_tracing(ctx; path = "artifacts/trace.zip")
+```
+
+Each stop consumes the chunk `start_tracing` opened, so tracing a second run
+means calling `start_tracing` again. [`with_tracing`](@ref) does both halves
+for you. Open the result with:
 
 ```
 npx playwright@1.61.1 show-trace artifacts/trace.zip
@@ -186,6 +224,10 @@ end
 
 Returns whatever `f()` returned. Open the trace with
 `npx playwright show-trace artifacts/trace.zip`.
+
+Options other than `path` are passed straight to [`start_tracing`](@ref); the
+zip is written by [`stop_tracing`](@ref). For a whole test wrapped in a trace
+*and* a screenshot on failure, see [`with_page`](@ref).
 
 !!! note "A failed save never replaces your exception"
     Saving the trace happens on the teardown path, while a more important

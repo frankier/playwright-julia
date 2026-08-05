@@ -34,6 +34,25 @@ tell failure kinds apart:
 | [`AssertionFailure`](@ref) | a retrying assertion never matched |
 | [`DriverError`](@ref) | anything else, including JS exceptions |
 
+Constructing one directly is rarely useful, but it shows the shape:
+
+```jldoctest
+julia> e = DriverError("boom"; name = "Error")
+DriverError("boom", "Error", "")
+
+julia> e isa PlaywrightError
+true
+
+julia> e.message
+"boom"
+
+julia> sprint(showerror, e)
+"DriverError: boom"
+
+julia> TimeoutError("too slow") isa PlaywrightError
+true
+```
+
 !!! note "Changed in milestone 3"
     `PlaywrightError` used to be a concrete struct. It is now abstract, so
     `PlaywrightError(msg)` no longer constructs — use [`DriverError`](@ref).
@@ -60,7 +79,18 @@ end
     DriverError(message; name="Error", stack="")
 
 An unclassified driver failure — the catch-all of the taxonomy, and what a JS
-exception raised inside `evaluate` becomes.
+exception raised inside [`evaluate`](@ref) becomes. Any driver error name this
+package does not recognise arrives here too, so a future Playwright release
+cannot produce an error that escapes [`PlaywrightError`](@ref).
+
+```julia
+try
+    evaluate(page, "() => { throw new Error('boom') }")
+catch e
+    e isa DriverError    # true
+    occursin("boom", e.message)
+end
+```
 """ DriverError
 
 @doc """
@@ -71,19 +101,61 @@ that never settled, a retrying assertion's underlying wait.
 
 Distinguishing this from [`DriverError`](@ref) is the point of the taxonomy — a
 selector that is merely late is a different problem from a page that threw.
+
+```julia
+try
+    click(locator(page, "#never"); timeout = 1_000)
+catch e
+    e isa TimeoutError && @info "still not there after a second"
+end
+```
+
+The timeout that ran out is the one resolved by the
+[`set_default_timeout!`](@ref) cascade. To retry on a timeout rather than
+raise, see [`retry_until`](@ref)'s `on_timeout` option.
 """ TimeoutError
 
 @doc """
     TargetClosedError(message; name="Error", stack="")
 
 The page, context or browser the call targeted was closed underneath it.
+
+This is a *lifecycle* error rather than a failure of the call: the usual cause
+is a `close` in a `finally` racing work still in flight, or acting on a page
+whose context has already gone.
+
+```julia
+close(page)
+try
+    title(page)
+catch e
+    e isa TargetClosedError    # true
+end
+```
+
+See [`PlaywrightError`](@ref) for the rest of the taxonomy.
 """ TargetClosedError
 
 @doc """
     AssertionFailure(message; name="Error", stack="")
 
 A retrying assertion never matched within its timeout. The message carries both
-the expected and the received value.
+the expected and the received value, which is the difference between this and a
+bare [`TimeoutError`](@ref) — an assertion that fails should say what it saw.
+
+Raised by [`expect`](@ref):
+
+```julia
+try
+    expect(locator(page, "h1"); to_have_text = "Wrong", timeout = 1_000)
+catch e
+    e isa AssertionFailure
+    @info e.message    # names both the expected and the received text
+end
+```
+
+[`retry_until`](@ref) with `on_timeout = :false` is the way to get a `Bool`
+instead of this, so a check can sit inside `@test`.
 """ AssertionFailure
 
 Base.showerror(io::IO, e::PlaywrightError) = print(io, nameof(typeof(e)), ": ", e.message)

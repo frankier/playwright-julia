@@ -1,0 +1,52 @@
+# The documentation site: built on every push and PR, deployed only from main.
+#
+# The split is deliberate. The build is fully verifiable locally and gates
+# PRs; the deploy is only ever exercised on main. Keeping them apart means a
+# deployment problem cannot masquerade as a documentation problem.
+#
+# D4: this build never launches a browser, so it cannot go red for a reason
+# that has nothing to do with the docs.
+name: Documentation
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  docs:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      # D10: the deploy is authenticated by the workflow's own GITHUB_TOKEN,
+      # so it can write the gh-pages branch. No repository secret is created
+      # and none is required — an implementation that finds itself wanting a
+      # DOCUMENTER_KEY has contradicted D10 and should stop, not work around
+      # it.
+      contents: write
+      # Needed by Documenter to comment the preview URL on pull requests.
+      pull-requests: read
+      statuses: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+          arch: x64
+      - uses: julia-actions/cache@v2
+      - name: Instantiate the docs environment
+        run: julia --project=docs -e 'using Pkg; Pkg.develop(PackageSpec(path = pwd())); Pkg.instantiate()'
+      - name: Build the docs, run the doctests, and deploy from main
+        env:
+          # deploydocs reads this; it is issued to the run, not stored.
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Documenter only calls deploydocs when it detects CI, and make.jl
+          # only calls it at all under the same condition.
+          JULIA_DEBUG: Documenter
+        run: julia --project=docs docs/make.jl

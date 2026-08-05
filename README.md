@@ -1,10 +1,25 @@
 # Playwright.jl
 
+[![CI](https://github.com/frankier/playwright-julia/actions/workflows/CI.yml/badge.svg)](https://github.com/frankier/playwright-julia/actions/workflows/CI.yml)
+[![Docs](https://github.com/frankier/playwright-julia/actions/workflows/docs.yml/badge.svg)](https://frankier.github.io/playwright-julia/dev/)
+
 Drive real browsers from Julia through the official
 [Playwright](https://playwright.dev) automation engine — end-to-end testing,
 scraping, and screenshot/PDF generation without leaving Julia or hand-rolling
 CDP. The same architecture as `playwright-python`: a pinned Playwright driver
 (Node.js) runs as a subprocess and Julia speaks its JSON protocol over stdio.
+
+**📖 [Documentation](https://frankier.github.io/playwright-julia/dev/)** — the
+guide, the examples and the full API reference live there.
+
+## Install
+
+```julia
+using Pkg
+Pkg.add(url = "https://github.com/frankier/playwright-julia")
+```
+
+Not registered yet.
 
 ## Quick start
 
@@ -12,506 +27,111 @@ CDP. The same architecture as `playwright-python`: a pinned Playwright driver
 using Playwright
 
 playwright() do pw
-    browser = launch(pw.chromium; headless=true)
-    page = new_page(browser)
-    goto(page, "https://example.com")
-    @assert title(page) == "Example Domain"
-    loc = locator(page, "h1")
-    println(text_content(loc))
-    click(locator(page, "a"))
-    screenshot(page; path="example.png")
-    close(browser)
+    browser = launch(pw.chromium; headless = true)
+    try
+        page = new_page(browser)
+        goto(page, "https://example.com")
+
+        expect(page; to_have_title = "Example Domain")
+        expect(locator(page, "h1"); to_have_text = "Example Domain")
+
+        screenshot(page; path = "example.png")
+    finally
+        close(browser)
+    end
 end
 ```
 
 This runs on a clean machine with only Julia installed: the first use
-downloads the Playwright driver and the browser automatically. To do the
-downloads ahead of time (recommended for CI):
-
-```julia
-using Playwright
-Playwright.install()          # driver + Chromium + Firefox
-```
-
-Browsers land in the standard Playwright cache (`~/.cache/ms-playwright`),
-shared with any other Playwright installation on the machine. The driver
-lives in a Julia scratch space keyed by the pinned Playwright version.
-
-### Installing browsers in CI
-
-`Playwright.install()` needs Playwright.jl to be loadable, which is exactly what
-a project carrying it as a **test** dependency does not have outside
-`Pkg.test()`. `bin/install.jl` is the way in — it runs standalone, activating
-the checkout itself if the active environment cannot load the package:
+downloads the Playwright driver and the browser automatically, which takes a
+couple of minutes. To do it ahead of time — strongly recommended in CI:
 
 ```console
-$ julia bin/install.jl                 # driver + Chromium + Firefox
-$ julia bin/install.jl chromium        # just the one you need
+$ julia bin/install.jl              # driver + Chromium + Firefox
+$ julia bin/install.jl chromium     # just the one you need
 ```
 
-An unknown browser name is rejected before anything downloads.
+`bin/install.jl` runs standalone, activating the checkout itself if the active
+environment cannot load the package — which is the case a project carrying
+Playwright.jl as a *test* dependency hits. See
+[Getting started](https://frankier.github.io/playwright-julia/dev/getting-started/)
+for caching browsers in GitHub Actions.
 
-Set `PLAYWRIGHT_BROWSERS_PATH` to put browsers somewhere you control, which is
-usually easier to cache and restore in CI than a path in the home directory.
-Installing and launching both read it — the driver subprocess inherits Julia's
-environment — so set it once, in the shell or in `ENV`, and the two agree:
+## Waiting is not sleeping
+
+The one idea worth knowing before reading anything else. Every assertion
+retries in the browser until it holds, so a test never has to guess how long a
+page will take:
+
+```julia
+sleep(2)                                                   # don't
+@test text_content(locator(page, "#status")) == "ready"
+
+expect(locator(page, "#status"); to_have_text = "ready")   # do
+```
+
+## Examples
+
+Four runnable scripts under [`examples/`](examples/), each driving a real Julia
+web stack in a real browser:
+
+| Script | Stack |
+|---|---|
+| [`http_jl.jl`](examples/http_jl.jl) | HTTP.jl — the pattern, with nothing else in the way |
+| [`oxygen_jl.jl`](examples/oxygen_jl.jl) | Oxygen.jl — a page and the JSON API it calls |
+| [`genie_jl.jl`](examples/genie_jl.jl) | Genie.jl — routing, and a 25-second warm-up |
+| [`wglmakie_jl.jl`](examples/wglmakie_jl.jl) | WGLMakie.jl — WebGL, screenshotted and traced |
 
 ```console
-$ export PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright"
-$ julia bin/install.jl chromium
+$ julia --project=examples examples/runexamples.jl      # all of them, both engines
 ```
 
-For a package with Playwright.jl in `[targets] test` rather than `[deps]`, a
-GitHub Actions job looks like this. The cache key is the Playwright version,
-because that is what decides which browser build is needed:
-
-```yaml
-- uses: julia-actions/setup-julia@v2
-- uses: julia-actions/cache@v2
-
-- name: Cache Playwright browsers
-  uses: actions/cache@v4
-  with:
-    path: ~/.cache/ms-playwright
-    key: playwright-${{ runner.os }}-1.61.1
-
-- name: Install browsers
-  run: julia --project=. -e 'using Pkg; Pkg.instantiate()' &&
-       julia --project=. ~/.julia/packages/Playwright/*/bin/install.jl chromium
-
-- uses: julia-actions/julia-runtest@v1
-```
-
-If you would rather not chase the package path, the same thing in one line
-against the test environment:
+## Testing this package
 
 ```console
-$ julia --project=. -e 'using Pkg; Pkg.activate(temp=true); Pkg.add("Playwright"); using Playwright; Playwright.install(browsers=["chromium"])'
+$ julia --project=. -e 'using Pkg; Pkg.test()'                       # hermetic
+$ PLAYWRIGHT_JL_SMOKE=1 julia --project=. -e 'using Pkg; Pkg.test()' # + real browsers
 ```
 
-`Playwright.browsers_path()` reports where browsers will be looked for, which
-is the first thing to check when a launch cannot find one.
-
-## A fuller example
-
-```julia
-using Playwright
-
-playwright() do pw
-    browser = launch(pw.chromium; headless=true, chromium_sandbox=false,
-                     args=["--disable-dev-shm-usage"])
-    ctx = new_context(browser; viewport=(width=1280, height=720))
-    page = new_page(ctx)
-    goto(page, url)
-
-    # Arbitrary JavaScript, values in and out
-    @assert evaluate(page, "1 + 1") == 2
-    @assert evaluate(page, "x => x.a * 2", (a = 21,)) == 42
-
-    # Several matches: countable, indexable, iterable
-    sliders = locator(page, "input[type=range]"; strict=false)
-    @assert count(sliders) == 2
-    for slider in sliders
-        println(input_value(slider))
-    end
-
-    # Reach into an iframe
-    inner = frame_locator(page, "iframe")
-    click(locator(inner, "button"))
-    println(evaluate(content_frame(inner), "document.title"))
-
-    # Keep a value in the browser; released on the way out of the block
-    evaluate_handle(page, "() => window.app") do app
-        @assert evaluate(app, "a => a.ready") === true
-    end
-
-    # Why did that fail?
-    for err in page_errors(page)
-        @warn "page error" err.message
-    end
-
-    close(ctx)
-    close(browser)
-end
-```
-
-## API
-
-### Lifecycle
-
-| Function | Purpose |
-|---|---|
-| `playwright(f)` | Start the driver, run `f(pw)`, guarantee shutdown |
-| `pw.chromium`, `pw.firefox` | The launchable `BrowserType`s |
-| `launch(bt; headless=true, …)` | Launch a browser — see options below |
-| `new_context(browser; viewport, user_agent, …)` | Isolated profile; the unit of test isolation |
-| `new_page(browser)` / `new_page(context)` | New page; from a browser it owns the context it created |
-| `contexts(browser)`, `pages(context)` | What is currently open |
-| `close(page)`, `close(context)`, `close(browser)` | Close (extends `Base.close`) |
-
-`launch` options, all optional and omitted from the wire when unset: `args`,
-`chromium_sandbox`, `env`, `firefox_user_prefs`, `executable_path`, `channel`,
-`slow_mo`, `proxy`, `downloads_path`. `executable_path` and `channel` are what
-make `CHROME_BIN`-style provisioning work against a browser the machine
-already has.
-
-### Navigation and capture
-
-| Function | Purpose |
-|---|---|
-| `goto(page, url; timeout=30_000, wait_until="load")` | Navigate |
-| `title(page)` | Document title |
-| `screenshot(page; path=nothing)` | PNG screenshot, returned and/or written |
-| `pdf(page; path=nothing, format, …)` | PDF bytes, returned and/or written — Chromium only |
-
-See [Artifacts and the failure path](#artifacts-and-the-failure-path) for
-tracing, video and the diagnostics dump.
-
-### Locators
-
-| Function | Purpose |
-|---|---|
-| `locator(page, selector; strict=true)` | Lazy selector handle |
-| `count(loc)`, `nth(loc, i)`, `first(loc)`, `last(loc)` | Work with several matches (`nth` is 1-based) |
-| iteration, `loc[i]`, `collect(loc)` | One single-element `Locator` per match |
-| `click(loc)`, `fill(loc, value)` | Act (waits for actionability) |
-| `dispatch_event(loc, type, event_init=missing)` | Fire a synthetic DOM event |
-| `text_content(loc)`, `inner_text(loc)`, `inner_html(loc)` | Read content |
-| `input_value(loc)`, `get_attribute(loc, name)` | Read values |
-| `is_visible(loc)`, `is_checked(loc)`, `is_enabled(loc)` | Read state |
-
-A `Locator` is iterable but deliberately **not** an `AbstractArray`: indexing
-is a network call and the length is not stable. Iteration samples the match
-set once, with a `count` round-trip, when the loop starts.
-
-### JavaScript
-
-| Function | Purpose |
-|---|---|
-| `evaluate(target, expression, arg=missing)` | Run JS in a page, frame or handle; returns a Julia value |
-| `evaluate_handle(target, expression, arg=missing)` | Keep the result in the browser as a `JSHandle` |
-| `evaluate_handle(f, target, expression, …)` | Block form — disposes the handle on the way out, throw or not |
-| `dispose(handle)` | Release a handle explicitly |
-| `eval_on_selector(target, selector, expression, …)` | Run JS with the matched element as its argument |
-| `eval_on_selector_all(target, selector, expression, …)` | ...with *all* matches as an array |
-
-Numbers come back as `Float64` — JavaScript has one number type — so
-`evaluate(page, "1 + 1")` is `2.0`, which still `== 2`.
-
-### Frames
-
-| Function | Purpose |
-|---|---|
-| `frames(page)` | Main frame first, then descendants |
-| `frame_locator(page, selector)` | Scope into an iframe |
-| `locator(fl, selector)` | Address an element inside it |
-| `content_frame(fl_or_loc)` | The `Frame` an iframe element contains |
-| `owner_frame(loc)` | The frame containing an element |
-| `parent_frame(frame)`, `url(frame)`, `name(frame)` | Frame tree and identity |
-
-### Diagnostics
-
-| Function | Purpose |
-|---|---|
-| `console_messages(page)` | Buffered `ConsoleMessage`s (`type`, `text`, `location`, `timestamp`) |
-| `page_errors(page)` | Uncaught `PageError`s (`message`, `name`, `stack`) |
-| `clear_console_messages(page)`, `clear_page_errors(page)` | Reset the buffers for per-test isolation |
-
-Failures surface as a `PlaywrightError` carrying the driver's message and its
-call log (so a timeout tells you which selector it was waiting for).
-
-`console_messages` and `page_errors` return an **empty vector rather than
-raising** once the page or context has closed. They are postmortem readers,
-usually called from a `finally` block while a more important error is already
-in flight — throwing there would mask the failure you were trying to explain,
-and "the page is gone" tells a caller who is already handling an error nothing
-useful. The silence is bounded: only that one error type, only these readers,
-and every other failure still propagates.
-
-### Artifacts and the failure path
-
-What to reach for when a suite goes red in CI and the assertion message is not
-enough.
-
-| Function | Produces |
-|---|---|
-| `with_tracing(f, ctx; path, screenshots, snapshots)` | a trace zip, written however the block exits |
-| `start_tracing(ctx)` / `stop_tracing(ctx; path)` | the same, unpaired |
-| `new_context(browser; record_video = (dir = …,))` + `video(page)` | a `.webm` per page |
-| `pdf(page; path, format, …)` | PDF bytes — **Chromium only** |
-| `report_diagnostics(page, dir)` | `screenshot.png`, `console.log`, `errors.log` |
-| `with_page(f, browser_or_ctx, url; artifacts = dir)` | all of the above, on failure |
-
-The headline is that evidence survives the failure that made you want it:
-
-```julia
-with_tracing(ctx; path = "artifacts/trace.zip", screenshots = true) do
-    goto(page, url)
-    click(locator(page, "#submit"))     # if this throws, the zip is still written
-end
-```
-
-Open the result with the upstream viewer — the zip is an opaque artifact for
-it, and this package neither builds nor parses one:
-
-```
-npx playwright@1.61.1 show-trace artifacts/trace.zip
-```
-
-`with_page` is the per-test fixture:
-
-```julia
-with_page(browser, url; artifacts = "artifacts/checkout") do page
-    expect(page; to_have_title = "Checkout")
-end
-```
-
-It opens a page, navigates, always closes it, and — when the body throws —
-dumps diagnostics *before* closing, because afterwards there is nothing left to
-see. **Your exception propagates unchanged**; a failure in the diagnostics is a
-`@warn`, never a replacement for the failure being diagnosed. Pass
-`artifacts_on = :always` to capture on success too; the default `:failure`
-keeps a large suite from writing a screenshot per passing test.
-
-Two upstream sharp edges, stated rather than hidden:
-
-- **Video does not exist until the page or context closes.** `path(video(page))`
-  blocks until it is finalized, so close the page first:
-  ```julia
-  close(page)
-  @test isfile(path(video(page)))
-  ```
-- **`pdf` is Chromium-only.** Off Chromium it raises an `ArgumentError` naming
-  the engine, decided client-side with no round trip.
-
-Traces, videos and PDFs are binaries — keep the directory you write them to out
-of version control (`artifacts/` is in this repo's `.gitignore`).
-
-### Waiting
-
-Wait driver-side rather than sleeping. The condition is re-checked *in the
-browser*, so a late element is picked up the moment it arrives:
-
-| Function | Purpose |
-|---|---|
-| `wait_for_selector(target, sel; state)` | Wait for `:attached`, `:detached`, `:visible` or `:hidden` |
-| `wait_for_function(target, expr, arg; polling)` | Wait for a JS predicate to go truthy |
-
-Both work on a `Page`, a `Frame` or a `Locator`.
-
-```julia
-wait_for_selector(page, "#late"; state=:visible)
-wait_for_function(page, "() => window.ready === true")
-```
-
-### Retrying assertions
-
-`expect` retries in the browser until the condition holds or the timeout runs
-out, and returns the locator so calls chain:
-
-```julia
-expect(locator(page, "h1"); to_have_text = "Hello")
-expect(locator(page, "li"; strict=false); to_have_count = 3)
-expect(locator(page, "#box"); to_have_value = r"^se")
-expect(locator(page, "#link"); to_have_attribute = "href" => "/somewhere")
-expect(locator(page, "#gone"); to_be_visible = false)
-expect(locator(page, "h1"); to_have_text = Not("Goodbye"))
-```
-
-Matchers: `to_have_text`, `to_contain_text`, `to_have_value`, `to_have_count`,
-`to_have_attribute`, `to_be_visible`, `to_be_hidden`, `to_be_enabled`,
-`to_be_disabled`, `to_be_checked`. Wrap any expectation in `Not(...)` to negate
-it.
-
-A failure raises `AssertionFailure` naming both values, so you do not have to
-re-run the test to find out what was actually there:
-
-```
-to_have_text failed on locator("h1")
-  expected: "Goodbye"
-  received: "Hello"
-  (gave up after 5000ms of retrying)
-```
-
-`expect` also asserts about the **document** when handed a `Page` or a `Frame`:
-
-```julia
-expect(page; to_have_title = "Checkout")
-expect(page; to_have_url = r"/checkout$")
-```
-
-Matchers are partitioned by target, so `to_have_text` on a `Page` — or
-`to_have_title` on a `Locator` — is an `ArgumentError` naming the one that
-works, rather than a driver-side failure that looks just like a real mismatch.
-
-`retry_until(f; timeout, interval)` is the escape hatch for conditions `expect`
-cannot express. Prefer `expect` where it fits — it retries inside the browser,
-so it neither round-trips per attempt nor misses a state that flickers between
-polls.
-
-Two knobs matter when the condition may legitimately never come:
-
-```julia
-# Reports a Test.Fail rather than an Error, so the testset reads correctly...
-@test retry_until(page; on_timeout = :false) do
-    length(console_messages(page)) >= 3
-end
-
-# ...and a predicate that throws while a server warms up is "not yet",
-# not a broken test.
-retry_until(page; on_error = :retry) do
-    HTTP.get(probe_url).status == 200
-end
-```
-
-| Keyword | Values | Meaning |
-|---|---|---|
-| `on_timeout` | `:throw` (default), `:false` | raise `AssertionFailure`, or return `false` |
-| `on_error` | `:throw` (default), `:retry` | propagate a predicate exception, or treat it as "not yet" |
-
-Passing a `Page`, `Frame`, `BrowserContext` or `Locator` as a second positional
-argument opts `retry_until` into the `set_default_timeout!` cascade, like
-everything else. (`:false` is not a `Symbol` — Julia parses it as the boolean
-`false`. Both spellings work and mean the same thing.)
-
-### Events
-
-Subscribing happens *before* the action that triggers the event, which is why
-the primary form takes a block — an event fired synchronously by the action is
-still caught:
-
-```julia
-popup = expect_event(ctx, :page) do
-    click(locator(page, "#open-popup"))
-end
-
-msg = expect_event(ctx, :console; predicate = m -> m.text == "ready") do
-    click(locator(page, "#go"))
-end
-```
-
-| Owner | Event | Payload |
-|---|---|---|
-| `Page` | `:close`, `:crash` | the `Page` |
-| `Page` | `:frameattached`, `:framedetached` | `Frame` |
-| `BrowserContext` | `:page` | `Page` — this is how you catch a popup |
-| `BrowserContext` | `:close` | the `BrowserContext` |
-| `BrowserContext` | `:console` | `ConsoleMessage` |
-| `BrowserContext` | `:pageerror` | `PageError` |
-
-Anything else raises `ArgumentError`. Network events (`:request`, `:response`,
-…), `:dialog` and `:download` are deferred rather than designed away — their
-payload types have no accessors yet, so handing one back would look like
-support without being it.
-
-`wait_for_event(target, event)` waits for something already in flight, and
-`with_events(f, target, event)` collects several:
-
-```julia
-errors = with_events(ctx, :pageerror) do stream
-    click(locator(page, "#break-everything"))
-    retry_until(() -> length(stream) >= 1; timeout=5_000)
-    pending_events(stream)
-end
-```
-
-Buffers are unbounded, so nothing that happens inside the block is dropped.
-`length(stream)` peeks; `pending_events(stream)` drains.
-
-### Default timeouts
-
-Every `timeout` keyword defaults to a cascade — the call's own keyword, then
-the page's setting, then the context's, then 30 s — so one setting shortens
-every wait beneath it, instead of each miss costing 30 s:
-
-```julia
-ctx = new_context(browser)
-set_default_timeout!(ctx, 2_000)       # a missing element fails in 2 s
-page = new_page(ctx)
-set_default_timeout!(page, 5_000)      # ...but this page gets 5 s
-```
-
-`set_default_navigation_timeout!` does the same for navigations, which fall
-back to the action setting when they have none of their own. `launch`'s own
-`timeout` is deliberately outside the cascade: it bounds browser *startup*,
-where there is no page or context to inherit from.
-
-### Errors
-
-Branch on the kind of failure rather than on message text:
-
-| Type | Raised when |
-|---|---|
-| `TimeoutError` | an operation exceeded its timeout |
-| `TargetClosedError` | the page, context or browser closed under the call |
-| `AssertionFailure` | a retrying assertion never matched |
-| `DriverError` | anything else, including JS exceptions |
-
-All four are `<: PlaywrightError` and carry `.message`, `.name` and `.stack`,
-so `catch e isa PlaywrightError` still catches everything.
-
-> **Changed in milestone 3.** `PlaywrightError` was a concrete struct and is now
-> an abstract supertype. `catch e isa PlaywrightError` and `e.message` are
-> unaffected; only `PlaywrightError(msg)` as a *constructor* breaks — use
-> `DriverError(msg)`. Construction was internal to this package.
-
-## Testing
-
-```
-julia --project=. -e 'using Pkg; Pkg.test()'                       # hermetic unit tests
-PLAYWRIGHT_JL_SMOKE=1 julia --project=. -e 'using Pkg; Pkg.test()' # + real-browser smoke tests
-```
-
-Unit tests need no Node.js or browsers. The smoke suite launches headless
-Chromium and Firefox against local HTML fixtures served in-process.
+The hermetic suite needs no Node.js and no browsers. The smoke suite launches
+headless Chromium and Firefox against local HTML fixtures served in-process.
+
+Build the docs locally with `julia --project=docs docs/make.jl`; the build
+never launches a browser.
 
 ## The channel layer is generated
 
-`src/generated/channels.jl` — one type per protocol interface and one function
-per protocol command — is generated from Playwright's own protocol spec,
-vendored under `protocol/spec/` at the pinned version. The generated code is
-checked in; the generator never runs at build or load time and adds no runtime
-dependency.
+`src/generated/channels.jl` — one type per protocol interface, one function per
+protocol command — is generated from Playwright's own protocol spec, vendored
+under `protocol/spec/` at the pinned version. The generated code is checked in;
+the generator never runs at build or load time and adds no runtime dependency.
 
-```
-julia --project=gen gen/fetch_spec.jl        # re-vendor protocol/spec/*.yml
-julia --project=gen gen/generate.jl          # regenerate the channel layer
-julia --project=gen gen/generate.jl --check  # non-zero exit if it is stale
+```console
+$ julia --project=gen gen/fetch_spec.jl        # re-vendor protocol/spec/*.yml
+$ julia --project=gen gen/generate.jl          # regenerate the channel layer
+$ julia --project=gen gen/generate.jl --check  # non-zero exit if it is stale
 ```
 
-The user-facing API above is hand-written on top of that layer: the spec
-carries no documentation and no notion of the idiomatic way to call something,
-so a fully generated API would be a transliteration of TypeScript rather than
-Julia. Never edit `src/generated/` by hand.
+The user-facing API is hand-written on top of that layer: the spec carries no
+documentation and no notion of the idiomatic way to call something, so a fully
+generated API would be a transliteration of TypeScript rather than Julia.
+**Never edit `src/generated/` by hand.**
 
 ## Status
 
-Milestone 4: the moment a suite fails. Trace zips openable in the upstream
-viewer, video, PDF and a shared `Artifact` surface on the capture side; and on
-the failure path, `retry_until` that can report a `Fail` instead of an `Error`,
-retry through a warming-up server and honour the timeout cascade; document-level
-`expect(page; to_have_title=…)`; postmortem diagnostics that no longer throw on
-a page that has already closed and mask the failure that sent you there; and a
-`with_page` fixture that collects the evidence without ever replacing the
-exception.
+Chromium and Firefox, on Linux, synchronous API. Milestones 1–5 are complete:
+the protocol and driver layer, the broad API, driver-side waiting and retrying
+assertions, artifacts and the failure path, and the documentation site.
 
-Milestone 3: fast, precise and quiet. Driver-side waiting instead of
-hand-rolled polling, retrying assertions instead of `sleep`, a settable default
-timeout instead of a 30 s stall per miss, an error taxonomy specific enough to
-branch on, race-free event subscription, `evaluate` on a `Locator`, and a
-standalone browser installer. Chromium and Firefox, sync only.
-
-Milestone 2 got the API broad enough to *write* an end-to-end suite:
-`evaluate` and the value codec, frames and iframes, multi-match locators,
-`dispatch_event`, full launch options, explicit context lifecycle, and
-console/error diagnostics.
+Not yet covered: WebKit; network interception and routing; downloads, file
+choosers and dialogs; HAR recording; persistent contexts; a Julia trace
+*viewer* or any trace parsing; an async API. The network events (`:request`,
+`:response`, …) are deferred rather than rejected — `Request` and `Response`
+exist in the generated layer but have no accessors yet.
 
 [`docs/bonnie-parity.md`](docs/bonnie-parity.md) records the driving use case:
 replacing a hand-rolled CDP test harness with public API, row by row.
 
-Not yet covered: WebKit; network interception and routing; downloads, file
-choosers and dialogs; HAR recording; persistent contexts; a Julia trace
-*viewer* or any trace parsing; an async API. The network events (`:request`, `:response`, …) are deferred rather than
-rejected — `Request` and `Response` exist in the generated layer but have no
-accessors yet, so lifting them is a payload-mapping entry plus a small
-accessor set.
+## Licence
+
+MIT — see [`LICENSE`](LICENSE).
