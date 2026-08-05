@@ -80,7 +80,7 @@ web stack in a real browser:
 | [`http_jl.jl`](examples/http_jl.jl) | HTTP.jl — the pattern, with nothing else in the way |
 | [`oxygen_jl.jl`](examples/oxygen_jl.jl) | Oxygen.jl — a page and the JSON API it calls |
 | [`genie_jl.jl`](examples/genie_jl.jl) | Genie.jl — routing, and a 25-second warm-up |
-| `wglmakie_jl.jl` | WGLMakie.jl — WebGL, screenshotted and traced |
+| [`wglmakie_jl.jl`](examples/wglmakie_jl.jl) | WGLMakie.jl — WebGL, screenshotted and traced |
 
 ```console
 $ julia --project=examples examples/runexamples.jl      # all of them, both engines

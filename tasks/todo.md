@@ -13,9 +13,9 @@ Sizes: (S) small, (M) medium, (L) large.
 - [x] T1: **PROBE** — headless WebGL for WGLMakie on both engines, findings to
       `tasks/m5-probe.md` (M) — **gate**: fixes B4's assertion level (D8)
       - Chromium renders in full with **no launch flags**; Firefox has no WebGL
-        at all and cannot be given one. Recommends **D8 level 3** with the
-        Firefox leg kept as a structural assertion.
-      - ⛔ **awaiting human review — T7 is blocked on it**
+        at all and cannot be given one.
+      - ✅ **reviewed and approved 2026-08-05: D8 level 3**, Chromium-only for
+        the pixel assertion, Firefox kept as a structural leg
 - [x] T2: CI — hermetic matrix (1.10, `1`) + codegen check + format check (M) —
       **gate**: the first green run on a pushed branch
       - green: run `30989693673` (all four jobs, branch `m5-ci`, PR #1)
@@ -45,7 +45,9 @@ T0 ∥ T1 ∥ T2 — disjoint. T1 needs a browser; T0 and T2 do not.
 - [x] T5: Oxygen.jl example (S) — B2, deps: T4
 - [x] T6: Genie.jl example (M) — B3, deps: T4
       - measured warm-up: **25.0s** from `up()` to the first answered request
-- [ ] T7: WGLMakie.jl example (M) — B4, deps: **T1**, T4
+- [x] T7: WGLMakie.jl example (M) — B4, deps: **T1**, T4
+      - level 3 as approved; **not flaky**: three consecutive runs all exit 0
+        with `colours = 1692` every time
 - [ ] T8: CI — examples job + weekly unpinned drift job (S) — deps: T2, T4–T7
 
 T5 ∥ T6 ∥ T7 once T4 is in — separate files, one shared `Project.toml`, so
