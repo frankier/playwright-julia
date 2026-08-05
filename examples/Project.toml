@@ -1,4 +1,5 @@
 [deps]
+Genie = "c43c736e-a2d1-11e8-161f-af95117fbd1e"
 HTTP = "cd3eb016-35fb-5094-929b-558a96fad6f3"
 Oxygen = "df9a0d86-3283-4920-82dc-4555fc0d1d8b"
 Playwright = "d777c63b-3b21-49c6-865f-99d0e068a423"

@@ -69,12 +69,11 @@ jobs:
         id: browsers
         uses: actions/cache@v4
         with:
-          # The driver bundle is assembled into a Scratch.jl directory from the
-          # npm tarball and a Node binary, so it is cached alongside the
-          # browsers and keyed on both pins.
-          path: |
-            ${{ github.workspace }}/.playwright
-            ~/.julia/scratchspaces
+          # Browsers only. The driver bundle lands in a Scratch.jl directory,
+          # which julia-actions/cache above already covers
+          # (cache-scratchspaces defaults to true) — caching the same path from
+          # two actions would just race them against each other.
+          path: ${{ github.workspace }}/.playwright
           key: playwright-${{ runner.os }}-pw${{ steps.pins.outputs.playwright }}-node${{ steps.pins.outputs.node }}
 
       - name: Install driver and browsers

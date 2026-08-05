@@ -21,7 +21,10 @@ Sizes: (S) small, (M) medium, (L) large.
       - green: run `30989693673` (all four jobs, branch `m5-ci`, PR #1)
       - gate proved by breaking it: run `30989885239` — Formatting red on a
         deliberately misformatted line, the other three still green; reverted
-- [ ] T3: CI — smoke job, both engines, browsers cached (M) — deps: T2
+- [x] T3: CI — smoke job, both engines, browsers cached (M) — deps: T2
+      - green on both engines: run `30991010525` (cache miss, install took 40s)
+      - **cache hit read out of the log**, run `30991908771`: "Cache restored
+        successfully", and the *Install driver and browsers* step **skipped**
 
 T0 ∥ T1 ∥ T2 — disjoint. T1 needs a browser; T0 and T2 do not.
 
@@ -37,10 +40,11 @@ T0 ∥ T1 ∥ T2 — disjoint. T1 needs a browser; T0 and T2 do not.
 
 ## Phase 2: Examples
 
-- [ ] T4: `examples/` scaffold (`common.jl`, `runexamples.jl`, pinned Manifest)
+- [x] T4: `examples/` scaffold (`common.jl`, `runexamples.jl`, pinned Manifest)
       + HTTP.jl example (M) — B1, no deps
-- [ ] T5: Oxygen.jl example (S) — B2, deps: T4
-- [ ] T6: Genie.jl example (M) — B3, deps: T4
+- [x] T5: Oxygen.jl example (S) — B2, deps: T4
+- [x] T6: Genie.jl example (M) — B3, deps: T4
+      - measured warm-up: **25.0s** from `up()` to the first answered request
 - [ ] T7: WGLMakie.jl example (M) — B4, deps: **T1**, T4
 - [ ] T8: CI — examples job + weekly unpinned drift job (S) — deps: T2, T4–T7
 
