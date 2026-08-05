@@ -1,0 +1,14 @@
+# Docs-only environment. Playwright.jl comes in by relative path so the site
+# always documents this checkout, never a registered release.
+#
+# D4: the docs build never launches a browser, which is what lets the whole
+# docs chain proceed without a working smoke job and keeps browser flake out
+# of a documentation failure.
+
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+Playwright = "d777c63b-3b21-49c6-865f-99d0e068a423"
+
+[compat]
+Documenter = "1"
+julia = "1.10"

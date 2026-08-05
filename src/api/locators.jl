@@ -96,12 +96,28 @@ Base.lastindex(loc::Locator) = count(loc)
 
 """
     first(loc::Locator) -> Locator
-    last(loc::Locator) -> Locator
 
-The first or last match. Unlike Playwright's `.first()`/`.last()`, `last`
-costs a `count` round-trip to find out where the end is.
+The first match, as a single-element locator. Free — it is
+[`nth`](@ref)`(loc, 1)` and needs no round-trip to work that out.
+
+```julia
+first(locator(page, "li"; strict = false))
+```
 """
 Base.first(loc::Locator) = nth(loc, 1)
+
+"""
+    last(loc::Locator) -> Locator
+
+The last match, as a single-element locator.
+
+Unlike Playwright's `.last()`, this costs a [`count`](@ref) round-trip to find
+out where the end is — the selector suffix it builds needs a concrete index.
+
+```julia
+last(locator(page, "li"; strict = false))
+```
+"""
 Base.last(loc::Locator) = nth(loc, count(loc))
 
 # --- Content and state ----------------------------------------------------

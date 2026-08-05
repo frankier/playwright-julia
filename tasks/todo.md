@@ -62,7 +62,9 @@ sequence the dependency additions.
 
 - [x] T9: docstring audit + gap fill + `tasks/m5-api-gaps.md` (L) — no deps,
       **start immediately**; the critical path runs through here
-- [ ] T10: Documenter scaffold + `api.md` + `checkdocs` gate (M) — deps: T9
+- [x] T10: Documenter scaffold + `api.md` + `checkdocs` gate (M) — deps: T9
+      - zero-warning build; gate proved by deleting `title`'s docstring —
+        build red on `:docs_block` and `:cross_references` — then restored
 - [ ] T11: guide pages (L) — deps: T10
 - [ ] T12: example pages, source included from the executed file (S) —
       deps: T10, T4–T7
