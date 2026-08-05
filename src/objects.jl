@@ -120,6 +120,14 @@ Created with [`locator`](@ref).
 `strict` mirrors Playwright's strictness: when true (the default) acting on a
 selector that matches more than one element is an error rather than a silent
 pick. It is checked on *action*, not on construction.
+
+```julia
+loc = locator(page, "#name")            # nothing has happened yet
+fill(loc, "Ada")                        # now the selector is resolved
+```
+
+Read the three parts back with [`frame`](@ref), [`selector`](@ref) and
+[`is_strict`](@ref).
 """
 struct Locator
     frame::Frame
@@ -154,6 +162,18 @@ end
 A running browser process, from [`launch`](@ref). Holds
 [`BrowserContext`](@ref)s; `close` it to shut the process down. Ask
 [`browser_name`](@ref) which engine it is.
+
+```julia
+playwright() do pw
+    browser = launch(pw.chromium; headless = true)
+    try
+        page = new_page(browser)
+        goto(page, "https://example.com")
+    finally
+        close(browser)
+    end
+end
+```
 """ Browser
 
 @doc """
@@ -163,6 +183,12 @@ An isolated profile inside a [`Browser`](@ref) — its own cookies, storage and
 permissions — from [`new_context`](@ref). The unit of isolation between tests,
 and the owner of the `:page`, `:console` and `:pageerror` events
 ([`expect_event`](@ref)). Closing one closes its pages.
+
+```julia
+ctx = new_context(browser)
+page = new_page(ctx)          # this page's cookies are its own
+close(ctx)                    # …and go away with the context
+```
 """ BrowserContext
 
 @doc """
@@ -170,6 +196,16 @@ and the owner of the `:page`, `:console` and `:pageerror` events
 
 A launchable engine: `pw.chromium` or `pw.firefox` on the handle
 [`playwright`](@ref) hands you. Pass it to [`launch`](@ref).
+
+```julia
+playwright() do pw
+    for bt in (pw.chromium, pw.firefox)     # run a test on both engines
+        browser = launch(bt; headless = true)
+        # ...
+        close(browser)
+    end
+end
+```
 """ BrowserType
 
 @doc """
@@ -180,6 +216,12 @@ One tab. The main thing you drive: [`goto`](@ref), [`locator`](@ref),
 also what arrives from `expect_event(ctx, :page)` when a popup opens.
 
 Calls on a closed page raise [`TargetClosedError`](@ref).
+
+```julia
+page = new_page(browser)
+goto(page, "https://example.com")
+expect(locator(page, "h1"); to_have_text = "Example Domain")
+```
 """ Page
 
 @doc """
@@ -189,6 +231,12 @@ A document within a [`Page`](@ref) — the main frame, or one per `<iframe>`. Ge
 at them with [`frames`](@ref), or scope into one with
 [`frame_locator`](@ref)/[`content_frame`](@ref). Most page-level calls are
 frame-level calls on the main frame.
+
+```julia
+for f in frames(page)
+    @info url(f)
+end
+```
 """ Frame
 
 @doc """
@@ -200,6 +248,12 @@ A reference to one specific element in the browser, from
 A snapshot, unlike a [`Locator`](@ref): it keeps pointing at *that* element and
 goes stale when the page re-renders. Prefer a locator unless you need to hold
 onto one element. [`dispose`](@ref) it when done.
+
+```julia
+handle = wait_for_selector(page, "#chart")
+evaluate(page, "el => el.dataset.ready", handle)
+dispose(handle)
+```
 """ ElementHandle
 
 @doc """
@@ -209,6 +263,12 @@ A reference to a JavaScript value kept *in the browser*, from
 [`evaluate_handle`](@ref) — for values that cannot cross the wire, like a DOM
 node or a closure. [`dispose`](@ref) it when done, or use the do-block form of
 `evaluate_handle`, which disposes for you.
+
+```julia
+evaluate_handle(page, "() => window.myApp") do handle
+    evaluate(page, "app => app.version", handle)
+end   # disposed on the way out
+```
 """ JSHandle
 
 @doc """
@@ -222,4 +282,9 @@ of your choosing, and [`delete`](@ref) removes it.
 The distinction worth knowing: the driver knows the eventual path immediately,
 but the file is only complete later — a video not until its page or context
 closes. `path` is what waits.
+
+```julia
+artifact = stop_tracing(ctx)
+save_as(artifact, "artifacts/trace.zip")   # blocks until fully written
+```
 """ Artifact

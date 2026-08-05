@@ -136,6 +136,19 @@ Release a handle's browser-side reference. Handles left undisposed are
 reclaimed when their page or context closes, so leaking one costs memory
 rather than correctness — but a long-lived page can accumulate them.
 
+```julia
+handle = evaluate_handle(page, "() => document.body")
+try
+    evaluate(page, "el => el.childElementCount", handle)
+finally
+    dispose(handle)
+end
+```
+
+The block form of [`evaluate_handle`](@ref) does this for you and is the
+recommended way to use handles. Applies to [`ElementHandle`](@ref) too, which
+[`element_handle`](@ref) and [`wait_for_selector`](@ref) return.
+
 Prefer the block form of [`evaluate_handle`](@ref), which disposes for you.
 """
 dispose(handle::JSHandleChannel) = _js_handle_dispose(handle)
@@ -149,7 +162,15 @@ argument, and return the result converted to Julia. Raises a
 
 ```julia
 eval_on_selector(page, "#name", "el => el.value")
+eval_on_selector(page, "#volume", "(el, v) => el.value = v", 7)
 ```
+
+`arg` is serialized with the same mapping as [`evaluate`](@ref) arguments, and
+`strict` behaves as it does for a [`locator`](@ref). The locator-first form is
+usually what you want — `evaluate(loc, …)`, see [`evaluate`](@ref) — since a
+locator already carries both the selector and the strictness; this one exists
+for the times you have a selector and nothing else. The all-matches form is
+[`eval_on_selector_all`](@ref).
 """
 eval_on_selector(
     page::Page,

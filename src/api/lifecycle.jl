@@ -287,9 +287,23 @@ const IMPLICIT_CONTEXTS_LOCK = ReentrantLock()
     new_page(browser::Browser) -> Page
     new_page(context::BrowserContext) -> Page
 
-Open a new page. Given a `Browser`, a fresh context is created to hold it and
-is closed again by `close(page)` — so a per-test page leaks nothing. Given a
-`BrowserContext`, the page joins that context and its lifetime is yours.
+Open a new page. Given a [`Browser`](@ref), a fresh context is created to hold
+it and is closed again by `close(page)` — so a per-test page leaks nothing.
+Given a [`BrowserContext`](@ref), the page joins that context and its lifetime
+is yours.
+
+```julia
+page = new_page(browser)     # its own context, cleaned up with the page
+goto(page, url)
+close(page)                  # …and the implicit context goes too
+
+ctx = new_context(browser)   # or share one context between pages
+a, b = new_page(ctx), new_page(ctx)
+close(ctx)                   # closes both
+```
+
+For a page that also collects screenshots and traces when a test fails, use
+[`with_page`](@ref) instead of doing the bookkeeping by hand.
 """
 function new_page(browser::Browser)
     context = new_context(browser)
@@ -305,14 +319,32 @@ new_page(context::BrowserContext) = _browser_context_new_page(context)::Page
 """
     contexts(browser::Browser) -> Vector{BrowserContext}
 
-The browser's currently open contexts. Shrinks as contexts are closed.
+The browser's currently open [`BrowserContext`](@ref)s. Shrinks as contexts are
+closed, including the implicit ones [`new_page`](@ref) creates.
+
+```julia
+length(contexts(browser))   # 0 on a browser that has just launched
+```
+
+Useful mostly as a leak check at the end of a suite: a count that only ever
+grows means something is not being closed.
 """
 contexts(browser::Browser) = live_children(browser, BrowserContext)
 
 """
     pages(context::BrowserContext) -> Vector{Page}
 
-The context's currently open pages.
+The context's currently open [`Page`](@ref)s, in no guaranteed order. Shrinks
+as pages close.
+
+```julia
+page = new_page(ctx)
+length(pages(ctx))   # 1
+```
+
+A popup opened by the page under test shows up here once it exists — though
+`expect_event(ctx, :page)` is the way to *wait* for one; see
+[`expect_event`](@ref).
 """
 pages(context::BrowserContext) = live_children(context, Page)
 

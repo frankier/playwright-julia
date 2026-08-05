@@ -25,6 +25,14 @@ One buffered console message. `type` is the console method that produced it
 (`"log"`, `"info"`, `"warning"`, `"error"`, `"debug"`, …), `text` is the
 rendered message, `location` is where it came from and `timestamp` is
 milliseconds since the epoch.
+
+Read them off a page with [`console_messages`](@ref):
+
+```julia
+for msg in console_messages(page)
+    println(msg.type, " @ ", msg.location.url, ":", msg.location.line, " — ", msg.text)
+end
+```
 """
 struct ConsoleMessage
     type::String
@@ -38,6 +46,14 @@ end
 
 One uncaught JavaScript error, with the error's `message`, its `name`
 (usually `"Error"`) and its `stack`.
+
+Read them off a page with [`page_errors`](@ref). This is a *page's* error —
+something the JavaScript threw — and so is unrelated to
+[`PlaywrightError`](@ref), which is what this package's own calls raise.
+
+```julia
+isempty(page_errors(page)) || @warn "the page threw" page_errors(page)
+```
 """
 struct PageError
     message::String
@@ -165,13 +181,28 @@ end
 
 Drop the page's buffered console messages, so a later
 [`console_messages`](@ref) only reports what happened next. Useful for
-per-test isolation on a shared page.
+per-test isolation on a shared page, where the previous test's noise would
+otherwise be reported as this one's.
+
+```julia
+clear_console_messages(page)
+click(locator(page, "#go"))
+@test isempty(filter(m -> m.type == "error", console_messages(page)))
+```
 """
 clear_console_messages(page::Page) = _page_clear_console_messages(page)
 
 """
     clear_page_errors(page::Page)
 
-Drop the page's buffered uncaught errors; see [`clear_console_messages`](@ref).
+Drop the page's buffered uncaught errors, so a later [`page_errors`](@ref)
+only reports what happened next; the console equivalent is
+[`clear_console_messages`](@ref).
+
+```julia
+clear_page_errors(page)
+click(locator(page, "#go"))
+@test isempty(page_errors(page))
+```
 """
 clear_page_errors(page::Page) = _page_clear_page_errors(page)

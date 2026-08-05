@@ -171,6 +171,22 @@ end
 Download the Playwright driver bundle (if needed) and install `browsers`
 into the standard Playwright browser cache via the driver's own installer.
 Safe to call repeatedly — both steps are no-ops when already done.
+
+`browsers` names engines the driver understands: `"chromium"`, `"firefox"`,
+`"webkit"`. [`launch`](@ref) calls this for you the first time an engine turns
+out to be missing, so an explicit `install` is for the case where you want the
+download to happen *now* — in a CI step of its own, say, rather than inside the
+first test.
+
+```julia
+install()                          # both engines
+install(; browsers = ["chromium"]) # just one
+```
+
+Set `PLAYWRIGHT_BROWSERS_PATH` to put the browsers somewhere cacheable rather
+than in the default per-user cache. From outside a Julia session, the same
+thing is `julia bin/install.jl`, which works from a bare checkout — the case a
+package carrying Playwright.jl as a *test* dependency hits in CI.
 """
 function install(; browsers::Vector{String} = ["chromium", "firefox"])
     dir = install_driver()

@@ -45,6 +45,14 @@ The `i`-th match of `loc`, 1-based (converted to Playwright's 0-based `nth=`
 on the wire). The result is itself strict: it matches exactly one element by
 construction, whatever `loc`'s own strictness.
 
+```julia
+rows = locator(page, "tr"; strict = false)
+text_content(nth(rows, 2))    # the second row; `rows[2]` is the same thing
+```
+
+See [`locator`](@ref) for strictness, and [`first`](@ref) / [`last`](@ref) for
+the two common cases.
+
 Out-of-range indices are not detected here — like any locator, `nth` resolves
 when it is acted upon, and acting on a non-existent match raises then.
 """
@@ -104,6 +112,15 @@ Base.last(loc::Locator) = nth(loc, count(loc))
 The `textContent` of the matched element (`nothing` for elements without one).
 Includes text that is not rendered; see [`inner_text`](@ref) for what a user
 would actually see.
+
+This reads once and returns. To *assert* on text, reach for
+[`expect`](@ref) instead — it retries, so it passes as soon as late-arriving
+text arrives rather than failing on the first look.
+
+```julia
+text_content(locator(page, "#status"))              # a read
+expect(locator(page, "#status"); to_have_text = "ready")   # an assertion
+```
 """
 text_content(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_text_content(
     loc.frame;
@@ -118,6 +135,12 @@ text_content(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_text_conten
 The `innerText` of the matched element: the *rendered* text, so hidden
 elements and collapsed whitespace are excluded. Contrast
 [`text_content`](@ref), which returns the raw text including hidden nodes.
+
+```julia
+# <p>visible <span style="display:none">hidden</span></p>
+inner_text(locator(page, "p"))     # "visible"
+text_content(locator(page, "p"))   # "visible hidden"
+```
 """
 inner_text(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_inner_text(
     loc.frame;
@@ -129,7 +152,12 @@ inner_text(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_inner_text(
 """
     inner_html(loc::Locator; timeout=nothing) -> String
 
-The `innerHTML` of the matched element.
+The `innerHTML` of the matched element — its markup, not its text. For text
+use [`inner_text`](@ref) or [`text_content`](@ref).
+
+```julia
+inner_html(locator(page, "#log"))   # "<li class=\"greeting\">Hello</li>"
+```
 """
 inner_html(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_inner_html(
     loc.frame;
@@ -141,7 +169,17 @@ inner_html(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_inner_html(
 """
     get_attribute(loc::Locator, name; timeout=nothing) -> Union{String,Nothing}
 
-The matched element's `name` attribute, or `nothing` when it has none.
+The matched element's `name` attribute, or `nothing` when it has none. An
+attribute present but empty gives `""`, which is not the same answer.
+
+```julia
+get_attribute(locator(page, "#link"), "href")     # "/somewhere"
+get_attribute(locator(page, "#link"), "nope")     # nothing
+```
+
+To assert on an attribute rather than read it, use
+`expect(loc; to_have_attribute = "href" => "/somewhere")` — see
+[`expect`](@ref) — which retries while this does not.
 """
 get_attribute(loc::Locator, name::AbstractString; timeout::MaybeTimeout = nothing) =
     _frame_get_attribute(
@@ -157,6 +195,14 @@ get_attribute(loc::Locator, name::AbstractString; timeout::MaybeTimeout = nothin
 
 Whether the matched element is visible. Returns `false` rather than raising
 when nothing matches, so it is safe to ask about elements that may not exist.
+
+It answers about *now*, with no waiting, which makes it the wrong tool for
+"has it appeared yet" — that is [`expect`](@ref)'s job.
+
+```julia
+is_visible(locator(page, "#banner"))                   # false, maybe not yet
+expect(locator(page, "#banner"); to_be_visible = true) # waits for it
+```
 """
 is_visible(loc::Locator) =
     _frame_is_visible(loc.frame; selector = loc.selector, strict = loc.strict)
@@ -165,6 +211,14 @@ is_visible(loc::Locator) =
     is_checked(loc::Locator; timeout=nothing) -> Bool
 
 Whether the matched checkbox or radio input is checked.
+
+```julia
+click(locator(page, "#accept"))
+is_checked(locator(page, "#accept"))   # true
+```
+
+As with [`is_visible`](@ref), this reads rather than waits; for an assertion
+use `expect(loc; to_be_checked = true)` — see [`expect`](@ref).
 """
 is_checked(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_is_checked(
     loc.frame;
@@ -177,6 +231,13 @@ is_checked(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_is_checked(
     is_enabled(loc::Locator; timeout=nothing) -> Bool
 
 Whether the matched element is enabled (not `disabled`).
+
+```julia
+is_enabled(locator(page, "button#submit"))   # false while the form is invalid
+```
+
+For an assertion that waits for a button to become enabled, use
+`expect(loc; to_be_enabled = true)` — see [`expect`](@ref).
 """
 is_enabled(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_is_enabled(
     loc.frame;
@@ -188,7 +249,17 @@ is_enabled(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_is_enabled(
 """
     input_value(loc::Locator; timeout=nothing) -> String
 
-Current value of the matched input, textarea or select element.
+Current value of the matched input, textarea or select element. This is the
+live value, which is not the same as the `value` *attribute* the HTML was
+served with — see [`get_attribute`](@ref) for that one.
+
+```julia
+fill(locator(page, "#name"), "Ada")
+input_value(locator(page, "#name"))   # "Ada"
+```
+
+The assertion form is `expect(loc; to_have_value = "Ada")` — see
+[`expect`](@ref).
 """
 input_value(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_input_value(
     loc.frame;
@@ -202,7 +273,19 @@ input_value(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_input_value(
 """
     click(loc::Locator; timeout=nothing)
 
-Click the matched element, waiting for it to be actionable first.
+Click the matched element, waiting for it to be actionable first: attached,
+visible, stable, able to receive events and not disabled. That wait is why a
+click at the right moment needs no `sleep` before it.
+
+```julia
+click(locator(page, "#greet"))
+expect(locator(page, "li.greeting"); to_have_text = "Hello!")
+```
+
+`timeout` covers the whole wait and defaults to the
+[`set_default_timeout!`](@ref) cascade; a click that never becomes actionable
+raises [`TimeoutError`](@ref). For a synthetic event with none of those checks,
+see [`dispatch_event`](@ref).
 """
 click(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_click(
     loc.frame;
@@ -214,7 +297,20 @@ click(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_click(
 """
     fill(loc::Locator, value; timeout=nothing)
 
-Set the matched input/textarea's value to `value` (extends `Base.fill`).
+Set the matched input/textarea's value to `value` (extends `Base.fill`, so it
+needs no qualification even though it is not exported).
+
+This clears the field first and fires an `input` event, which is what makes it
+different from assigning `.value` through [`evaluate`](@ref) — the page's
+listeners actually run.
+
+```julia
+fill(locator(page, "#name"), "Ada")
+expect(locator(page, "#name"); to_have_value = "Ada")
+```
+
+Elements that refuse to be filled — a `range` input, say — want
+[`evaluate`](@ref) plus [`dispatch_event`](@ref) instead.
 """
 Base.fill(loc::Locator, value::AbstractString; timeout::MaybeTimeout = nothing) =
     _frame_fill(
@@ -317,6 +413,12 @@ evaluate_all(loc::Locator, expression::AbstractString, arg = missing; kwargs...)
 Resolve `loc` now and return an [`ElementHandle`](@ref) for the match, or
 `nothing` if there is none.
 
+```julia
+handle = element_handle(locator(page, "#chart"))
+evaluate(page, "el => el.getBoundingClientRect().width", handle)
+dispose(handle)
+```
+
 This is a snapshot, and that is the whole difference from a locator: the handle
 keeps pointing at *that* element, so it goes stale if the page re-renders,
 whereas a locator re-resolves on every use. Prefer the locator unless you
@@ -339,7 +441,12 @@ element_handle(loc::Locator) =
 """
     frame(loc::Locator) -> Frame
 
-The [`Frame`](@ref) `loc` resolves against.
+The [`Frame`](@ref) `loc` resolves against. Every locator belongs to exactly
+one frame — the main frame when it was built from a [`Page`](@ref).
+
+```julia
+frame(locator(page, "h1")) === main_frame(page)   # true
+```
 """
 frame(loc::Locator) = loc.frame
 
@@ -348,6 +455,10 @@ frame(loc::Locator) = loc.frame
 
 The selector string `loc` was built with, including any `>> nth=` suffix added
 by [`nth`](@ref) or iteration.
+
+```julia
+selector(nth(locator(page, "li"; strict = false), 3))   # "li >> nth=2"
+```
 """
 selector(loc::Locator) = loc.selector
 
@@ -356,5 +467,10 @@ selector(loc::Locator) = loc.selector
 
 Whether `loc` raises when its selector matches more than one element. See
 [`locator`](@ref) for what strictness costs and buys.
+
+```julia
+is_strict(locator(page, "li"))                   # true, the default
+is_strict(locator(page, "li"; strict = false))   # false
+```
 """
 is_strict(loc::Locator) = loc.strict

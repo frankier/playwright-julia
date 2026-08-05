@@ -60,7 +60,7 @@ sequence the dependency additions.
 
 ## Phase 3: Documentation
 
-- [ ] T9: docstring audit + gap fill + `tasks/m5-api-gaps.md` (L) — no deps,
+- [x] T9: docstring audit + gap fill + `tasks/m5-api-gaps.md` (L) — no deps,
       **start immediately**; the critical path runs through here
 - [ ] T10: Documenter scaffold + `api.md` + `checkdocs` gate (M) — deps: T9
 - [ ] T11: guide pages (L) — deps: T10
