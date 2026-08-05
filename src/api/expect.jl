@@ -27,6 +27,22 @@ expect(loc; to_have_text = Not("Goodbye"))     # any text but that
 A wrapper rather than a call-wide `negate` keyword, because one `expect` call
 can carry several matchers and each is a separate check — with a single flag
 there would be no way to say "has count 3, but *not* this text".
+
+It is an ordinary value, and holds the expectation it negates:
+
+```jldoctest
+julia> n = Not("Goodbye")
+Not("Goodbye")
+
+julia> n.expected
+"Goodbye"
+
+julia> Not(r"^se")
+Not(r"^se")
+```
+
+For the boolean matchers, `= false` says the same thing more readably:
+`to_be_visible = false` rather than `to_be_visible = Not(true)`.
 """
 struct Not{T}
     expected::T

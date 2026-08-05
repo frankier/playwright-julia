@@ -34,6 +34,25 @@ tell failure kinds apart:
 | [`AssertionFailure`](@ref) | a retrying assertion never matched |
 | [`DriverError`](@ref) | anything else, including JS exceptions |
 
+Constructing one directly is rarely useful, but it shows the shape:
+
+```jldoctest
+julia> e = DriverError("boom"; name = "Error")
+DriverError("boom", "Error", "")
+
+julia> e isa PlaywrightError
+true
+
+julia> e.message
+"boom"
+
+julia> sprint(showerror, e)
+"DriverError: boom"
+
+julia> TimeoutError("too slow") isa PlaywrightError
+true
+```
+
 !!! note "Changed in milestone 3"
     `PlaywrightError` used to be a concrete struct. It is now abstract, so
     `PlaywrightError(msg)` no longer constructs — use [`DriverError`](@ref).

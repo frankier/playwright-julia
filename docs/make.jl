@@ -8,6 +8,12 @@
 using Documenter
 using Playwright
 
+# Every jldoctest block runs against a bare `using Playwright` and nothing
+# else. D4 constrains which docstrings can carry one: only browser-free paths
+# qualify — value deserialisation, matcher construction, error construction —
+# because this build must never launch a browser.
+DocMeta.setdocmeta!(Playwright, :DocTestSetup, :(using Playwright); recursive = true)
+
 makedocs(;
     sitename = "Playwright.jl",
     authors = "Frankie Robertson",
@@ -18,6 +24,7 @@ makedocs(;
     # missing page, a duplicate docstring — into a failed build.
     checkdocs = :exports,
     warnonly = false,
+    doctest = true,
     format = Documenter.HTML(;
         prettyurls = get(ENV, "CI", "false") == "true",
         canonical = "https://frankier.github.io/playwright-julia",

@@ -68,7 +68,9 @@ sequence the dependency additions.
 - [x] T11: guide pages (L) — deps: T10
 - [ ] T12: example pages, source included from the executed file (S) —
       deps: T10, T4–T7
-- [ ] T13: doctests on a browser-free path (S) — deps: T10
+- [x] T13: doctests on a browser-free path (S) — deps: T10
+      - gate proved by breaking it: changing one expected value to `7.5` turned
+        the build red on `doctest failure`; restored
 - [ ] T14: README slims to a landing page (S) — deps: **T11**
 - [ ] T15: docs workflow + deploy (M) — deps: T10
 
