@@ -86,6 +86,64 @@ jobs:
           PLAYWRIGHT_JL_SMOKE: "1"
         run: julia --project=. -e 'using Pkg; Pkg.test()'
 
+  examples:
+    # The four Part B examples, on the committed Manifest (D2), on both
+    # engines. Slow by nature: it loads Genie and Makie, and WGLMakie's first
+    # render costs about a minute on a cold runner while SwiftShader compiles
+    # shaders on the CPU.
+    name: Examples (chromium + firefox)
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1"
+          arch: x64
+      - uses: julia-actions/cache@v2
+
+      - name: Read the pinned driver versions
+        id: pins
+        run: |
+          julia -e '
+            src = read("src/driver.jl", String)
+            pw = match(r"const PLAYWRIGHT_VERSION = \"([^\"]+)\"", src)[1]
+            node = match(r"const NODE_VERSION = \"([^\"]+)\"", src)[1]
+            open(ENV["GITHUB_OUTPUT"], "a") do io
+                println(io, "playwright=", pw)
+                println(io, "node=", node)
+            end'
+
+      - name: Restore browsers
+        id: browsers
+        # The same key the smoke job uses, so whichever runs first pays for
+        # the download and the other one does not.
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.playwright
+          key: playwright-${{ runner.os }}-pw${{ steps.pins.outputs.playwright }}-node${{ steps.pins.outputs.node }}
+
+      - name: Install driver and browsers
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: julia bin/install.jl
+
+      - name: Instantiate the examples environment
+        # No --update: the committed Manifest is the point.
+        run: julia --project=examples -e 'using Pkg; Pkg.instantiate()'
+
+      - name: Run every example on both engines
+        run: julia --project=examples examples/runexamples.jl
+
+      - name: Upload the artifacts the examples wrote
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: example-artifacts
+          path: examples/output/
+          if-no-files-found: warn
+
   codegen:
     # The generated channel layer is checked in, so it can drift from
     # protocol/spec/. --check compares byte for byte.

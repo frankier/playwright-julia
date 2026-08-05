@@ -48,7 +48,7 @@ T0 ∥ T1 ∥ T2 — disjoint. T1 needs a browser; T0 and T2 do not.
 - [x] T7: WGLMakie.jl example (M) — B4, deps: **T1**, T4
       - level 3 as approved; **not flaky**: three consecutive runs all exit 0
         with `colours = 1692` every time
-- [ ] T8: CI — examples job + weekly unpinned drift job (S) — deps: T2, T4–T7
+- [x] T8: CI — examples job + weekly unpinned drift job (S) — deps: T2, T4–T7
 
 T5 ∥ T6 ∥ T7 once T4 is in — separate files, one shared `Project.toml`, so
 sequence the dependency additions.
@@ -68,12 +68,11 @@ sequence the dependency additions.
       - zero-warning build; gate proved by deleting `title`'s docstring —
         build red on `:docs_block` and `:cross_references` — then restored
 - [x] T11: guide pages (L) — deps: T10
-- [~] T12: example pages, source included from the executed file (S) —
+- [x] T12: example pages, source included from the executed file (S) —
       deps: T10, T4–T7
-      - HTTP, Oxygen and Genie pages done; **SC 9 verified** — a marker added
-        to `examples/http_jl.jl` appeared in the built page with `http.md`
-        byte-identical (md5 unchanged)
-      - ⛔ `examples/wglmakie.md` blocked on T7
+      - **SC 9 verified** — a marker added to `examples/http_jl.jl` appeared in
+        the built page with `http.md` byte-identical (md5 unchanged)
+      - the WGLMakie page states its level honestly (SC 8)
 - [x] T13: doctests on a browser-free path (S) — deps: T10
       - gate proved by breaking it: changing one expected value to `7.5` turned
         the build red on `doctest failure`; restored
