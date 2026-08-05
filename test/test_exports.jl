@@ -109,4 +109,18 @@
     for name in expected
         @test isdefined(Playwright, name)
     end
+
+    # ...and every one carries documentation. The generated channel types are
+    # the trap here: they are defined in a file that is not hand-edited, so
+    # their docstrings live in src/objects.jl and are easy to forget when a
+    # new one joins the public surface.
+    @testset "every export is documented" begin
+        # Read the module's own docs table rather than calling `Base.Docs.doc`,
+        # which needs the REPL stdlib and so is not available under Pkg.test.
+        documented = Base.Docs.meta(Playwright)
+        for name in expected
+            name === :Playwright && continue   # the module's own docstring
+            @test haskey(documented, Base.Docs.Binding(Playwright, name))
+        end
+    end
 end

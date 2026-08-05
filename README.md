@@ -162,6 +162,10 @@ already has.
 | `goto(page, url; timeout=30_000, wait_until="load")` | Navigate |
 | `title(page)` | Document title |
 | `screenshot(page; path=nothing)` | PNG screenshot, returned and/or written |
+| `pdf(page; path=nothing, format, …)` | PDF bytes, returned and/or written — Chromium only |
+
+See [Artifacts and the failure path](#artifacts-and-the-failure-path) for
+tracing, video and the diagnostics dump.
 
 ### Locators
 
@@ -216,6 +220,73 @@ Numbers come back as `Float64` — JavaScript has one number type — so
 Failures surface as a `PlaywrightError` carrying the driver's message and its
 call log (so a timeout tells you which selector it was waiting for).
 
+`console_messages` and `page_errors` return an **empty vector rather than
+raising** once the page or context has closed. They are postmortem readers,
+usually called from a `finally` block while a more important error is already
+in flight — throwing there would mask the failure you were trying to explain,
+and "the page is gone" tells a caller who is already handling an error nothing
+useful. The silence is bounded: only that one error type, only these readers,
+and every other failure still propagates.
+
+### Artifacts and the failure path
+
+What to reach for when a suite goes red in CI and the assertion message is not
+enough.
+
+| Function | Produces |
+|---|---|
+| `with_tracing(f, ctx; path, screenshots, snapshots)` | a trace zip, written however the block exits |
+| `start_tracing(ctx)` / `stop_tracing(ctx; path)` | the same, unpaired |
+| `new_context(browser; record_video = (dir = …,))` + `video(page)` | a `.webm` per page |
+| `pdf(page; path, format, …)` | PDF bytes — **Chromium only** |
+| `report_diagnostics(page, dir)` | `screenshot.png`, `console.log`, `errors.log` |
+| `with_page(f, browser_or_ctx, url; artifacts = dir)` | all of the above, on failure |
+
+The headline is that evidence survives the failure that made you want it:
+
+```julia
+with_tracing(ctx; path = "artifacts/trace.zip", screenshots = true) do
+    goto(page, url)
+    click(locator(page, "#submit"))     # if this throws, the zip is still written
+end
+```
+
+Open the result with the upstream viewer — the zip is an opaque artifact for
+it, and this package neither builds nor parses one:
+
+```
+npx playwright@1.61.1 show-trace artifacts/trace.zip
+```
+
+`with_page` is the per-test fixture:
+
+```julia
+with_page(browser, url; artifacts = "artifacts/checkout") do page
+    expect(page; to_have_title = "Checkout")
+end
+```
+
+It opens a page, navigates, always closes it, and — when the body throws —
+dumps diagnostics *before* closing, because afterwards there is nothing left to
+see. **Your exception propagates unchanged**; a failure in the diagnostics is a
+`@warn`, never a replacement for the failure being diagnosed. Pass
+`artifacts_on = :always` to capture on success too; the default `:failure`
+keeps a large suite from writing a screenshot per passing test.
+
+Two upstream sharp edges, stated rather than hidden:
+
+- **Video does not exist until the page or context closes.** `path(video(page))`
+  blocks until it is finalized, so close the page first:
+  ```julia
+  close(page)
+  @test isfile(path(video(page)))
+  ```
+- **`pdf` is Chromium-only.** Off Chromium it raises an `ArgumentError` naming
+  the engine, decided client-side with no round trip.
+
+Traces, videos and PDFs are binaries — keep the directory you write them to out
+of version control (`artifacts/` is in this repo's `.gitignore`).
+
 ### Waiting
 
 Wait driver-side rather than sleeping. The condition is re-checked *in the
@@ -262,10 +333,46 @@ to_have_text failed on locator("h1")
   (gave up after 5000ms of retrying)
 ```
 
+`expect` also asserts about the **document** when handed a `Page` or a `Frame`:
+
+```julia
+expect(page; to_have_title = "Checkout")
+expect(page; to_have_url = r"/checkout$")
+```
+
+Matchers are partitioned by target, so `to_have_text` on a `Page` — or
+`to_have_title` on a `Locator` — is an `ArgumentError` naming the one that
+works, rather than a driver-side failure that looks just like a real mismatch.
+
 `retry_until(f; timeout, interval)` is the escape hatch for conditions `expect`
 cannot express. Prefer `expect` where it fits — it retries inside the browser,
 so it neither round-trips per attempt nor misses a state that flickers between
 polls.
+
+Two knobs matter when the condition may legitimately never come:
+
+```julia
+# Reports a Test.Fail rather than an Error, so the testset reads correctly...
+@test retry_until(page; on_timeout = :false) do
+    length(console_messages(page)) >= 3
+end
+
+# ...and a predicate that throws while a server warms up is "not yet",
+# not a broken test.
+retry_until(page; on_error = :retry) do
+    HTTP.get(probe_url).status == 200
+end
+```
+
+| Keyword | Values | Meaning |
+|---|---|---|
+| `on_timeout` | `:throw` (default), `:false` | raise `AssertionFailure`, or return `false` |
+| `on_error` | `:throw` (default), `:retry` | propagate a predicate exception, or treat it as "not yet" |
+
+Passing a `Page`, `Frame`, `BrowserContext` or `Locator` as a second positional
+argument opts `retry_until` into the `set_default_timeout!` cascade, like
+everything else. (`:false` is not a `Symbol` — Julia parses it as the boolean
+`false`. Both spellings work and mean the same thing.)
 
 ### Events
 
@@ -379,6 +486,15 @@ Julia. Never edit `src/generated/` by hand.
 
 ## Status
 
+Milestone 4: the moment a suite fails. Trace zips openable in the upstream
+viewer, video, PDF and a shared `Artifact` surface on the capture side; and on
+the failure path, `retry_until` that can report a `Fail` instead of an `Error`,
+retry through a warming-up server and honour the timeout cascade; document-level
+`expect(page; to_have_title=…)`; postmortem diagnostics that no longer throw on
+a page that has already closed and mask the failure that sent you there; and a
+`with_page` fixture that collects the evidence without ever replacing the
+exception.
+
 Milestone 3: fast, precise and quiet. Driver-side waiting instead of
 hand-rolled polling, retrying assertions instead of `sleep`, a settable default
 timeout instead of a 30 s stall per miss, an error taxonomy specific enough to
@@ -394,8 +510,8 @@ console/error diagnostics.
 replacing a hand-rolled CDP test harness with public API, row by row.
 
 Not yet covered: WebKit; network interception and routing; downloads, file
-choosers and dialogs; PDF; video and tracing; persistent contexts; an async
-API. The network events (`:request`, `:response`, …) are deferred rather than
+choosers and dialogs; HAR recording; persistent contexts; a Julia trace
+*viewer* or any trace parsing; an async API. The network events (`:request`, `:response`, …) are deferred rather than
 rejected — `Request` and `Response` exist in the generated layer but have no
 accessors yet, so lifting them is a payload-mapping entry plus a small
 accessor set.

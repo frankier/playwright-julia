@@ -210,3 +210,16 @@ A reference to a JavaScript value kept *in the browser*, from
 node or a closure. [`dispose`](@ref) it when done, or use the do-block form of
 `evaluate_handle`, which disposes for you.
 """ JSHandle
+
+@doc """
+    Artifact
+
+A file the driver is producing — a trace zip from [`stop_tracing`](@ref) or a
+[`video`](@ref) recording. Three verbs: [`path`](@ref) blocks until it is
+completely written and says where it is, [`save_as`](@ref) copies it somewhere
+of your choosing, and [`delete`](@ref) removes it.
+
+The distinction worth knowing: the driver knows the eventual path immediately,
+but the file is only complete later — a video not until its page or context
+closes. `path` is what waits.
+""" Artifact

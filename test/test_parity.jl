@@ -172,3 +172,88 @@ end
         end
     end
 end
+
+# SPEC-M4.md's target snippet (SC 13).
+#
+# Verbatim apart from three substitutions, each of which the spec leaves as a
+# placeholder or which the surrounding harness has to supply — the same licence
+# `url` was given for the M3 snippet above:
+#
+#   * `probe_url` is the spec's own placeholder; the fixture server supplies one.
+#   * the `file://` path is resolved through @__DIR__, because Pkg.test runs
+#     with `test/` as the working directory and the snippet's relative
+#     `abspath("test/fixtures/m4.html")` assumes the repo root.
+#   * `page` is declared before the `with_tracing` block. The snippet assigns it
+#     inside the do-block and reads it after; a do-block is a closure, so read
+#     literally that is an UndefVarError rather than a claim about the library.
+#
+# **Chromium runs the snippet as written. Firefox cannot** — the snippet calls
+# `pdf`, which SC 5 requires to raise on Firefox, so SC 13 and SC 5 contradict
+# each other for that one call. Rather than drop the Firefox leg, it runs the
+# identical snippet with the two `pdf` lines replaced by the assertion that
+# `pdf` refuses. Every other line is shared.
+@testset "SPEC-M4 target snippet" begin
+    with_fixture_server() do base_url
+        for engine in ("chromium", "firefox")
+            @testset "$engine" begin
+                probe_url = "$base_url/m4.html"
+                fixture = joinpath(@__DIR__, "fixtures", "m4.html")
+                artifacts = mktempdir()
+
+                playwright() do pw
+                    browser = launch(getfield(pw, Symbol(engine)); headless = true)
+                    ctx = new_context(
+                        browser;
+                        record_video = (dir = joinpath(artifacts, "video"),),
+                    )
+
+                    local page
+                    with_tracing(
+                        ctx;
+                        path = joinpath(artifacts, "trace.zip"),
+                        screenshots = true,
+                        snapshots = true,
+                    ) do
+                        page = new_page(ctx)
+                        set_default_timeout!(page, 2_000)
+                        goto(page, "file://" * fixture)
+
+                        # B6: assertions about the document, not just an element
+                        expect(page; to_have_title = "M4")
+                        expect(page; to_have_url = r"m4\.html$")
+
+                        # B1/B2/B3: reports a Fail, inherits the page's 2 s
+                        # timeout, retries through a predicate that throws
+                        # while the server warms up
+                        @test retry_until(page; on_timeout = :false, on_error = :retry) do
+                            HTTP.get(probe_url).status == 200
+                        end
+
+                        # A3 — Chromium only, by design (D7)
+                        if engine == "chromium"
+                            bytes = pdf(
+                                page;
+                                path = joinpath(artifacts, "page.pdf"),
+                                format = "A4",
+                            )
+                            @test !isempty(bytes)
+                        else
+                            @test_throws ArgumentError pdf(page)
+                        end
+
+                        close(page)
+                        # A2: the video only exists once the page is closed
+                        @test isfile(path(video(page)))
+                    end
+
+                    # B5: teardown after the context is gone must not throw
+                    close(ctx)
+                    @test isempty(page_errors(page))
+
+                    @test isfile(joinpath(artifacts, "trace.zip"))
+                    close(browser)
+                end
+            end
+        end
+    end
+end
