@@ -1,0 +1,77 @@
+# The package's own checks. Everything here is hermetic: no Node, no browser,
+# no network beyond the registry. The jobs that need a real browser live in
+# their own workflow so a browser download failure cannot redden this one.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ["*"]
+  pull_request:
+
+concurrency:
+  # A new push to the same branch supersedes the run in flight.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  test:
+    name: Julia ${{ matrix.version }} - ubuntu-latest
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        # D6: Linux only, oldest supported and current stable.
+        version: ["1.10", "1"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+          arch: x64
+      - uses: julia-actions/cache@v2
+      - uses: julia-actions/julia-buildpkg@v1
+      - uses: julia-actions/julia-runtest@v1
+
+  codegen:
+    # The generated channel layer is checked in, so it can drift from
+    # protocol/spec/. --check compares byte for byte.
+    name: Generated code in sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+          arch: x64
+      - uses: julia-actions/cache@v2
+      - name: Instantiate the generator environment
+        run: julia --project=gen -e 'using Pkg; Pkg.instantiate()'
+      - name: gen/generate.jl --check
+        run: julia --project=gen gen/generate.jl --check
+
+  format:
+    # Uses the JuliaFormatter version pinned in gen/Manifest.toml — the same one
+    # that formatted src/generated/, so the two checks cannot disagree.
+    name: Formatting
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+          arch: x64
+      - uses: julia-actions/cache@v2
+      - name: Instantiate the generator environment
+        run: julia --project=gen -e 'using Pkg; Pkg.instantiate()'
+      - name: Check formatting
+        run: |
+          julia --project=gen -e '
+            using JuliaFormatter
+            format(".", verbose = false) || error("Formatting check failed")'
+      - name: Show what formatting would change
+        if: failure()
+        run: git --no-pager diff
