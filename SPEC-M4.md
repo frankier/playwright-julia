@@ -60,11 +60,11 @@ Six defects and gaps found by porting a real suite. Numbered as raised.
 
 | # | Problem | M4 |
 |---|---|---|
-| B1 | `retry_until` raises `AssertionFailure` on timeout, so `@test retry_until(…)` reports an **Error**, not a Fail, and aborts the enclosing `@testset`. A suite written as `@test <bool>` cannot use it. | A non-throwing mode (D5) |
+| B1 | `retry_until` raises `AssertionFailure` on timeout, so `@test retry_until(…)` reports an **Error**, not a Fail. A suite written as `@test <bool>` cannot use it. | A non-throwing mode (D5) |
 | B2 | `retry_until` is outside the timeout cascade — everything else honours `set_default_timeout!`, it alone falls back to `DEFAULT_TIMEOUT` because "there is no page here to inherit a setting from" (`src/api/expect.jl:230-234`) | Optional target argument, opting into `resolve_timeout` (D5) |
 | B3 | `retry_until` propagates predicate exceptions. Right for a DOM predicate, wrong for the common e2e shape where the predicate is an HTTP call against a server that is still warming up | `on_error = :throw \| :retry` (D5) |
 | B4 | No screenshot-on-failure helper — every suite hand-rolls "page errors + console errors + a screenshot into an artifacts dir" | `with_page(f, browser, url; artifacts=…)` and `report_diagnostics` (D3) |
-| B5 | `page_errors`, `console_messages` and `screenshot` are exactly what a `finally` block calls, and exactly when the page may already be gone. M3's `TargetClosedError` makes that teardown path throw and **mask the original failure** | No-throw on a dead target (D4) |
+| B5 | `page_errors`, `console_messages` and `screenshot` are exactly what a `finally` block calls, and exactly when the page may already be gone. M3's `TargetClosedError` makes that teardown path throw and **mask the original failure** — and on an *already-disposed* page it is worse than a throw (see D4) | No-throw on a dead target (D4) |
 | B6 | `expect` dispatches only on `Locator`, so there is no `to_have_url` / `to_have_title`; document-level assertions fall back to `retry_until` | `expect(::Page)` / `expect(::Frame)` (D2) |
 
 B4 and B5 are the same bug seen from two sides, and A1–A2 are what B4's helper
@@ -144,7 +144,7 @@ Additions only; everything else is as M3 left it.
 
 ```
 src/api/artifacts.jl    → NEW. Artifact wrapper (save_as, path, delete),
-                          Video, tracing start/stop/with_tracing, pdf
+                          video(page), tracing start/stop/with_tracing, pdf
 src/api/fixtures.jl     → NEW. with_page, report_diagnostics
 src/api/expect.jl       → CHANGED. expect(::Page)/expect(::Frame) matchers;
                           retry_until gains target, on_timeout, on_error
@@ -273,6 +273,26 @@ implementation. If entries come back instead, `localUtils.zip` does the work.
 Either way no Julia zip dependency is added; if the probe shows one would be
 required, that is an *Ask first* boundary and the milestone stops for review.
 
+*Probed and resolved (2026-08-04, `tasks/m4-probe.md`).* **The artifact path
+works**, on Chromium and Firefox alike: `tracingStopChunk(mode = "archive")`
+returns a real `Artifact` whose `save_as` writes a valid zip, so `save_as` is
+the whole implementation and `localUtils.zip` is never called. No Julia zip
+dependency is needed and the *Ask first* boundary is not reached. Two
+consequences the spec had left open:
+
+- **`tracesDir` at launch is not required.** Without it the driver uses its own
+  temporary directory and archive mode still produces a valid zip; setting it
+  only relocates that scratch directory. So `launch` gains no `traces_dir`
+  option.
+- **`sources` cannot be supported on this path.** Upstream embeds calling source
+  files by passing `includeSources` to `localUtils.zip` — which it can do
+  because it assembles the zip itself. 1.61.1's `tracingStart` carries no
+  `sources` flag, so there is nowhere for the option in the Code Style example
+  above to go. `start_tracing` accepts the keyword and **raises an
+  `ArgumentError` if it is `true`**, rather than accepting it and silently
+  doing nothing: a flag that quietly does nothing is worse than one that is not
+  offered.
+
 **D2 — page/frame assertions reuse `frame.expect`.** There is no separate
 protocol command for document-level assertions; upstream sends `frame.expect`
 with a root selector and expressions `to.have.title` / `to.have.url`. The exact
@@ -281,6 +301,15 @@ existing closed `MATCHERS` table in `src/api/expect.jl:58`, which is where new
 matchers belong. `expect(::Page)` delegates to `main_frame(page)`. Matchers stay
 type-partitioned: passing `to_have_text` to a `Page` is an `ArgumentError` naming
 the right target, not a confusing driver-side failure.
+
+*Probed and resolved (2026-08-04).* The "root selector" is the **empty string**.
+`":root"` and `"html"` both fail, and — as in M3 — they fail with exactly the
+same generic `ExpectFailure` a real mismatch produces, which is what makes the
+closed table load-bearing rather than merely tidy. The failure's `errorDetails`
+carries the received value in the shape M3's `received_value` already decodes,
+so no new error handling was needed. The matchers landed in a separate
+`DOCUMENT_MATCHERS` table of the same shape rather than in `MATCHERS`, which is
+what makes the type partition enforceable in both directions.
 
 **D3 — the fixture is `with_page`, and it is honest about failure.**
 
@@ -324,6 +353,24 @@ functions. Any other error still propagates, so a genuine bug is not hidden.
 empty answer, and it is a real action rather than a buffer read. It keeps
 throwing; `report_diagnostics` catches for it. See Open Question 2.
 
+**Correction found while building this (2026-08-05): a dead target fails in two
+ways, and B5 only described one.**
+
+Catching `TargetClosedError` covers the *race* — the message went out to a live
+page and the reply came back saying it had closed. That is what a real suite
+hits, and it is what B5 reported.
+
+But a page that was **already disposed** when the call started does not throw at
+all. These readers do not hop through `main_frame`, so they inherit none of M3's
+guard, and there is nobody left to answer the message they send: the call
+**hangs indefinitely**. This is strictly worse than the bug B5 describes — a
+masked failure is at least a failure, whereas a `finally` block that never
+returns takes the whole suite with it. It was found by a hermetic test hanging
+rather than failing.
+
+So liveness is checked *before* the send, not only caught after it. Both halves
+are asserted, including that the disposed case sends no message at all.
+
 **D5 — `retry_until` grows three knobs and stays one function.**
 
 ```julia
@@ -333,7 +380,7 @@ retry_until(f, target; …)          # opts into the resolve_timeout cascade
 
 - `on_timeout = :throw` (default, unchanged) raises `AssertionFailure`;
   `:false` returns `false`, which is what stdlib `Test` needs to render a **Fail**
-  rather than an Error that aborts the `@testset` (B1).
+  rather than an Error (B1).
 - `on_error = :throw` (default, unchanged) propagates a predicate exception;
   `:retry` treats it as "not yet", subject to the same deadline (B3). Under
   `:retry` the *last* exception is attached to the timeout failure, so a
@@ -344,12 +391,36 @@ retry_until(f, target; …)          # opts into the resolve_timeout cascade
 One function with defaulted keywords rather than four names: every default is the
 M3 behaviour, so this is purely additive and no existing call changes meaning.
 
+**Two corrections found while building this (2026-08-05).**
+
+*`:false` is not a `Symbol`.* `false` is a boolean literal, so Julia parses
+`:false` as `false::Bool`, while `:throw` and `:retry` really are symbols. The
+keyword therefore takes `Union{Symbol,Bool}`, and `on_timeout = :false` and
+`on_timeout = false` are the same thing. This spec's spelling is kept — it
+lines up with the other values at the call site — but it is a spelling, not a
+symbol, and the implementation accepts both.
+
+*B1 overstated the damage.* stdlib `Test` records a throwing `@test` as a
+`Test.Error` and **carries on to the next assertion**; it does not abort the
+enclosing `@testset`. So the gain from `:false` is the report, not the
+continuation — and it is still worth having, because an `Error` says "this test
+is broken" while a `Fail` says "this assertion did not hold", which is the truth
+about a condition that never arrived. A `Fail` also renders the expression and
+its value instead of a stacktrace through package internals. SC 7 is worded
+against the difference that is real.
+
 **D6 — video is context-scoped and finalized on close.** `record_video` is a
 `new_context` option, not a page one, because that is what the protocol offers.
-`video(page)` returns a `Video` or `nothing`; `path(v)` **blocks** until the file
-is finished, which only happens once the page (or context) closes. This is an
-upstream sharp edge, not a Playwright.jl one, and the docstring says so
+`video(page)` returns an `Artifact` or `nothing`; `path(v)` **blocks** until the
+file is finished, which only happens once the page (or context) closes. This is
+an upstream sharp edge, not a Playwright.jl one, and the docstring says so
 explicitly with the working order shown.
+
+*Built as an `Artifact` rather than a distinct `Video` type (2026-08-05).* The
+protocol hands back `video: Artifact?` and the three verbs a caller wants —
+`path`, `save_as`, `delete` — are exactly the surface A4 already defines as
+shared by A1 and A2. A `Video` wrapper would either duplicate all three or add a
+type that only forwards them.
 
 **D7 — PDF fails loudly off Chromium.** `page.pdf` is Chromium-only upstream.
 Rather than let the driver's error surface raw, `pdf` checks `browser_name` (M3,
@@ -375,8 +446,11 @@ Each is a specific, testable condition.
    and, on mismatch, raise `AssertionFailure` carrying the received value.
    `expect(page; to_have_text=…)` is an `ArgumentError`, not a driver failure.
 7. `@test retry_until(f; on_timeout = :false)` on a never-true predicate produces
-   a `Test.Fail` and the enclosing `@testset` **continues to the next test** —
-   asserted with a recording testset, not by eyeball.
+   a `Test.Fail` and **not** a `Test.Error`, and the enclosing `@testset`
+   continues to the next test — asserted with a recording testset, not by
+   eyeball, and asserted against the M3 default (which gives the `Error`) in the
+   same test. Fail-versus-Error is the real difference; see the correction under
+   D5, since stdlib does not in fact abort the testset on an `Error`.
 8. `retry_until(f, page)` honours `set_default_timeout!(page, ms)`: a
    never-true predicate returns/raises in ≈`ms`, asserted with `@elapsed`.
 9. `on_error = :retry` passes for a predicate that throws twice then returns
@@ -393,7 +467,22 @@ Each is a specific, testable condition.
     `ArgumentError`.
 12. Hermetic `Pkg.test()` green with no Node and no browser;
     `gen/generate.jl --check` green; `format(".")` clean.
-13. The target snippet above runs verbatim as a test on Chromium and Firefox.
+13. The target snippet above runs as a test on Chromium and Firefox — verbatim
+    on Chromium, and on Firefox with only the `pdf` call changed.
+
+    **This criterion contradicted SC 5 as originally written (corrected
+    2026-08-05).** The snippet calls `pdf`, and SC 5 requires `pdf` to *raise*
+    on Firefox, so "verbatim on both engines" cannot hold. Rather than drop the
+    Firefox leg or drop `pdf` from the milestone's showcase, Firefox runs the
+    identical snippet with the two `pdf` lines replaced by an assertion that it
+    refuses; every other line is shared.
+
+    Three further substitutions are the same licence M3's snippet was given for
+    `url`: `probe_url` is this spec's own placeholder, the `file://` fixture
+    path is resolved against the test directory, and `page` is declared before
+    the `with_tracing` block — the snippet assigns it inside the do-block and
+    reads it after, which, a do-block being a closure, is an `UndefVarError`
+    rather than a claim about the library.
 
 ## Non-Goals
 
@@ -413,7 +502,8 @@ All three are **resolved** (2026-08-04); recorded here for the record.
 1. **Non-throwing spelling.** *Resolved: the keyword* — `on_timeout = :false` on
    the existing `retry_until`, as D5 describes. The alternative considered was a
    separate exported predicate (`settles(f)`), rejected to avoid a second name
-   for one concept.
+   for one concept. (Note the D5 correction: `:false` is the boolean `false`,
+   not a `Symbol`. The spelling survives; the type does not.)
 2. **Does `screenshot` need a closed-target mode?** *Resolved: no* — it keeps
    throwing, and `report_diagnostics` catches for it (D4). A `Union{Vector{UInt8},
    Nothing}` return that every caller must handle is not worth it until a real
