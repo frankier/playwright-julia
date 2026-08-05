@@ -29,14 +29,13 @@ Sizes: (S) small, (M) medium, (L) large.
 T0 ∥ T1 ∥ T2 — disjoint. T1 needs a browser; T0 and T2 do not.
 
 ### Checkpoint A
-- [ ] `LICENSE` present; hermetic `Pkg.test()` green under the new compat bounds
-- [ ] CI green on a **pushed** branch, Julia 1.10 and `1`
-- [ ] `gen/generate.jl --check` and the format check green in CI
-- [ ] Smoke job green on Chromium **and** Firefox, with a cache **hit** read out
+- [x] `LICENSE` present; hermetic `Pkg.test()` green under the new compat bounds
+- [x] CI green on a **pushed** branch, Julia 1.10 and `1`
+- [x] `gen/generate.jl --check` and the format check green in CI
+- [x] Smoke job green on Chromium **and** Firefox, with a cache **hit** read out
       of a second run's log (not assumed)
-- [ ] **Human review of the T1 probe findings before T7 is written** — this is
-      the gate that fixes B4's assertion level. Dropping WGLMakie entirely
-      remains *Ask first*.
+- [x] **Human review of the T1 probe findings before T7 is written** — approved
+      2026-08-05 as D8 level 3. WGLMakie was not dropped.
 
 ## Phase 2: Examples
 
@@ -54,11 +53,13 @@ T5 ∥ T6 ∥ T7 once T4 is in — separate files, one shared `Project.toml`, so
 sequence the dependency additions.
 
 ### Checkpoint B
-- [ ] All four examples exit 0 **locally**, from a clean checkout, on Chromium
-      and Firefox
-- [ ] All four green in CI on the committed Manifest
-- [ ] No example is flaky — T7 run three times (retries are not a fix)
-- [ ] `Project.toml`'s `[deps]` still unchanged
+- [x] All four examples exit 0 **locally**, from a clean checkout, on Chromium
+      and Firefox — `runexamples.jl`, 8/8 PASS
+- [x] All four green in CI on the committed Manifest — run `31004938737`
+- [x] No example is flaky — T7 run three times, `colours = 1692` every time,
+      and no retries were added to make that true
+- [x] `Project.toml`'s `[deps]` still unchanged — `[deps]` section diffs
+      identical against `main`
 
 ## Phase 3: Documentation
 
@@ -86,30 +87,36 @@ T9 needs no browser, no network and no CI — the ideal offline task, and the
 longest. T11 ∥ T12 ∥ T13 ∥ T15 once T10 is in.
 
 ### Checkpoint C
-- [ ] `docs/make.jl` builds with **zero warnings**, `checkdocs = :exports` on
-- [ ] Gate verified by breaking it: one docstring deleted → build fails →
-      restored
-- [ ] Doctests pass; one deliberately broken → build red → restored
-- [ ] Example page changes when its script is edited, with no `.md` edit
-- [ ] `README.md` under 150 lines, no API reference material left
-- [ ] Site deployed and reachable at its Pages URL
-- [ ] Deploy authenticated by the workflow's `GITHUB_TOKEN`, with **no repository
+- [x] `docs/make.jl` builds with **zero warnings**, `checkdocs = :exports` on
+- [x] Gate verified by breaking it: `title`'s docstring deleted → build failed
+      on `:docs_block` and `:cross_references` → restored
+- [x] Doctests pass; an expected `7.0` changed to `7.5` → build red → restored
+- [x] Example page changes when its script is edited, with no `.md` edit —
+      marker in `examples/http_jl.jl` reached the built page, `http.md` md5
+      unchanged
+- [x] `README.md` under 150 lines (137), no API reference material left
+- [ ] ⛔ Site deployed and reachable at its Pages URL — **needs the merge to
+      `main`**; the build half is green (run `31004938747`)
+- [x] Deploy authenticated by the workflow's `GITHUB_TOKEN`, with **no repository
       secret created** (D10)
-- [ ] **Repo-settings step:** GitHub Pages pointed at the `gh-pages` branch
+- [ ] ⛔ **Repo-settings step:** GitHub Pages pointed at the `gh-pages` branch —
+      web UI, after the first deploy
 
 ## Phase 4: Release metadata and proof
 
 - [x] T16: TagBot, CompatHelper, Dependabot, README badges (S) — deps: T2, T15
       - badges added in T14; workflows parse and appear in the Actions tab
       - ⛔ CompatHelper's manual trigger needs the workflow on `main` first
-- [ ] T17: final verification of all sixteen success criteria (M) — deps: all
+- [x] T17: final verification of all sixteen success criteria (M) — deps: all
 
 ### Checkpoint D
-- [ ] All sixteen `SPEC-M5.md` success criteria verified, each by running it
-- [ ] Gates confirmed still on: `checkdocs = :exports`, warnings-as-errors,
-      both engines in smoke
-- [ ] `tasks/m5-api-gaps.md` non-empty, and **nothing in it was fixed**
-      (Assumption 2)
+- [x] All sixteen `SPEC-M5.md` success criteria verified, each by running it —
+      table below; SC 13 is the one exception and says so
+- [x] Gates confirmed still on: `checkdocs = :exports` and `warnonly = false`
+      in `docs/make.jl`; `doctest = true`; both engines in the smoke job and in
+      `runexamples.jl`. None were weakened to make anything green.
+- [x] `tasks/m5-api-gaps.md` non-empty — nine items — and **nothing in it was
+      fixed** (Assumption 2)
 
 ## Verification table
 
@@ -119,19 +126,34 @@ it, in the style of `tasks/m4/todo.md`. "smoke" means both engines under
 
 | SC | Verified by |
 |---|---|
-| 1 | |
-| 2 | |
-| 3 | |
-| 4 | |
-| 5 | |
-| 6 | |
-| 7 | |
-| 8 | |
-| 9 | |
-| 10 | |
-| 11 | |
-| 12 | |
-| 13 | |
-| 14 | |
-| 15 | |
-| 16 | |
+| 1 | `julia --project=docs docs/make.jl` — 0 lines matching error/warning, with `checkdocs = :exports` and `warnonly = false` |
+| 2 | A script comparing the `@docs` block list against `names(Playwright)` reports both differences empty. Gate proved by deleting `title`'s docstring: build red, then restored |
+| 3 | Doctests run inside the docs build (`doctest = true`), on `from_serialized`, `Not` and `DriverError`. Proved by changing an expected `7.0` to `7.5`: `doctest failure`, then restored |
+| 4 | Built tree: index, getting-started, six guide pages, four example pages, api.md — all reachable and warning-free |
+| 5 | `wc -l README.md` = **137**; `grep` for API tables finds none |
+| 6 | `runexamples.jl`: `http_jl.jl` PASS on chromium (26.1s) and firefox (27.0s) |
+| 7 | `runexamples.jl`: `oxygen_jl.jl` PASS 44.2s/43.5s, `genie_jl.jl` PASS 49.1s/53.1s, both engines |
+| 8 | `wglmakie_jl.jl` PASS 107.7s/107.2s at the approved level 3; the docs page states the Chromium-only limitation with its evidence |
+| 9 | Marker comment added to `examples/http_jl.jl` appeared in `docs/build/examples/http.html` while `docs/src/examples/http.md` stayed md5-identical; marker removed |
+| 10 | CI run `31004938737`: Julia 1.10 ✅, Julia 1 ✅, Generated code in sync ✅, Formatting ✅ |
+| 11 | Smoke green both engines, run `30991010525` (miss, install 40s) and `30991908771` — **"Cache restored successfully"** in the log and the install step **skipped** |
+| 12 | Examples job green in CI, run `31004938737`, on the committed Manifest (no `--update`) |
+| 13 | ⛔ **Not verified.** The deploy only runs on `main` and Pages must be pointed at `gh-pages` in the web UI. The build half is green: Documentation run `31004938747` |
+| 14 | `LICENSE` is MIT/2026; `test/test_project.jl` asserts every `[deps]` and `[extras]` entry has a `[compat]` bound; TagBot, CompatHelper and dependabot.yml all parse |
+| 15 | Hermetic `Pkg.test()` 1238 pass, no Node/browser; smoke 1864 pass; `gen/generate.jl --check` in sync; `format(".")` returned `true`; `[deps]` section diffs identical against `main` |
+| 16 | `tasks/m5-api-gaps.md`, nine items, none fixed — `fill` not being in `names(Playwright)` is worked around in api.md rather than corrected |
+
+## A note on the one flaky-looking result
+
+The first full `runexamples.jl` sweep reported `genie_jl.jl` and
+`wglmakie_jl.jl` failing on Chromium — and it was my fault, not the examples'.
+I had started that sweep while the smoke suite was still running in another
+process, so two sets of browsers and two sets of local servers were competing
+for the same machine. Genie failed in 12.8s, well short of its own 25s warm-up,
+which is the tell.
+
+Re-run on a quiet machine: **8/8 PASS**. The examples job in CI passed
+independently on the same commit, and T7 had already been run three times
+consecutively with an identical pixel count. Recorded here rather than quietly
+re-run, because "it passed the second time" is exactly the sentence that hides
+a real flake — the difference is that this one has a cause.
