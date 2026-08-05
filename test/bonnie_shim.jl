@@ -8,6 +8,13 @@
 
 using Playwright
 
+# Milestone 4 gave the package its own `with_page` (B4), which takes a browser
+# or context to open the page in. cdp.jl's takes none and launches its own
+# browser, so the two do not overlap and this is an added *method* rather than
+# a second function — otherwise the shim would shadow the export and every
+# caller in the suite would silently get whichever was defined last.
+import Playwright: with_page
+
 """
     with_page(f; browser=:chromium, headless=true)
 

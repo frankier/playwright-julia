@@ -37,4 +37,5 @@ using Playwright
     # but the few legs that need a real browser are gated inside the file and
     # use test_smoke.jl's fixture server, which is why it comes last.
     include("test_artifacts.jl")
+    include("test_fixtures_api.jl")
 end

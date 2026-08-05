@@ -94,6 +94,9 @@
         # M4 T6: video
         :video,
         :Artifact,
+        # M4 T9: the with_page fixture
+        :with_page,
+        :report_diagnostics,
         :screenshot,
         :text_content,
         :title,

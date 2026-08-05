@@ -37,7 +37,7 @@ a browser-free session can start here.
       deps: T1, T4
 - [x] T6: video — `record_video` on `new_context`, `video(page)` (M) — A2, deps: T4
 - [x] T8: `expect(::Page)` / `expect(::Frame)` (M) — B6, deps: T1
-- [ ] T9: `with_page` + `report_diagnostics` + `artifacts_on` (M) — B4, deps: T3
+- [x] T9: `with_page` + `report_diagnostics` + `artifacts_on` (M) — B4, deps: T3
 
 T7 → T4 → T5 → T6 share `src/api/artifacts.jl` and land one at a time; T7 goes
 first to establish the file. T2 and T8 share `src/api/expect.jl` — sequence them.

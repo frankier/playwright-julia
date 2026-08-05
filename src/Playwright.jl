@@ -56,6 +56,8 @@ export playwright,
     with_tracing,
     video,
     Artifact,
+    with_page,
+    report_diagnostics,
     evaluate,
     evaluate_handle,
     eval_on_selector,
@@ -128,5 +130,6 @@ include("api/frames.jl")
 include("api/evaluate.jl")
 include("api/diagnostics.jl")
 include("api/artifacts.jl")
+include("api/fixtures.jl")
 
 end # module
