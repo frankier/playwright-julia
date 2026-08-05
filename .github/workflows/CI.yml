@@ -34,6 +34,59 @@ jobs:
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
 
+  smoke:
+    # The job that makes CI mean something for this package: real Chromium and
+    # real Firefox, in one job (D7), against the local fixture server.
+    name: Smoke (chromium + firefox)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      # Relocate the browsers into the workspace so actions/cache can see them.
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+          arch: x64
+      - uses: julia-actions/cache@v2
+
+      - name: Read the pinned driver versions
+        id: pins
+        # src/driver.jl is the single place these are set, so the cache key is
+        # derived from it rather than restated here and left to drift.
+        run: |
+          julia -e '
+            src = read("src/driver.jl", String)
+            pw = match(r"const PLAYWRIGHT_VERSION = \"([^\"]+)\"", src)[1]
+            node = match(r"const NODE_VERSION = \"([^\"]+)\"", src)[1]
+            open(ENV["GITHUB_OUTPUT"], "a") do io
+                println(io, "playwright=", pw)
+                println(io, "node=", node)
+            end'
+
+      - name: Restore browsers and driver
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          # The driver bundle is assembled into a Scratch.jl directory from the
+          # npm tarball and a Node binary, so it is cached alongside the
+          # browsers and keyed on both pins.
+          path: |
+            ${{ github.workspace }}/.playwright
+            ~/.julia/scratchspaces
+          key: playwright-${{ runner.os }}-pw${{ steps.pins.outputs.playwright }}-node${{ steps.pins.outputs.node }}
+
+      - name: Install driver and browsers
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: julia bin/install.jl
+
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Smoke tests
+        env:
+          PLAYWRIGHT_JL_SMOKE: "1"
+        run: julia --project=. -e 'using Pkg; Pkg.test()'
+
   codegen:
     # The generated channel layer is checked in, so it can drift from
     # protocol/spec/. --check compares byte for byte.
