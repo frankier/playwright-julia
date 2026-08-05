@@ -8,7 +8,7 @@ Sizes: (S) small, (M) medium, (L) large.
 
 ## Phase 1: Groundwork, probe and first CI
 
-- [ ] T0: `LICENSE` (MIT) + compat bounds on every dep + ignore rules (S) —
+- [x] T0: `LICENSE` (MIT) + compat bounds on every dep + ignore rules (S) —
       no deps
 - [ ] T1: **PROBE** — headless WebGL for WGLMakie on both engines, findings to
       `tasks/m5-probe.md` (M) — **gate**: fixes B4's assertion level (D8)
