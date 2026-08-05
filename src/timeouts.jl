@@ -132,3 +132,6 @@ resolve_navigation_timeout(target::ChannelOwner, ::Nothing) = something(
 resolve_timeout(loc::Locator, kwarg) = resolve_timeout(loc.frame, kwarg)
 resolve_navigation_timeout(loc::Locator, kwarg) =
     resolve_navigation_timeout(loc.frame, kwarg)
+
+# T2 gate check — deliberately misformatted, reverted in the next commit.
+const  T2_GATE_CHECK   =   1
