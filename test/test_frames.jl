@@ -39,7 +39,7 @@
                 click(locator(inner, "#child-button"))
                 @test text_content(locator(inner, "#child-status")) == "pressed"
 
-                fill(locator(inner, "#child-input"), "typed inside")
+                set_value!(locator(inner, "#child-input"), "typed inside")
                 @test input_value(locator(inner, "#child-input")) == "typed inside"
 
                 # The parent is untouched by all of that.

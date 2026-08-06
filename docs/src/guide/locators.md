@@ -7,7 +7,7 @@ runs.
 
 ```julia
 loc = locator(page, "#name")     # nothing has happened yet; no round trip
-fill(loc, "Ada")                 # now the selector is resolved, and acted on
+set_value!(loc, "Ada")                 # now the selector is resolved, and acted on
 ```
 
 That is the whole design, and everything below follows from it. A locator
@@ -97,7 +97,7 @@ See [Assertions](@ref).
 
 ```julia
 click(locator(page, "#greet"))
-fill(locator(page, "#name"), "Ada")
+set_value!(locator(page, "#name"), "Ada")
 ```
 
 [`click`](@ref) waits for the element to be **actionable** first: attached,
@@ -105,7 +105,7 @@ visible, stable, able to receive events, and not disabled. That wait is why a
 click on a button that is enabled a moment later needs no `sleep` in front of
 it.
 
-[`fill`](@ref) clears the field and fires an `input` event, which is what makes
+[`set_value!`](@ref) clears the field and fires an `input` event, which is what makes
 it different from assigning `.value` through `evaluate` — the page's listeners
 actually run.
 

@@ -115,7 +115,7 @@ milliseconds after a click:
 # absence, not a missing element swallowed.
 expect(locator(page, "li.greeting"; strict = false); to_have_count = 0)
 
-fill(locator(page, "#name"), "Ada")
+set_value!(locator(page, "#name"), "Ada")
 expect(locator(page, "#name"); to_have_value = "Ada")
 click(locator(page, "#greet"))
 

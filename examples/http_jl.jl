@@ -76,9 +76,9 @@ try
 
                 # Fill, click, and assert on what the *browser* rendered. The
                 # 300ms the page waits before appending is handled by expect's
-                # retry, not by a sleep on this side. `fill` extends Base.fill,
-                # so it needs no qualification.
-                fill(locator(page, "#name"), "Ada")
+                # retry, not by a sleep on this side. `set_value!` is
+                # Playwright's `fill`.
+                set_value!(locator(page, "#name"), "Ada")
                 expect(locator(page, "#name"); to_have_value = "Ada")
                 click(locator(page, "#greet"))
 

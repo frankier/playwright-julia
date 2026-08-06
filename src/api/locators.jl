@@ -65,7 +65,7 @@ Locators are iterable, yielding one single-element `Locator` per match:
 
 ```julia
 for slider in locator(page, "input[type=range]"; strict=false)
-    fill(slider, "7")
+    set_value!(slider, "7")
 end
 ```
 
@@ -270,7 +270,7 @@ live value, which is not the same as the `value` *attribute* the HTML was
 served with — see [`get_attribute`](@ref) for that one.
 
 ```julia
-fill(locator(page, "#name"), "Ada")
+set_value!(locator(page, "#name"), "Ada")
 input_value(locator(page, "#name"))   # "Ada"
 ```
 
@@ -311,24 +311,26 @@ click(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_click(
 )
 
 """
-    fill(loc::Locator, value; timeout=nothing)
+    set_value!(loc::Locator, value; timeout=nothing)
 
-Set the matched input/textarea's value to `value` (extends `Base.fill`, so it
-needs no qualification even though it is not exported).
+Set the matched input/textarea's value to `value`. This is Playwright's
+`fill` — the name differs because a bang is the Julia signal that the call
+changes what the page can see, and `fill!` would have been ambiguous with the
+`Base.fill!` every `using Playwright` already has in scope.
 
 This clears the field first and fires an `input` event, which is what makes it
 different from assigning `.value` through [`evaluate`](@ref) — the page's
 listeners actually run.
 
 ```julia
-fill(locator(page, "#name"), "Ada")
+set_value!(locator(page, "#name"), "Ada")
 expect(locator(page, "#name"); to_have_value = "Ada")
 ```
 
 Elements that refuse to be filled — a `range` input, say — want
 [`evaluate`](@ref) plus [`dispatch_event`](@ref) instead.
 """
-Base.fill(loc::Locator, value::AbstractString; timeout::MaybeTimeout = nothing) =
+set_value!(loc::Locator, value::AbstractString; timeout::MaybeTimeout = nothing) =
     _frame_fill(
         loc.frame;
         selector = loc.selector,

@@ -75,6 +75,7 @@ is_enabled
 
 ```@docs
 click
+set_value!
 dispatch_event
 element_handle
 ```
@@ -172,7 +173,6 @@ appear in `names(Playwright)` and so are outside `checkdocs`' reach. They are
 public surface all the same.
 
 ```@docs
-Base.fill
 Base.count
 Base.length
 Base.first

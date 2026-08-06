@@ -163,7 +163,7 @@ tryrun(cmd) =
                     # fill round-trips through the input's value
                     name = locator(page, "#name")
                     @test input_value(name) == ""
-                    fill(name, "Jane Doe")
+                    set_value!(name, "Jane Doe")
                     @test input_value(name) == "Jane Doe"
 
                     # missing selector times out with the driver's explanation
@@ -216,7 +216,7 @@ tryrun(cmd) =
                     @test length(sliders) == 2
 
                     # nth is 1-based on the Julia side.
-                    fill(nth(sliders, 2), "4")
+                    set_value!(nth(sliders, 2), "4")
                     @test input_value(nth(sliders, 2)) == "4"
                     @test input_value(nth(sliders, 1)) == "0"
                     @test input_value(first(sliders)) == "0"
@@ -230,7 +230,7 @@ tryrun(cmd) =
                     @test all(l -> l isa Playwright.Locator, yielded)
                     @test eltype(sliders) === Playwright.Locator
                     # ...and collect(loc)[2] acts on the same element as nth(loc, 2).
-                    fill(yielded[2], "9")
+                    set_value!(yielded[2], "9")
                     @test input_value(nth(sliders, 2)) == "9"
 
                     counted = 0

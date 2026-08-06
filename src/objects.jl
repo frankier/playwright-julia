@@ -123,7 +123,7 @@ pick. It is checked on *action*, not on construction.
 
 ```julia
 loc = locator(page, "#name")            # nothing has happened yet
-fill(loc, "Ada")                        # now the selector is resolved
+set_value!(loc, "Ada")                        # now the selector is resolved
 ```
 
 Read the three parts back with [`frame`](@ref), [`selector`](@ref) and
