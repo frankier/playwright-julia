@@ -103,7 +103,7 @@ try
                 ) == 2
             end
         finally
-            close(browser)
+            close!(browser)
         end
     end
 finally

@@ -37,7 +37,7 @@ playwright() do pw
 
         screenshot(page; path = "example.png")
     finally
-        close(browser)
+        close!(browser)
     end
 end
 ```

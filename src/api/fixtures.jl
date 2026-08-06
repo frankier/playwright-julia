@@ -181,7 +181,7 @@ function with_page(
             end
         end
         try
-            close(page)
+            close!(page)
         catch e
             @warn "could not close the page" exception = e
         end

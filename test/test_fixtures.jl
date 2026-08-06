@@ -39,7 +39,7 @@ end
                 @test browser_name(browser) isa String
                 # ...and it agrees with the BrowserType it came from
                 @test browser_name(browser) == browser_name(bt)
-                close(browser)
+                close!(browser)
             end
         end
 
@@ -61,7 +61,7 @@ end
                 page = new_page(browser)
                 goto(page, "data:text/html,<h1>shared options</h1>")
                 @test text_content(locator(page, "h1")) == "shared options"
-                close(browser)
+                close!(browser)
             end
         end
     end
@@ -88,7 +88,7 @@ end
                     @test expect(late; to_have_text = "late arrival") === late
                     @test evaluate(page, "() => window.__lateAt > window.__parsedAt")
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: the passing matchers" begin
@@ -109,7 +109,7 @@ end
                     expect(locator(page, "#first"); to_have_attribute = "max" => "10")
                     expect(locator(page, "#first"); to_be_enabled = true)
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: negation, by Not and by false" begin
@@ -123,7 +123,7 @@ end
                     # ...and both spellings agree
                     expect(locator(page, "#nope"); to_be_visible = Not(true))
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: a failure names expected AND received" begin
@@ -146,7 +146,7 @@ end
                     @test occursin("Hello", err.message)     # received, from the driver
                     @test occursin("h1", err.message)        # which locator
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: a count failure reports the real count" begin
@@ -169,7 +169,7 @@ end
                     @test occursin("99", err.message)
                     @test occursin("2", err.message)
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: a missing element says so" begin
@@ -191,7 +191,7 @@ end
                     @test err isa Playwright.AssertionFailure
                     @test occursin("not found", lowercase(err.message))
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: expect timeouts come from the cascade" begin
@@ -207,7 +207,7 @@ end
                     )
                     @test elapsed < 10.0
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: expect on the document (M4 T8, SC 6)" begin
@@ -239,7 +239,7 @@ end
                     # And the wrong-target matcher is refused locally (SC 6).
                     @test_throws ArgumentError expect(page; to_have_text = "M4")
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: retry_until is the escape hatch" begin
@@ -259,7 +259,7 @@ end
                         interval = 50,
                     )
 
-                    close(browser)
+                    close!(browser)
                 end
             end
         end
@@ -281,7 +281,7 @@ end
                     goto(page, "$base_url/m3.html")
                     @test title(page) == "Milestone 3 fixture"
 
-                    close(page)
+                    close!(page)
 
                     # The invariant: no user-facing call on a closed page
                     # escapes with a non-PlaywrightError.
@@ -302,7 +302,7 @@ end
                         @test err isa PlaywrightError
                     end
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: closing the context closes its pages too" begin
@@ -311,10 +311,10 @@ end
                     page = new_page(ctx)
                     goto(page, "$base_url/m3.html")
 
-                    close(ctx)
+                    close!(ctx)
                     @test_throws Playwright.TargetClosedError title(page)
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: the postmortem readers survive a closed context (T3)" begin
@@ -331,7 +331,7 @@ end
                     @test !isempty(console_messages(page))
                     @test !isempty(page_errors(page))
 
-                    close(ctx)
+                    close!(ctx)
 
                     # Dead: empty, and above all not raising.
                     @test console_messages(page) == Playwright.ConsoleMessage[]
@@ -339,7 +339,7 @@ end
                     # ...while a real action on the same dead page still says so.
                     @test_throws Playwright.TargetClosedError screenshot(page)
 
-                    close(browser)
+                    close!(browser)
                 end
             end
         end
@@ -373,7 +373,7 @@ end
                     # value was assigned.
                     @test text_content(locator(page, "#readout")) == "first=7 second=0"
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: evaluate on a Locator returns converted values" begin
@@ -385,7 +385,7 @@ end
                     @test evaluate(locator(page, "h1"), "el => el.textContent") == "Hello"
                     @test evaluate(locator(page, "#first"), "el => el.max") == "10"
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: a strict Locator still raises on several matches" begin
@@ -397,7 +397,7 @@ end
                     strict_multi = locator(page, "input[type=range]")
                     @test_throws PlaywrightError evaluate(strict_multi, "el => el.value")
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: evaluate_all sees every match and ignores strictness" begin
@@ -418,7 +418,7 @@ end
                         "els => els.length",
                     ) == 0
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: element_handle resolves, and misses give nothing" begin
@@ -434,7 +434,7 @@ end
 
                     @test element_handle(locator(page, "#not-there")) === nothing
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: the public accessors describe a real locator" begin
@@ -454,7 +454,7 @@ end
                     @test is_strict(second)
                     @test evaluate(second, "el => el.id") == "second"
 
-                    close(browser)
+                    close!(browser)
                 end
             end
         end
@@ -485,7 +485,7 @@ end
                     # so this is deterministic rather than a race.
                     @test evaluate(page, "() => window.__lateAt > window.__parsedAt")
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: wait_for_selector honours state" begin
@@ -500,7 +500,7 @@ end
                     @test wait_for_selector(page, "#nope"; state = :detached) === nothing
                     @test wait_for_selector(page, "#nope"; state = :hidden) === nothing
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: wait_for_selector works on a Locator" begin
@@ -512,7 +512,7 @@ end
                     el = wait_for_selector(locator(page, "#late"); state = :visible)
                     @test el isa Playwright.ElementHandle
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: a missing selector raises TimeoutError, not DriverError" begin
@@ -532,7 +532,7 @@ end
                     @test err isa Playwright.TimeoutError
                     @test !(err isa Playwright.DriverError)
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: wait_for_function waits for window.ready" begin
@@ -545,7 +545,7 @@ end
                     @test handle !== nothing
                     @test evaluate(page, "() => window.__readyAt > window.__parsedAt")
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: wait_for_function takes an argument and a polling interval" begin
@@ -562,7 +562,7 @@ end
                     )
                     @test evaluate(page, "() => window.ready") === true
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: a throwing predicate raises DriverError, not TimeoutError" begin
@@ -587,7 +587,7 @@ end
                     @test !(err isa Playwright.TimeoutError)
                     @test occursin("predicate blew up", err.message)
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: waiting timeouts come from the cascade" begin
@@ -604,7 +604,7 @@ end
                         )
                     @test elapsed < 10.0
 
-                    close(browser)
+                    close!(browser)
                 end
             end
         end
@@ -635,7 +635,7 @@ end
                     # what must be true immediately is that it is a usable Page.
                     @test text_content(locator(popup, "#popup-heading")) == "Popup"
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: a synchronously-fired console event is caught" begin
@@ -655,7 +655,7 @@ end
                     @test msg.text == "shouted"
                     @test msg.type == "log"
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: with_events collects a 5 000-message flood" begin
@@ -675,7 +675,7 @@ end
                     @test texts[1] == "flood 0"
                     @test texts[end] == "flood 4999"
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: :close hands back the page that closed" begin
@@ -685,11 +685,11 @@ end
                     goto(page, "$base_url/m3.html")
 
                     closed = expect_event(page, :close) do
-                        close(page)
+                        close!(page)
                     end
                     @test closed === page
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: a page error arrives as a PageError" begin
@@ -709,7 +709,7 @@ end
                     @test err isa Playwright.PageError
                     @test occursin("kaboom", err.message)
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: a wait that never fires raises TimeoutError" begin
@@ -731,7 +731,7 @@ end
                     @test_throws Playwright.TimeoutError expect_event(ctx, :console) do
                     end
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: an unsupported event is refused, not faked" begin
@@ -741,7 +741,7 @@ end
                     end
                     @test_throws ArgumentError expect_event(ctx, :download) do
                     end
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: the registry is empty after every block" begin
@@ -763,7 +763,7 @@ end
                     end
                     @test sum(length, values(conn.subscriptions); init = 0) == 0
 
-                    close(browser)
+                    close!(browser)
                 end
             end
         end
@@ -803,7 +803,7 @@ end
                     # The popup opener the event slice drives.
                     @test is_visible(locator(page, "#open-popup"))
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: m4.html — late title, console and a page error" begin
@@ -828,7 +828,7 @@ end
                     # more than a blank sheet.
                     @test evaluate(page, "() => document.body.scrollHeight") > 300
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$engine: m3-events.html — sync and flooded console" begin
@@ -860,7 +860,7 @@ end
                     @test js_wait(page, "window.__floodDone === true"; timeout_ms = 30_000)
                     @test evaluate(page, "() => window.__floodCount") == 5_000
 
-                    close(browser)
+                    close!(browser)
                 end
             end
         end

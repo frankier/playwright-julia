@@ -22,6 +22,7 @@
         # rather than extended. These are first-class exports for the first
         # time, so `checkdocs = :exports` now covers them.
         :set_value!,
+        :close!,
         :set_default_timeout!,
         :set_default_navigation_timeout!,
         # T7: locator ergonomics

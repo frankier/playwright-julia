@@ -585,7 +585,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         # is an opaque artifact for upstream's viewer.
                         @test read(dest, 4) == UInt8[0x50, 0x4b, 0x03, 0x04]
 
-                        close(browser)
+                        close!(browser)
                     end
 
                     @testset "$engine: the trace survives a throwing block (T5, SC 2)" begin
@@ -614,7 +614,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         @test isfile(dest)
                         @test read(dest, 4) == UInt8[0x50, 0x4b, 0x03, 0x04]
 
-                        close(browser)
+                        close!(browser)
                     end
 
                     @testset "$engine: video (T6, SC 4)" begin
@@ -639,7 +639,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         # D6's sharp edge, stated as an assertion: the file is
                         # not finished until the page closes. Closing first is
                         # what makes `path` return rather than block.
-                        close(page)
+                        close!(page)
                         file = path(v)
                         @test isfile(file)
                         @test filesize(file) > 0
@@ -650,7 +650,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         @test save_as(v, dest) == dest
                         @test filesize(dest) > 0
 
-                        close(browser)
+                        close!(browser)
                     end
 
                     @testset "$engine: no recording means video(page) is nothing (SC 4)" begin
@@ -659,7 +659,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         page = new_page(ctx)
                         goto(page, "$base_url/m4.html")
                         @test video(page) === nothing
-                        close(browser)
+                        close!(browser)
                     end
 
                     @testset "$engine: pdf (T7, SC 5)" begin
@@ -694,7 +694,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                             @test occursin("firefox", err.msg)
                         end
 
-                        close(browser)
+                        close!(browser)
                     end
                 end
             end

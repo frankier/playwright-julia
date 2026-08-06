@@ -99,7 +99,7 @@ try
                 @test status == 200
             end
         finally
-            close(browser)
+            close!(browser)
         end
     end
 finally

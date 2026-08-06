@@ -51,7 +51,7 @@ using Playwright
             expect(page; to_have_title = "Example Domain")
             expect(locator(page, "h1"); to_have_text = "Example Domain")
         finally
-            close(browser)
+            close!(browser)
         end
     end
 end
@@ -62,7 +62,7 @@ Three things in that shape are deliberate and worth copying:
 1. **[`playwright`](@ref) takes a block.** The driver subprocess is shut down
    on the way out however the block ends. There is no `playwright()` that
    returns a handle for you to remember to close.
-2. **`close(browser)` is in a `finally`.** A browser left running outlives the
+2. **`close!(browser)` is in a `finally`.** A browser left running outlives the
    test process on some platforms.
 3. **The assertions are [`expect`](@ref), not `@test title(page) == …`.**
    `expect` retries until the condition holds; the `@test` form reads once and
@@ -85,7 +85,7 @@ playwright() do pw
         try
             # ...the same test, on both engines
         finally
-            close(browser)
+            close!(browser)
         end
     end
 end

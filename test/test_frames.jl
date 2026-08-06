@@ -79,7 +79,7 @@
                 @test frames(page) == [main]
             end
 
-            close(browser)
+            close!(browser)
         end
     end
 end

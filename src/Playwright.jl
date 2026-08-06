@@ -12,7 +12,7 @@ playwright() do pw
     page = new_page(browser)
     goto(page, "https://example.com")
     println(title(page))
-    close(browser)
+    close!(browser)
 end
 ```
 """
@@ -40,6 +40,7 @@ export playwright,
     JSHandle,
     launch,
     new_page,
+    close!,
     goto,
     title,
     locator,

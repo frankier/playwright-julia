@@ -94,7 +94,7 @@
                 ) == "beta!"
             end
 
-            close(browser)
+            close!(browser)
         end
     end
 end

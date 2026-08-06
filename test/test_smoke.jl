@@ -64,7 +64,7 @@ tryrun(cmd) =
     end
 
     if Sys.isunix()
-        @testset "no orphan browser processes, even without close(browser)" begin
+        @testset "no orphan browser processes, even without close!(browser)" begin
             before = playwright_browser_pids()
             pw_ref = Ref{Any}(nothing)
             playwright() do pw
@@ -72,7 +72,7 @@ tryrun(cmd) =
                 browser = launch(pw.chromium; headless = true)
                 page = new_page(browser)
                 goto(page, "data:text/html,<h1>leak check</h1>")
-                # deliberately no close(browser)
+                # deliberately no close!(browser)
             end
             @test !process_running(pw_ref[].process)
             # The driver tears its browsers down on exit; give it a moment.
@@ -107,8 +107,8 @@ tryrun(cmd) =
                         timeout = 5_000,
                     )
 
-                    close(page)
-                    close(browser)
+                    close!(page)
+                    close!(browser)
                 end
 
                 @testset "$browser_name: set_default_timeout! shortens a real miss" begin
@@ -142,7 +142,7 @@ tryrun(cmd) =
                     )
                     @test slower > quick
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$browser_name: locators — text_content, click, fill" begin
@@ -194,7 +194,7 @@ tryrun(cmd) =
                     # A call against a closed page classifies as TargetClosedError.
                     doomed = new_page(browser)
                     goto(doomed, "$base_url/")
-                    close(doomed)
+                    close!(doomed)
                     closed_err = try
                         screenshot(doomed)
                         nothing
@@ -203,7 +203,7 @@ tryrun(cmd) =
                     end
                     @test closed_err isa TargetClosedError
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$browser_name: multi-match locators over sliders.html" begin
@@ -253,7 +253,7 @@ tryrun(cmd) =
                         timeout = 5_000,
                     )
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$browser_name: dispatch_event drives a range input" begin
@@ -294,7 +294,7 @@ tryrun(cmd) =
                     )
                     @test evaluate(page, "window.seen") == "Escape"
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$browser_name: content and state queries" begin
@@ -318,7 +318,7 @@ tryrun(cmd) =
                     @test !is_visible(locator(page, "#does-not-exist"))
                     @test is_enabled(locator(page, "#only"))
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$browser_name: launch options reach the browser" begin
@@ -334,7 +334,7 @@ tryrun(cmd) =
                     # flags being accepted rather than rejected looks like.
                     @test evaluate(page, "navigator.userAgent") isa String
                     @test title(page) == "Playwright.jl Fixture"
-                    close(browser)
+                    close!(browser)
 
                     if browser_name == "firefox"
                         # Observably applied: the pref is readable back through
@@ -346,7 +346,7 @@ tryrun(cmd) =
                         page = new_page(browser)
                         goto(page, "$base_url/")
                         @test title(page) == "Playwright.jl Fixture"
-                        close(browser)
+                        close!(browser)
                     end
                 end
 
@@ -369,9 +369,9 @@ tryrun(cmd) =
                     # The viewport option was applied, not silently dropped.
                     @test evaluate(page, "window.innerWidth") == 800
 
-                    close(ctx)
+                    close!(ctx)
                     @test isempty(Playwright.contexts(browser))
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$browser_name: new_page(browser) no longer leaks its context" begin
@@ -380,8 +380,8 @@ tryrun(cmd) =
                     goto(page, "$base_url/")
                     @test length(Playwright.contexts(browser)) == 1
 
-                    close(page)
-                    # The milestone-1 leak: close(page) left the implicitly
+                    close!(page)
+                    # The milestone-1 leak: close!(page) left the implicitly
                     # created context behind for the life of the browser.
                     @test isempty(Playwright.contexts(browser))
 
@@ -389,11 +389,11 @@ tryrun(cmd) =
                     # it leaves the context the caller owns alone.
                     ctx = Playwright.new_context(browser)
                     owned = new_page(ctx)
-                    close(owned)
+                    close!(owned)
                     @test length(Playwright.contexts(browser)) == 1
-                    close(ctx)
+                    close!(ctx)
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$browser_name: console messages and page errors" begin
@@ -440,7 +440,7 @@ tryrun(cmd) =
                         10.0,
                     ) === :ok
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 @testset "$browser_name: screenshot writes a non-empty PNG" begin
@@ -455,7 +455,7 @@ tryrun(cmd) =
                     @test read(path, 8) == png_magic
                     @test length(bytes) > 8 && bytes[1:8] == png_magic
 
-                    close(browser)
+                    close!(browser)
                 end
             end
         end

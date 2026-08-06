@@ -12,7 +12,7 @@ exits — normally or by exception. Installs the driver on first use.
 playwright() do pw
     browser = launch(pw.chromium)
     # ...
-    close(browser)
+    close!(browser)
 end
 ```
 """
@@ -226,7 +226,7 @@ or `NamedTuple` of `width`/`height`), `user_agent`, `locale`, `timezone_id`,
 ```julia
 ctx = new_context(browser; viewport=(width=1280, height=720))
 page = new_page(ctx)
-close(ctx)
+close!(ctx)
 ```
 
 `record_video` takes a `dir` and an optional `size`, and recording is
@@ -278,7 +278,7 @@ function new_context(
 end
 
 # Pages opened by new_page(::Browser) own the context created for them, so
-# close(page) can tear it down (D7). A Page is a generated struct with a fixed
+# close!(page) can tear it down (D7). A Page is a generated struct with a fixed
 # field layout, so the association lives here rather than on the object.
 const IMPLICIT_CONTEXTS = Dict{String,BrowserContext}()
 const IMPLICIT_CONTEXTS_LOCK = ReentrantLock()
@@ -288,18 +288,18 @@ const IMPLICIT_CONTEXTS_LOCK = ReentrantLock()
     new_page(context::BrowserContext) -> Page
 
 Open a new page. Given a [`Browser`](@ref), a fresh context is created to hold
-it and is closed again by `close(page)` — so a per-test page leaks nothing.
+it and is closed again by `close!(page)` — so a per-test page leaks nothing.
 Given a [`BrowserContext`](@ref), the page joins that context and its lifetime
 is yours.
 
 ```julia
 page = new_page(browser)     # its own context, cleaned up with the page
 goto(page, url)
-close(page)                  # …and the implicit context goes too
+close!(page)                  # …and the implicit context goes too
 
 ctx = new_context(browser)   # or share one context between pages
 a, b = new_page(ctx), new_page(ctx)
-close(ctx)                   # closes both
+close!(ctx)                   # closes both
 ```
 
 For a page that also collects screenshots and traces when a test fails, use
@@ -364,32 +364,38 @@ function live_children(parent::ChannelOwner, ::Type{T}) where {T}
 end
 
 """
-    close(page::Page)
-    close(context::BrowserContext)
-    close(browser::Browser)
+    close!(page::Page)
+    close!(context::BrowserContext)
+    close!(browser::Browser)
 
 Close a page, a context and all of its pages, or a browser and everything in
-it. Closing a page that `new_page(browser)` created also closes the context
+it. This is Playwright's `close`; the bang is D1's rule — it changes what the
+page can observe, in the most final way available.
+
+Unlike the `close` it replaces, this extends nothing in `Base`, so it is an
+ordinary export: `names(Playwright)` sees it and `checkdocs` covers it.
+`close(sub)` on a `Subscription` keeps its old spelling, because detaching a
+client-side buffer changes nothing the browser can see. Closing a page that `new_page(browser)` created also closes the context
 that was created to hold it.
 """
-function Base.close(page::Page)
+function close!(page::Page)
     context = lock(IMPLICIT_CONTEXTS_LOCK) do
         pop!(IMPLICIT_CONTEXTS, page.guid, nothing)
     end
     # Closing the context closes the page with it.
-    context === nothing ? _page_close(page) : close(context)
+    context === nothing ? _page_close(page) : close!(context)
     return nothing
 end
 
-Base.close(context::BrowserContext) = _browser_context_close(context)
+close!(context::BrowserContext) = _browser_context_close(context)
 
-function Base.close(browser::Browser)
+function close!(browser::Browser)
     _browser_close(browser)
     forget_dead_implicit_contexts(browser.connection)
     return nothing
 end
 
-# close(browser) disposes contexts without going through close(page), so the
+# close!(browser) disposes contexts without going through close!(page), so the
 # implicit-context table would otherwise grow for the life of the process.
 function forget_dead_implicit_contexts(conn::Connection)
     lock(IMPLICIT_CONTEXTS_LOCK) do

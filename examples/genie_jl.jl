@@ -113,7 +113,7 @@ try
                 ) == ["testing", "api", "artifacts"]
             end
         finally
-            close(browser)
+            close!(browser)
         end
     end
     @info "Genie warm-up was $(warmup)s — the honest justification for " *

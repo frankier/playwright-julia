@@ -19,6 +19,7 @@ launch
 install
 new_context
 new_page
+close!
 contexts
 pages
 browser_name

@@ -170,7 +170,7 @@ playwright() do pw
         page = new_page(browser)
         goto(page, "https://example.com")
     finally
-        close(browser)
+        close!(browser)
     end
 end
 ```
@@ -187,7 +187,7 @@ and the owner of the `:page`, `:console` and `:pageerror` events
 ```julia
 ctx = new_context(browser)
 page = new_page(ctx)          # this page's cookies are its own
-close(ctx)                    # …and go away with the context
+close!(ctx)                    # …and go away with the context
 ```
 """ BrowserContext
 
@@ -202,7 +202,7 @@ playwright() do pw
     for bt in (pw.chromium, pw.firefox)     # run a test on both engines
         browser = launch(bt; headless = true)
         # ...
-        close(browser)
+        close!(browser)
     end
 end
 ```

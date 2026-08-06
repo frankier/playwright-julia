@@ -102,8 +102,8 @@ include("bonnie_shim.jl")
                     @warn "page error" err.message
                 end
 
-                close(ctx)
-                close(browser)
+                close!(ctx)
+                close!(browser)
             end
 
             @test true   # every assertion above is an @assert, as in the spec
@@ -162,7 +162,7 @@ end
                         e isa TimeoutError || rethrow()
                     end
 
-                    close(browser)
+                    close!(browser)
                 end
 
                 # The snippet's own @asserts carry it; this records that the
@@ -241,17 +241,17 @@ end
                             @test_throws ArgumentError pdf(page)
                         end
 
-                        close(page)
+                        close!(page)
                         # A2: the video only exists once the page is closed
                         @test isfile(path(video(page)))
                     end
 
                     # B5: teardown after the context is gone must not throw
-                    close(ctx)
+                    close!(ctx)
                     @test isempty(page_errors(page))
 
                     @test isfile(joinpath(artifacts, "trace.zip"))
-                    close(browser)
+                    close!(browser)
                 end
             end
         end

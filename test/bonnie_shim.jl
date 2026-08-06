@@ -34,8 +34,8 @@ function with_page(f; browser::Symbol = :chromium, headless::Bool = true)
         try
             f(new_page(ctx))
         finally
-            close(ctx)
-            close(b)
+            close!(ctx)
+            close!(b)
         end
     end
 end

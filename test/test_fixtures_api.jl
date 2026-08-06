@@ -283,7 +283,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                             read(joinpath(dir, "errors.log"), String),
                         )
 
-                        close(browser)
+                        close!(browser)
                     end
 
                     @testset "$engine: a passing body writes nothing by default" begin
@@ -301,7 +301,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
 
                         @test result == :passed
                         @test isempty(readdir(dir))
-                        close(browser)
+                        close!(browser)
                     end
 
                     @testset "$engine: artifacts_on = :always dumps on success too" begin
@@ -322,7 +322,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         @test isfile(joinpath(dir, "screenshot.png"))
                         @test isfile(joinpath(dir, "console.log"))
                         @test isfile(joinpath(dir, "errors.log"))
-                        close(browser)
+                        close!(browser)
                     end
 
                     @testset "$engine: the page really is closed afterwards" begin
@@ -333,17 +333,17 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         end
                         # Closed on the way out, however the body ended.
                         @test_throws Playwright.TargetClosedError title(escaped)
-                        close(browser)
+                        close!(browser)
                     end
 
-                    @testset "$engine: report_diagnostics after close(ctx) (SC 10)" begin
+                    @testset "$engine: report_diagnostics after close!(ctx) (SC 10)" begin
                         # The B5 regression test in full: close the context,
                         # then dump. Nothing throws.
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         page = new_page(ctx)
                         goto(page, "$base_url/m4.html")
-                        close(ctx)
+                        close!(ctx)
 
                         dir = mktempdir()
                         files = report_diagnostics(page, dir)
@@ -353,7 +353,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         # above all nothing is raised.
                         @test isempty(files)
 
-                        close(browser)
+                        close!(browser)
                     end
                 end
             end

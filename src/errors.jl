@@ -125,7 +125,7 @@ is a `close` in a `finally` racing work still in flight, or acting on a page
 whose context has already gone.
 
 ```julia
-close(page)
+close!(page)
 try
     title(page)
 catch e

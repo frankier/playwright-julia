@@ -160,10 +160,10 @@ try
                     end
                 end
             finally
-                close(ctx)
+                close!(ctx)
             end
         finally
-            close(browser)
+            close!(browser)
         end
     end
 finally

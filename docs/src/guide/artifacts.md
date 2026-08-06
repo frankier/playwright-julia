@@ -92,7 +92,7 @@ goto(page, url)
 
     ```julia
     recording = video(page)
-    close(page)
+    close!(page)
     @test isfile(path(recording))
     ```
 
@@ -140,7 +140,7 @@ producing. Three verbs:
 
 ```julia
 recording = video(page)
-close(page)
+close!(page)
 if test_passed
     delete_file!(recording)                          # nothing to look at
 else

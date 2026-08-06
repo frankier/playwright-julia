@@ -55,7 +55,7 @@ video, not until the page or context closes (see [`video`](@ref)). Blocking
 here is the point, and is what makes
 
 ```julia
-close(page)
+close!(page)
 @test isfile(path(video(page)))
 ```
 
@@ -80,7 +80,7 @@ that lives as long as the browser does.
 
 ```julia
 recording = video(page)
-close(page)
+close!(page)
 if test_passed
     delete_file!(recording)                       # nothing to look at
 else
@@ -270,7 +270,7 @@ ctx = new_context(browser; record_video = (dir = "artifacts/video",))
 page = new_page(ctx)
 goto(page, url)
 
-close(page)                          # ...the file is finished by this
+close!(page)                          # ...the file is finished by this
 @test isfile(path(video(page)))
 ```
 
