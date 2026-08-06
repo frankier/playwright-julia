@@ -14,10 +14,10 @@ API. The port itself happens in Bonnie's repo.
 
 | # | Gap | Satisfied by | Tested in |
 |---|---|---|---|
-| 1 | `evaluate` — arbitrary JS returning a value, plus the tagged value codec | `evaluate`, `evaluate_handle`, `eval_on_selector`, `eval_on_selector_all`, `dispose` | `test_serializers.jl` (codec, hermetic), `test_evaluate.jl` (both browsers) |
+| 1 | `evaluate` — arbitrary JS returning a value, plus the tagged value codec | `evaluate`, `evaluate_handle`, `eval_on_selector`, `eval_on_selector_all`, `dispose!` | `test_serializers.jl` (codec, hermetic), `test_evaluate.jl` (both browsers) |
 | 2 | Frame access / iframes — `iframe.contentDocument` for the oxygen-template test | `frames`, `frame_locator`, `content_frame`, `owner_frame`, `parent_frame`, `url`, `name`, frame-scoped `locator` | `test_frames.jl` |
 | 3 | Non-strict locators and `count` — `embed_raw` asserts two sliders, drives the first | `locator(…; strict=false)`, `count`, `nth`, `first`, `last`, iteration/indexing | `test_smoke.jl` |
-| 4 | Driving `input[type=range]` to an exact value of 7 | `dispatch_event` (with `evaluate` as the general escape hatch) | `test_smoke.jl`, `test_parity.jl` |
+| 4 | Driving `input[type=range]` to an exact value of 7 | `dispatch_event!` (with `evaluate` as the general escape hatch) | `test_smoke.jl`, `test_parity.jl` |
 
 ## Comfort list
 
@@ -26,13 +26,31 @@ API. The port itself happens in Bonnie's repo.
 | `inner_text` — `document.body.innerText.includes('7')` | `inner_text`, plus `inner_html`, `get_attribute`, `is_visible`, `is_checked`, `is_enabled` | `test_smoke.jl` |
 | Launch options — `--no-sandbox`, `--disable-dev-shm-usage`, `env` | `args`, `chromium_sandbox`, `env` on `launch` | `test_connection.jl` (exact wire params), `test_smoke.jl` |
 | `firefox_user_prefs` — `dom.max_script_run_time` for the WGLMakie slow-script kill | `firefox_user_prefs` on `launch` | `test_connection.jl`, `test_smoke.jl` (Firefox leg) |
-| Console / pageerror events — "spinner forever" vs. a captured JS exception | `console_messages`, `page_errors`, `clear_console_messages`, `clear_page_errors` | `test_smoke.jl` |
-| `new_context` / `close(context)` — the per-test context leak | `new_context`, `new_page(::BrowserContext)`, `close(::BrowserContext)`, `contexts`, `pages`; `close(page)` now disposes the context `new_page(browser)` created | `test_smoke.jl` |
+| Console / pageerror events — "spinner forever" vs. a captured JS exception | `console_messages`, `page_errors`, `clear_console_messages!`, `clear_page_errors!` | `test_smoke.jl` |
+| `new_context` / `close!(context)` — the per-test context leak | `new_context`, `new_page(::BrowserContext)`, `close!(::BrowserContext)`, `contexts`, `pages`; `close!(page)` now disposes the context `new_page(browser)` created | `test_smoke.jl` |
 | `executable_path` / `channel` — `CHROME_BIN`-style provisioning | `executable_path`, `channel` on `launch` | `test_connection.jl` |
 
 Two entries in the audit were already fine and needed nothing: polling is
 covered by Bonnie's own `wait_for`, and the `probe(base)` server-side
 assertions are plain HTTP.jl.
+
+## Re-scored by milestone 6
+
+Network interception and the network events were the largest remaining "would
+have to be hand-rolled" entry. They are public API now, which changes two rows
+above and adds one the audit did not think to ask for:
+
+| Gap | Satisfied by | Tested in |
+|---|---|---|
+| Asserting on what the page *fetched*, not just what it rendered | `expect_request`, `expect_response`, `:request` / `:response` / `:requestfinished` / `:requestfailed` | `test_smoke_network.jl` (both engines) |
+| Driving the failure path without breaking the server | `route!`, `abort!`, `fulfill!(…; status = 500)` | `test_smoke_network.jl` |
+| Testing a frontend with no backend running at all | `with_route` + `fulfill!(…; json = …)` | `test_smoke_network.jl`, `examples/oxygen_jl.jl` |
+| The real response with one thing changed | `Playwright.fetch(route)` + `fulfill!(…; response = …)` | `test_smoke_network.jl` (SC 14) |
+
+What this does *not* change: Bonnie's suite drives a real server and asserts on
+real responses, so interception is an option it gains rather than a gap it had.
+The value is in the cases a live backend makes awkward — the 500, the empty
+state, the slow response — which are one line each now.
 
 ## The shim
 

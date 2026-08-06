@@ -102,7 +102,7 @@ T8 ∥ T9 — genuinely disjoint, no shared code.
 - [x] T15: `docs/src/guide/network.md`, `events.md` table, `api.md` (L) —
       deps: T8–T14
       - states D5's sequential cost and the no-handler-deadline decision out loud
-- [ ] T16: `examples/oxygen_jl.jl` gains its mocked-backend section (S) — D16,
+- [x] T16: `examples/oxygen_jl.jl` gains its mocked-backend section (S) — D16,
       deps: T10, T13
       - the same page tested twice, real route and mocked — the argument for the
         feature, as code
