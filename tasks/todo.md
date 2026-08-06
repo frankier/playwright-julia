@@ -88,14 +88,14 @@ T8 ∥ T9 — genuinely disjoint, no shared code.
 - [x] T13: `apirequest.jl` — `Playwright.fetch`, fulfil-from-upstream (M) —
       D12, D14, R4, deps: T10
       - SC 15 asserts disposal **happened**, not that nothing errored
-- [ ] T14: `with_route`, `unroute!`, `unroute_all!` (S) — D8, deps: T10
+- [x] T14: `with_route`, `unroute!`, `unroute_all!` (S) — D8, deps: T10
 
 ### Checkpoint B — routing works end to end
-- [ ] SC 1–8 pass on Chromium **and** Firefox
-- [ ] No test needs a `sleep` (R1's tripwire held)
-- [ ] Dispatcher lifetime proved on all four paths: spawn, stop, throwing
+- [x] SC 1–8 pass on Chromium **and** Firefox
+- [x] No test needs a `sleep` (R1's tripwire held)
+- [x] Dispatcher lifetime proved on all four paths: spawn, stop, throwing
       handler, owner closes mid-route
-- [ ] `tasks/m6-api-gaps.md` exists, whatever it contains
+- [x] `tasks/m6-api-gaps.md` exists, whatever it contains
 
 ## Phase 4: Documentation, example and release
 

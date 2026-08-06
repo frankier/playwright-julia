@@ -46,6 +46,7 @@ makedocs(;
             "guide/waiting.md",
             "guide/assertions.md",
             "guide/events.md",
+            "guide/network.md",
             "guide/artifacts.md",
             "guide/errors.md",
         ],
