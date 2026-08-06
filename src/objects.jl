@@ -277,7 +277,7 @@ end   # disposed on the way out
 A file the driver is producing — a trace zip from [`stop_tracing`](@ref) or a
 [`video`](@ref) recording. Three verbs: [`path`](@ref) blocks until it is
 completely written and says where it is, [`save_as`](@ref) copies it somewhere
-of your choosing, and [`delete`](@ref) removes it.
+of your choosing, and [`delete_file!`](@ref) removes it.
 
 The distinction worth knowing: the driver knows the eventual path immediately,
 but the file is only complete later — a video not until its page or context

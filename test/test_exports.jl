@@ -91,7 +91,7 @@
         :pdf,
         :save_as,
         :path,
-        :delete,
+        :delete_file!,
         # M4 T5: tracing
         :start_tracing,
         :stop_tracing,

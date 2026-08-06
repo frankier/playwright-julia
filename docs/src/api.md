@@ -133,7 +133,7 @@ with_tracing
 video
 save_as
 path
-delete
+delete_file!
 ```
 
 ## Diagnostic readers

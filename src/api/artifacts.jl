@@ -34,7 +34,7 @@ supplying `"artifacts/run.webm"` on a fresh checkout means it.
 
 The blocking is the useful part: [`path`](@ref) tells you where the driver
 *will* put the file, but a video is not finished until its page closes. Use
-[`delete`](@ref) for an artifact a passing test does not need to keep, and see
+[`delete_file!`](@ref) for an artifact a passing test does not need to keep, and see
 [`Artifact`](@ref) for the three verbs together.
 """
 function save_as(a::Artifact, path::AbstractString)
@@ -69,17 +69,20 @@ choosing instead.
 path(a::Artifact) = _artifact_path_after_finished(a)::String
 
 """
-    delete(a::Artifact)
+    delete_file!(a::Artifact)
 
-Delete the artifact's driver-side file. Worth calling for artifacts a passing
-test does not need to keep — the driver writes them into a temporary directory
+Delete the artifact's driver-side file. This is Playwright's `delete`; the name
+differs because `delete!` would have been ambiguous with the exported
+`Base.delete!`, and because removing a file from disk is not what
+`Base.delete!` means. Worth calling for artifacts a passing test does not need
+to keep — the driver writes them into a temporary directory
 that lives as long as the browser does.
 
 ```julia
 recording = video(page)
 close(page)
 if test_passed
-    delete(recording)                       # nothing to look at
+    delete_file!(recording)                       # nothing to look at
 else
     save_as(recording, "artifacts/run.webm")
 end
@@ -88,7 +91,7 @@ end
 This deletes the *driver's* copy; a file already copied out with
 [`save_as`](@ref) is yours and is untouched. See [`Artifact`](@ref).
 """
-function delete(a::Artifact)
+function delete_file!(a::Artifact)
     _artifact_delete(a)
     return nothing
 end
@@ -279,7 +282,7 @@ close(page)                          # ...the file is finished by this
     this package. Close the page first, as above.
 
 The result is an ordinary [`Artifact`](@ref), so [`path`](@ref),
-[`save_as`](@ref) and [`delete`](@ref) all work on it — `save_as` being the way
+[`save_as`](@ref) and [`delete_file!`](@ref) all work on it — `save_as` being the way
 to move it somewhere of your choosing rather than the driver's temporary
 directory.
 """

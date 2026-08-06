@@ -136,15 +136,15 @@ producing. Three verbs:
 |---|---|
 | [`path`](@ref) | blocks until it is completely written, returns where it is |
 | [`save_as`](@ref) | copies it somewhere of your choosing, creating directories |
-| [`delete`](@ref) | removes the driver's copy |
+| [`delete_file!`](@ref) | removes the driver's copy |
 
 ```julia
 recording = video(page)
 close(page)
 if test_passed
-    delete(recording)                          # nothing to look at
+    delete_file!(recording)                          # nothing to look at
 else
-    save_as(recording, "artifacts/run.webm")   # your copy; delete cannot touch it
+    save_as(recording, "artifacts/run.webm")   # your copy; delete_file! cannot touch it
 end
 ```
 

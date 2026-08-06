@@ -16,7 +16,7 @@ end
 
 using Base64: base64encode
 using Playwright:
-    pdf, save_as, path, delete, start_tracing, stop_tracing, with_tracing, video
+    pdf, save_as, path, delete_file!, start_tracing, stop_tracing, with_tracing, video
 
 """
 Answer a whole `with_tracing` session on the fake driver: the two start calls,
@@ -135,10 +135,10 @@ end
         close(f.fake.connection)
     end
 
-    @testset "delete sends delete" begin
+    @testset "delete_file! sends delete" begin
         f = timeout_fixture()
         art = fixture_artifact(f)
-        sent = waiting_request(f.fake, () -> delete(art))
+        sent = waiting_request(f.fake, () -> delete_file!(art))
         @test sent["method"] == "delete"
         close(f.fake.connection)
     end
