@@ -142,7 +142,7 @@ delete_file!
 ```@docs
 console_messages
 page_errors
-clear_console_messages
+clear_console_messages!
 clear_page_errors
 report_diagnostics
 ConsoleMessage

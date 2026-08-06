@@ -15,7 +15,7 @@
         :PlaywrightError,
         :TargetClosedError,
         :TimeoutError,
-        :clear_console_messages,
+        :clear_console_messages!,
         :clear_page_errors,
         # M6 T1 (D3): the renames that could not take the obvious bang, because
         # `Base.fill!` and `Base.delete!` are exported and would be ambiguous

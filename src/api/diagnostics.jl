@@ -108,7 +108,7 @@ end
     console_messages(page::Page) -> Vector{ConsoleMessage}
 
 Every console message the page has produced since it opened, or since
-[`clear_console_messages`](@ref) was last called.
+[`clear_console_messages!`](@ref) was last called.
 
 ```julia
 for msg in console_messages(page)
@@ -177,7 +177,7 @@ function page_error(raw::AbstractDict)
 end
 
 """
-    clear_console_messages(page::Page)
+    clear_console_messages!(page::Page)
 
 Drop the page's buffered console messages, so a later
 [`console_messages`](@ref) only reports what happened next. Useful for
@@ -185,19 +185,19 @@ per-test isolation on a shared page, where the previous test's noise would
 otherwise be reported as this one's.
 
 ```julia
-clear_console_messages(page)
+clear_console_messages!(page)
 click!(locator(page, "#go"))
 @test isempty(filter(m -> m.type == "error", console_messages(page)))
 ```
 """
-clear_console_messages(page::Page) = _page_clear_console_messages(page)
+clear_console_messages!(page::Page) = _page_clear_console_messages(page)
 
 """
     clear_page_errors(page::Page)
 
 Drop the page's buffered uncaught errors, so a later [`page_errors`](@ref)
 only reports what happened next; the console equivalent is
-[`clear_console_messages`](@ref).
+[`clear_console_messages!`](@ref).
 
 ```julia
 clear_page_errors(page)

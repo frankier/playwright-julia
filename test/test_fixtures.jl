@@ -855,7 +855,7 @@ end
                     )
 
                     # The flood button emits exactly 5 000 messages on demand.
-                    clear_console_messages(page)
+                    clear_console_messages!(page)
                     evaluate(page, "() => document.getElementById('flood').click()")
                     @test js_wait(page, "window.__floodDone === true"; timeout_ms = 30_000)
                     @test evaluate(page, "() => window.__floodCount") == 5_000

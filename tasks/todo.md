@@ -19,7 +19,7 @@ between each. A rename that breaks something must be attributable to itself.
         build go red, restore
 - [x] T2: `goto!`, `click!`, `dispatch_event!` (S) — deps: T1
       - one commit per name, green after each
-- [ ] T3: `dispose!`, `save_as!`, `start_tracing!`, `stop_tracing!` (S) — deps: T2
+- [x] T3: `dispose!`, `save_as!`, `start_tracing!`, `stop_tracing!` (S) — deps: T2
       - `with_tracing` keeps no bang (D2)
 - [ ] T4: `clear_console_messages!`, `clear_page_errors!` (S) — deps: T3
 - [ ] T5: the no-shadow test and the old-name grep (S) — SC A4, A6, deps: T4
