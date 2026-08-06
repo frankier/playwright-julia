@@ -7,6 +7,8 @@
 # canned replies rather than skipped — getting the round trip wrong is exactly
 # the failure a browser test would only show as a hang.
 
+using Base64: base64encode
+
 using Playwright:
     headers,
     headers_array,
@@ -27,6 +29,31 @@ using Playwright:
     response,
     RequestFailure,
     error_text
+
+"""
+Run `f` on a task and fail — rather than hang — if it takes longer than
+`seconds`.
+
+The three testsets below block on a canned driver reply. When the reply never
+comes, the bare call blocks forever: this file cost a 25-minute hung CI run
+before this guard existed, because a responder task that threw looked exactly
+like a slow one. R3's rule for the routing tests is the same rule, and it
+applies here for the same reason.
+"""
+function within(f, seconds = 10.0)
+    result = Ref{Any}(nothing)
+    failure = Ref{Any}(nothing)
+    task = @async try
+        result[] = f()
+    catch e
+        failure[] = e
+    end
+    if timedwait(() -> istaskdone(task), seconds) !== :ok
+        error("timed out after $(seconds)s waiting for a driver reply")
+    end
+    failure[] === nothing || throw(failure[])
+    return result[]
+end
 
 "A NameValue array as the protocol carries it."
 name_values(pairs...) = [Dict{String,Any}("name" => n, "value" => v) for (n, v) in pairs]
@@ -217,9 +244,9 @@ end
             end
         end
 
-        @test body(resp) == Vector{UInt8}(codeunits(payload))
-        @test text(resp) == payload
-        @test json(resp) == Dict("hello" => "world")
+        @test within(() -> body(resp)) == Vector{UInt8}(codeunits(payload))
+        @test within(() -> text(resp)) == payload
+        @test within(() -> json(resp)) == Dict("hello" => "world")
 
         close(fake.connection)
     end
@@ -245,7 +272,7 @@ end
             )
         end
 
-        raw = raw_headers(resp)
+        raw = within(() -> raw_headers(resp))
         @test raw[1] == ("Content-Type" => "application/json")
         @test length(raw) == 3
         # It really went to the driver — this is the difference from `headers`.
@@ -262,7 +289,7 @@ end
             msg = take!(fake.client_messages)
             reply_ok(fake, msg["id"], Dict{String,Any}())     # no response
         end
-        @test response(req) === nothing
+        @test within(() -> response(req)) === nothing
 
         close(fake.connection)
     end
