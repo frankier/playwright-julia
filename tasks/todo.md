@@ -85,7 +85,7 @@ T8 ∥ T9 — genuinely disjoint, no shared code.
         timeout (R3)
       - each proved by breaking what it guards
 - [x] T12: the four network events + page-scoped filtering (M) — D11, deps: T10
-- [ ] T13: `apirequest.jl` — `Playwright.fetch`, fulfil-from-upstream (M) —
+- [x] T13: `apirequest.jl` — `Playwright.fetch`, fulfil-from-upstream (M) —
       D12, D14, R4, deps: T10
       - SC 15 asserts disposal **happened**, not that nothing errored
 - [ ] T14: `with_route`, `unroute!`, `unroute_all!` (S) — D8, deps: T10

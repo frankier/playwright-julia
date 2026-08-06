@@ -683,6 +683,51 @@ todo_texts(page) =
                     end
                 end
 
+                @testset "$engine: overlapping registrations resolve newest-first (SC 6)" begin
+                    seen = within_deadline("$engine SC 6") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            older = route!(
+                                ctx,
+                                "**/api/todos",
+                                route -> fulfill!(route; json = ["older"]),
+                            )
+                            newer = route!(
+                                ctx,
+                                "**/api/todos",
+                                route -> fulfill!(route; json = ["newer"]),
+                            )
+
+                            click!(locator(page, "#load"))
+                            expect(locator(page, "#status"); to_have_text = "loaded")
+                            with_newer = todo_texts(page)
+
+                            # Unrouting the newer one hands the URL back to the
+                            # older, in the same test — registrations are a
+                            # stack, not a set.
+                            unroute!(ctx, newer)
+                            click!(locator(page, "#load"))
+                            expect(locator(page, "#status"); to_have_text = "loaded")
+                            with_older = todo_texts(page)
+
+                            unroute_all!(ctx)
+                            click!(locator(page, "#load"))
+                            expect(locator(page, "#status"); to_have_text = "loaded")
+                            with_none = todo_texts(page)
+
+                            (newer = with_newer, older = with_older, none = with_none)
+                        end
+                    end
+
+                    @test seen.newer == ["newer"]
+                    @test seen.older == ["older"]
+                    # ...and with everything unrouted the server answers again.
+                    @test seen.none == ["from the server"]
+                end
+
                 @testset "$engine: abort! stops the request reaching the server (SC 7)" begin
                     seen = within_deadline("$engine SC 7") do
                         with_browser(bt) do browser

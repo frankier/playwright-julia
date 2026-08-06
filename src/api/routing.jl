@@ -84,10 +84,24 @@ mutable struct RouteRegistry
     subscription::Union{Subscription,Nothing}
     task::Union{Task,Nothing}
     lock::ReentrantLock
+    # Held by the dispatcher for the whole of one route's handling, so
+    # `unroute!` can wait for an in-flight route to settle before it returns
+    # (D8). Without it, unregistering while a handler is mid-flight returns to
+    # a caller whose next line races a `fulfill!` it thought was finished.
+    #
+    # Re-entrant on purpose: a handler that calls `unroute!` on its own
+    # registration is unusual but legal, and must not deadlock against itself.
+    dispatching::ReentrantLock
 end
 
-RouteRegistry(owner) =
-    RouteRegistry(owner, RouteRegistration[], nothing, nothing, ReentrantLock())
+RouteRegistry(owner) = RouteRegistry(
+    owner,
+    RouteRegistration[],
+    nothing,
+    nothing,
+    ReentrantLock(),
+    ReentrantLock(),
+)
 
 const ROUTE_REGISTRIES = Dict{String,RouteRegistry}()
 const ROUTE_REGISTRIES_LOCK = ReentrantLock()
@@ -158,7 +172,9 @@ function dispatch_routes(registry::RouteRegistry, sub::Subscription)
         end
         route isa Route || continue
         try
-            handle_route(registry, route)
+            lock(registry.dispatching) do
+                handle_route(registry, route)
+            end
         catch e
             # handle_route already catches everything a handler throws. Reaching
             # here means the dispatcher itself failed, and dying quietly would
@@ -366,6 +382,11 @@ function unroute!(target::Union{Page,BrowserContext}, reg::RouteRegistration)
     push_patterns!(registry)
     empty_now && retire!(registry)
 
+    # D8: a route already in the handler settles before this returns. The
+    # registration is deactivated above, so this waits for at most the one
+    # dispatch that was already under way.
+    settle_in_flight!(registry)
+
     raise_collected([reg])
     return nothing
 end
@@ -385,6 +406,7 @@ function unroute!(target::Union{Page,BrowserContext})
 
     push_patterns!(registry)
     retire!(registry)
+    settle_in_flight!(registry)
 
     raise_collected(removed)
     return nothing
@@ -397,6 +419,20 @@ Remove every route registration on `target`. The same as the one-argument
 [`unroute!`](@ref), spelled the way Playwright spells it.
 """
 unroute_all!(target::Union{Page,BrowserContext}) = unroute!(target)
+
+"""
+Block until any route currently being handled has settled (D8).
+
+Cheap when nothing is in flight — the lock is uncontended — and bounded by one
+handler, because the registration was deactivated before this was called.
+Called from the *user's* task, never the dispatcher's.
+"""
+function settle_in_flight!(registry::RouteRegistry)
+    current_task() === registry.task && return nothing   # a handler unrouting itself
+    lock(registry.dispatching) do
+    end
+    return nothing
+end
 
 "Stop the dispatcher and drop the registry, once nothing is registered."
 function retire!(registry::RouteRegistry)

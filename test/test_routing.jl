@@ -398,6 +398,42 @@ end
         close(f.conn)
     end
 
+    @testset "unroute! waits for an in-flight route to settle (D8)" begin
+        f = routing_fixture()
+        entered = Channel{Bool}(4)
+        release = Channel{Bool}(4)
+        settled = Ref(false)
+
+        reg = route!(f.context, "**/*", function (route)
+            put!(entered, true)
+            take!(release)          # hold the handler open, mid-flight
+            abort!(route)
+            settled[] = true
+        end)
+
+        send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        @test take!(entered)                 # the handler is running now
+        @test settled[] == false
+
+        # unroute! must not return while that handler is still going. Prove it
+        # by unrouting on another task and checking it has not returned...
+        returned = Ref(false)
+        waiter = @async begin
+            unroute!(f.context, reg)
+            returned[] = true
+        end
+        @test timedwait(() -> returned[], 1.0) !== :ok
+        @test returned[] == false
+
+        # ...then letting the handler finish and watching it return.
+        put!(release, true)
+        @test timedwait(() -> returned[], 10.0) === :ok
+        @test settled[] == true
+
+        wait(waiter)
+        close(f.conn)
+    end
+
     @testset "with_route unregisters even when the body throws (D8)" begin
         f = routing_fixture()
         reg_count_before = registration_count(f.context)
