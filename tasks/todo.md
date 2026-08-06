@@ -75,7 +75,7 @@ T8 ∥ T9 — genuinely disjoint, no shared code.
 
 ## Phase 3: Part B — routing
 
-- [ ] T10: `routing.jl` — Route, registry, dispatcher task (L) — D5–D8, R1
+- [x] T10: `routing.jl` — Route, registry, dispatcher task (L) — D5–D8, R1
       — 🚧 **GATE**: nothing in Part B is demonstrable until this works
       - write the task's **lifetime** first, its behaviour second
       - ⚠️ **no test may use `sleep` to pass.** If one needs it, the lifetime is
