@@ -122,7 +122,7 @@ even when the block throws, which is the run worth tracing.
 start_tracing(ctx; title = "checkout")
 try
     goto!(page, url)
-    click(locator(page, "#submit"))
+    click!(locator(page, "#submit"))
 finally
     stop_tracing(ctx; path = "artifacts/trace.zip")
 end
@@ -221,7 +221,7 @@ run worth tracing is the one that threw:
 ```julia
 with_tracing(ctx; path = "artifacts/trace.zip") do
     goto!(page, url)
-    click(locator(page, "#submit"))
+    click!(locator(page, "#submit"))
 end
 ```
 

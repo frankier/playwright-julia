@@ -5,10 +5,10 @@ Every failure surfaced from the driver is a [`PlaywrightError`](@ref), so one
 
 ```julia
 try
-    click(locator(page, "#go"))
+    click!(locator(page, "#go"))
 catch e
     e isa PlaywrightError || rethrow()
-    @warn "click failed" e.message
+    @warn "click! failed" e.message
 end
 ```
 

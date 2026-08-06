@@ -186,7 +186,7 @@ otherwise be reported as this one's.
 
 ```julia
 clear_console_messages(page)
-click(locator(page, "#go"))
+click!(locator(page, "#go"))
 @test isempty(filter(m -> m.type == "error", console_messages(page)))
 ```
 """
@@ -201,7 +201,7 @@ only reports what happened next; the console equivalent is
 
 ```julia
 clear_page_errors(page)
-click(locator(page, "#go"))
+click!(locator(page, "#go"))
 @test isempty(page_errors(page))
 ```
 """

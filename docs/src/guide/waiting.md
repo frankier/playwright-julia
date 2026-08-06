@@ -26,9 +26,9 @@ picked up the moment it arrives rather than at the next poll.
 | [`wait_for_selector`](@ref) | an element to reach a DOM state |
 | [`wait_for_function`](@ref) | a JavaScript predicate to go truthy |
 | [`retry_until`](@ref) | anything else, polled from Julia |
-| [`click`](@ref) and the other actions | the element to be actionable |
+| [`click!`](@ref) and the other actions | the element to be actionable |
 
-Actions waiting on their own is the part that is easy to miss: `click` already
+Actions waiting on their own is the part that is easy to miss: `click!` already
 waits for its target to be attached, visible, stable, able to receive events
 and not disabled. Most of the time no explicit wait is needed at all.
 

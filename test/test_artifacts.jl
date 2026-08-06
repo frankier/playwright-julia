@@ -572,7 +572,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         ) do
                             page = new_page(ctx)
                             goto!(page, "$base_url/m4.html")
-                            click(locator(page, "h1"))
+                            click!(locator(page, "h1"))
                             return :done
                         end
 
@@ -631,7 +631,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         )
                         page = new_page(ctx)
                         goto!(page, "$base_url/m4.html")
-                        click(locator(page, "h1"))
+                        click!(locator(page, "h1"))
 
                         v = video(page)
                         @test v isa Playwright.Artifact

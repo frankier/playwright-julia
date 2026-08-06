@@ -626,7 +626,7 @@ end
                     goto!(page, "$base_url/m3.html")
 
                     popup = expect_event(ctx, :page) do
-                        click(locator(page, "#open-popup"))
+                        click!(locator(page, "#open-popup"))
                     end
                     @test popup isa Playwright.Page
                     @test popup !== page
@@ -641,7 +641,7 @@ end
                 @testset "$engine: a synchronously-fired console event is caught" begin
                     # SC 6, the regression this fixture exists for: #shout logs
                     # inside its click handler, so the message is emitted before
-                    # `click` returns. Subscribing after the click would miss it.
+                    # `click!` returns. Subscribing after the click would miss it.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -649,7 +649,7 @@ end
 
                     msg =
                         expect_event(ctx, :console; predicate = m -> m.text == "shouted") do
-                            click(locator(page, "#shout"))
+                            click!(locator(page, "#shout"))
                         end
                     @test msg isa Playwright.ConsoleMessage
                     @test msg.text == "shouted"
@@ -665,7 +665,7 @@ end
                     goto!(page, "$base_url/m3-events.html")
 
                     floods = with_events(ctx, :console) do stream
-                        click(locator(page, "#flood"))
+                        click!(locator(page, "#flood"))
                         js_wait(page, "window.__floodDone === true"; timeout_ms = 30_000)
                         timedwait(() -> length(stream) >= 5000, 60.0)
                         pending_events(stream)
@@ -752,7 +752,7 @@ end
                     conn = page.connection
 
                     expect_event(ctx, :console) do
-                        click(locator(page, "#shout"))
+                        click!(locator(page, "#shout"))
                     end
                     @test sum(length, values(conn.subscriptions); init = 0) == 0
 

@@ -36,7 +36,7 @@
                 @test inner isa Playwright.FrameLocator
 
                 @test text_content(locator(inner, "#child-status")) == "untouched"
-                click(locator(inner, "#child-button"))
+                click!(locator(inner, "#child-button"))
                 @test text_content(locator(inner, "#child-status")) == "pressed"
 
                 set_value!(locator(inner, "#child-input"), "typed inside")

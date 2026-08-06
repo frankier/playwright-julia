@@ -346,7 +346,7 @@ while you are not looking. It is closed when the block ends.
 
 ```julia
 with_events(ctx, :pageerror) do stream
-    click(locator(page, "#break-everything"))
+    click!(locator(page, "#break-everything"))
     next_event(stream; timeout = 5_000).message
 end
 ```
@@ -382,7 +382,7 @@ particular count, poll [`length`](@ref) first.
 
 ```julia
 with_events(ctx, :pageerror) do stream
-    click(locator(page, "#break-everything"))
+    click!(locator(page, "#break-everything"))
     retry_until(() -> length(stream) >= 2; timeout = 5_000)
     pending_events(stream)         # both of them, and the buffer is now empty
 end
@@ -411,7 +411,7 @@ requeued — so a rejected payload is gone, not left for the next call.
 
 ```julia
 with_events(page, :console) do stream
-    click(locator(page, "#log"))
+    click!(locator(page, "#log"))
     msg = next_event(stream; predicate = m -> m.type == "error")
     @info "first console error" msg.text
 end
@@ -483,7 +483,7 @@ letting you subscribe and act in two statements:
 
 ```julia
 popup = expect_event(ctx, :page) do
-    click(locator(page, "#open-popup"))
+    click!(locator(page, "#open-popup"))
 end
 title(popup)
 ```
@@ -602,7 +602,7 @@ for collecting several events rather than waiting for one:
 
 ```julia
 errors = with_events(ctx, :pageerror) do stream
-    click(locator(page, "#break-everything"))
+    click!(locator(page, "#break-everything"))
     sleep(0.5)
     pending_events(stream)
 end

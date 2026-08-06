@@ -56,7 +56,7 @@
         :with_events,
         :next_event,
         :pending_events,
-        :click,
+        :click!,
         :console_messages,
         :dispose,
         :eval_on_selector,

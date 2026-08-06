@@ -101,7 +101,7 @@ the page again. Returns whatever `f` returned.
 
 ```julia
 with_page(browser, "https://example.com") do page
-    click(locator(page, "#submit"))
+    click!(locator(page, "#submit"))
 end
 ```
 

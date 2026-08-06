@@ -93,13 +93,13 @@ try
 
                 # Genie's routing is the thing under test, so the example
                 # follows a link and checks it landed on the right route.
-                click(locator(page, "li.article a"; strict = false))
+                click!(locator(page, "li.article a"; strict = false))
                 expect(page; to_have_url = r"/articles/1$")
                 expect(locator(page, "#title"); to_have_text = "Waiting is not sleeping")
                 @test text_content(locator(page, "#tag")) == "testing"
 
                 # …and back, so the return route is covered too.
-                click(locator(page, "#back"))
+                click!(locator(page, "#back"))
                 expect(page; to_have_title = "Playwright.jl · Genie.jl")
                 @test length(
                     evaluate_all(

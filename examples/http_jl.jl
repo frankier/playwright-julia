@@ -80,7 +80,7 @@ try
                 # Playwright's `fill`.
                 set_value!(locator(page, "#name"), "Ada")
                 expect(locator(page, "#name"); to_have_value = "Ada")
-                click(locator(page, "#greet"))
+                click!(locator(page, "#greet"))
 
                 expect(locator(page, "li.greeting"); to_have_text = "Hello, Ada!")
                 expect(locator(page, "li.greeting"; strict = false); to_have_count = 1)
@@ -93,7 +93,7 @@ try
                 @test is_visible(locator(page, "#greet"))
 
                 # A second greeting, to show the count assertion moving.
-                click(locator(page, "#greet"))
+                click!(locator(page, "#greet"))
                 expect(locator(page, "li.greeting"; strict = false); to_have_count = 2)
                 @test length(
                     evaluate_all(

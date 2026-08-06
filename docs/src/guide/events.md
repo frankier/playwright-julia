@@ -10,7 +10,7 @@ primary form takes a block.
 
 ```julia
 popup = expect_event(ctx, :page) do
-    click(locator(page, "#open-popup"))
+    click!(locator(page, "#open-popup"))
 end
 ```
 
@@ -41,7 +41,7 @@ requeued.
 
 ```julia
 msg = expect_event(ctx, :console; predicate = m -> m.text == "ready") do
-    click(locator(page, "#go"))
+    click!(locator(page, "#go"))
 end
 ```
 
@@ -65,7 +65,7 @@ waiting for one payload:
 
 ```julia
 errors = with_events(ctx, :pageerror) do stream
-    click(locator(page, "#break-everything"))
+    click!(locator(page, "#break-everything"))
     retry_until(() -> length(stream) >= 2; timeout = 5_000)
     pending_events(stream)
 end

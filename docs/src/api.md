@@ -1,7 +1,7 @@
 # API reference
 
 Every exported name, grouped by what it is for rather than alphabetically —
-alphabetical order puts `click` next to `clear_page_errors` and separates
+alphabetical order puts `click!` next to `clear_page_errors` and separates
 `start_tracing` from `stop_tracing`, which helps nobody.
 
 `checkdocs = :exports` is on, so this page is complete by construction: an
@@ -75,7 +75,7 @@ is_enabled
 ### Acting on an element
 
 ```@docs
-click
+click!
 set_value!
 dispatch_event
 element_handle

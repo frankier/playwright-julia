@@ -117,7 +117,7 @@ expect(locator(page, "li.greeting"; strict = false); to_have_count = 0)
 
 set_value!(locator(page, "#name"), "Ada")
 expect(locator(page, "#name"); to_have_value = "Ada")
-click(locator(page, "#greet"))
+click!(locator(page, "#greet"))
 
 # The 300ms delay is handled by expect's retry, not by a sleep on this side.
 expect(locator(page, "li.greeting"); to_have_text = "Hello, Ada!")

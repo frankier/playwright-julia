@@ -25,7 +25,7 @@ failing run itself.
 ```julia
 with_page(browser, url; artifacts = "artifacts/checkout") do page
     expect(page; to_have_title = "Checkout")
-    click(locator(page, "#submit"))
+    click!(locator(page, "#submit"))
     expect(locator(page, "#receipt"); to_be_visible = true)
 end
 ```
@@ -50,7 +50,7 @@ Playwright's own viewer.
 ```julia
 with_tracing(ctx; path = "artifacts/trace.zip", screenshots = true) do
     goto!(page, url)
-    click(locator(page, "#submit"))     # if this throws, the zip is still written
+    click!(locator(page, "#submit"))     # if this throws, the zip is still written
 end
 ```
 
@@ -118,7 +118,7 @@ trip.
 
 ```julia
 try
-    click(locator(page, "#submit"))
+    click!(locator(page, "#submit"))
 catch
     report_diagnostics(page, "artifacts/failure")
     rethrow()

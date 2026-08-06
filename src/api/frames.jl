@@ -118,7 +118,7 @@ by chaining a [`locator`](@ref):
 
 ```julia
 inner = frame_locator(page, "iframe#child")
-click(locator(inner, "button"))
+click!(locator(inner, "button"))
 evaluate(content_frame(inner), "document.title")
 ```
 

@@ -16,10 +16,10 @@ Catch this to handle any driver failure:
 
 ```julia
 try
-    click(locator(page, "#go"))
+    click!(locator(page, "#go"))
 catch e
     e isa PlaywrightError || rethrow()
-    @warn "click failed" e.message
+    @warn "click! failed" e.message
 end
 ```
 
@@ -104,7 +104,7 @@ selector that is merely late is a different problem from a page that threw.
 
 ```julia
 try
-    click(locator(page, "#never"); timeout = 1_000)
+    click!(locator(page, "#never"); timeout = 1_000)
 catch e
     e isa TimeoutError && @info "still not there after a second"
 end

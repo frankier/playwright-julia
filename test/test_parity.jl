@@ -151,7 +151,7 @@ end
 
                     # events: subscribe, act, wait — race-free
                     popup = expect_event(ctx, :page) do
-                        click(locator(page, "#open-popup"))
+                        click!(locator(page, "#open-popup"))
                     end
                     @assert popup isa Page
 

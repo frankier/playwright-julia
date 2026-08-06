@@ -229,7 +229,7 @@ is_visible(loc::Locator) =
 Whether the matched checkbox or radio input is checked.
 
 ```julia
-click(locator(page, "#accept"))
+click!(locator(page, "#accept"))
 is_checked(locator(page, "#accept"))   # true
 ```
 
@@ -287,14 +287,14 @@ input_value(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_input_value(
 # --- Actions --------------------------------------------------------------
 
 """
-    click(loc::Locator; timeout=nothing)
+    click!(loc::Locator; timeout=nothing)
 
 Click the matched element, waiting for it to be actionable first: attached,
 visible, stable, able to receive events and not disabled. That wait is why a
 click at the right moment needs no `sleep` before it.
 
 ```julia
-click(locator(page, "#greet"))
+click!(locator(page, "#greet"))
 expect(locator(page, "li.greeting"); to_have_text = "Hello!")
 ```
 
@@ -303,7 +303,7 @@ expect(locator(page, "li.greeting"); to_have_text = "Hello!")
 raises [`TimeoutError`](@ref). For a synthetic event with none of those checks,
 see [`dispatch_event`](@ref).
 """
-click(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_click(
+click!(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_click(
     loc.frame;
     selector = loc.selector,
     strict = loc.strict,
@@ -346,7 +346,7 @@ Dispatch a DOM event of `type` (`"input"`, `"change"`, `"click"`, …) on the
 matched element. `event_init` is serialized with the same mapping as
 [`evaluate`](@ref) arguments and becomes the event's initializer.
 
-Unlike [`click`](@ref) this is a synthetic event, not a real user gesture: no
+Unlike [`click!`](@ref) this is a synthetic event, not a real user gesture: no
 actionability checks run and the element is not scrolled into view. That makes
 it the tool for driving controls that ordinary interaction cannot hit
 precisely — setting an `input[type=range]` to an exact value, for example:
@@ -384,7 +384,7 @@ Evaluate `expression` with the element `loc` matches as its first argument, and
 return the result converted to Julia.
 
 The locator's own selector and `strict` flag are used, so a strict locator
-matching several elements raises here just as it would for [`click`](@ref).
+matching several elements raises here just as it would for [`click!`](@ref).
 This is the precise tool for controls that ordinary interaction cannot drive
 exactly — pair it with [`dispatch_event`](@ref) so the page's listeners still
 run:

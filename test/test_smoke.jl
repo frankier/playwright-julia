@@ -145,7 +145,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: locators — text_content, click, fill" begin
+                @testset "$browser_name: locators — text_content, click!, set_value!" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/")
@@ -157,7 +157,7 @@ tryrun(cmd) =
                     # click has an observable DOM effect
                     status = locator(page, "#status")
                     @test text_content(status) == "untouched"
-                    click(locator(page, "#mutate"))
+                    click!(locator(page, "#mutate"))
                     @test text_content(status) == "clicked"
 
                     # fill round-trips through the input's value
@@ -168,7 +168,7 @@ tryrun(cmd) =
 
                     # missing selector times out with the driver's explanation
                     err = try
-                        click(locator(page, "#does-not-exist"); timeout = 500)
+                        click!(locator(page, "#does-not-exist"); timeout = 500)
                         nothing
                     catch e
                         e

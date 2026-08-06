@@ -31,8 +31,8 @@ By default a locator is **strict**: acting on a selector that matches more than
 one element raises rather than silently picking the first.
 
 ```julia
-click(locator(page, "li"))                    # raises if there are three <li>s
-click(locator(page, "li"; strict = false))    # clicks the first
+click!(locator(page, "li"))                    # raises if there are three <li>s
+click!(locator(page, "li"; strict = false))    # clicks the first
 ```
 
 Strictness is checked **on action**, not on construction, and it is a property
@@ -96,11 +96,11 @@ See [Assertions](@ref).
 ## Acting
 
 ```julia
-click(locator(page, "#greet"))
+click!(locator(page, "#greet"))
 set_value!(locator(page, "#name"), "Ada")
 ```
 
-[`click`](@ref) waits for the element to be **actionable** first: attached,
+[`click!`](@ref) waits for the element to be **actionable** first: attached,
 visible, stable, able to receive events, and not disabled. That wait is why a
 click on a button that is enabled a moment later needs no `sleep` in front of
 it.
@@ -125,7 +125,7 @@ Scope in with [`frame_locator`](@ref):
 
 ```julia
 inner = frame_locator(page, "iframe#checkout")
-click(locator(inner, "button[type=submit]"))
+click!(locator(inner, "button[type=submit]"))
 ```
 
 `frame_locator` chains, for an iframe inside an iframe. The two directions
