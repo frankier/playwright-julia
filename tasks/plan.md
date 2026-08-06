@@ -1,406 +1,415 @@
-# Implementation Plan: Playwright.jl — Milestone 5 (documentation, examples and release readiness)
+# Implementation Plan: Playwright.jl — Milestone 6 (a Julia-shaped API, and the network)
 
-Spec: [`SPEC-M5.md`](../SPEC-M5.md). Earlier plans are archived at
+Spec: [`SPEC-M6.md`](../SPEC-M6.md). Earlier plans are archived at
 [`tasks/m1/plan.md`](m1/plan.md), [`tasks/m2/plan.md`](m2/plan.md),
-[`tasks/m3/plan.md`](m3/plan.md) and [`tasks/m4/plan.md`](m4/plan.md).
+[`tasks/m3/plan.md`](m3/plan.md), [`tasks/m4/plan.md`](m4/plan.md) and
+[`tasks/m5/plan.md`](m5/plan.md).
 
 ## Context
 
-M1–M4 built the package. M5 is about a person who has not read this repo: a
-documentation site, four examples that drive real Julia web stacks, and CI that
-runs the suites nobody currently remembers to run.
+M6 is two milestones wearing one spec, and they could not be less alike.
 
-The shape of this milestone is unlike the previous four, and that changes how it
-is planned.
+**Part A is a rename with no thinking left in it.** Every decision was made in
+`SPEC-M6.md` D1–D4; what remains is twelve mechanical substitutions across
+`src`, `test`, `docs`, `examples` and `README.md`. The only interesting thing
+about it is discipline: one name per commit, green between each, so that a
+breakage is attributed to the rename that caused it rather than to "the rename".
+It is planned as five tasks, four of which are batches of substitutions and one
+of which is the regression test that stops the whole thing being a mistake.
 
-**Almost nothing here is Julia API work.** M1–M4 were "design a function, probe
-the protocol, test both engines". M5 is prose, YAML and example scripts. The one
-piece that resembles previous milestones is T1's probe, and the one piece that
-resembles previous *risks* is that the CI and docs deployment paths cannot be
-fully verified on this machine — they are only true once pushed.
+**Part B is the largest hand-written API surface since M2**, and unlike Part A
+almost every task in it has a way to be subtly wrong that tests will not catch
+unless the test is written to catch that specific thing. Three areas carry real
+risk — the dispatcher's lifetime (R1), the glob dialect (R2), and
+`APIResponse` disposal (R4) — and each gets a task shaped around proving the
+risk did not happen rather than around adding the feature.
 
-**The docs chain is the critical path, and it is long.** Docstring audit →
-Documenter scaffold → guide pages → README slim → final verification is five
-sequential tasks, and the first of them (T9) is the largest single task in the
-milestone. It is also completely independent of everything else, so it starts
-immediately and runs alongside the CI and example work rather than after it.
+**The critical path runs through the dispatcher, and it is short but deep.**
+`globs.jl` → `network.jl` (Request/Response) → `routing.jl` (the dispatcher) →
+everything else. Nothing in Part B can be demonstrated end to end until the
+dispatcher works, which is why T10 is the milestone's gate and why T8 and T9
+exist to make T10 small.
 
-**Two tasks are gates, for different reasons.** T1 (WGLMakie probe) decides what
-B4 can assert, exactly as M4's T1 decided what A1 could be built on. T2 (the
-first CI workflow) is a gate of a softer kind: until CI has run green once on a
-pushed branch, every later "CI passes" acceptance criterion is a guess.
+**Two things make this milestone cheaper than M2–M4 were.** No probe task is
+needed: `SPEC-M6.md` Assumption 5 was verified against the vendored spec while
+the spec was written, and every command Part B needs is already generated. And
+no new dependency, no `Project.toml` change, so the whole of Part B is additive
+to a package whose CI is already green.
+
+**The one thing that makes it more expensive** is that routing failures hang
+rather than fail. A test that hangs in CI costs ten minutes and produces no
+diagnostic. Every routing test therefore carries an explicit timeout, and D6's
+"always settle" rule is tested directly (T11) rather than assumed to hold.
 
 ## Architecture Decisions
 
-Recorded as D1–D9 in `SPEC-M5.md`. The ones that drive this plan:
+Recorded as D1–D16 in `SPEC-M6.md`. The ones that drive this plan:
 
-- **D2 — examples are a separate project with a committed Manifest**, so example
-  work never touches `Project.toml` and a Genie breakage cannot redden
-  `Pkg.test()`. Plus a weekly unpinned job to catch upstream drift on a cadence.
-- **D3 — docs read the executed example source at build time**, so T12 (example
-  pages) is small: it writes prose and an `@eval` include, never code.
-- **D4 — the docs build never launches a browser**, which decouples the entire
-  docs chain from browser flake and lets T10–T15 proceed without a working
-  smoke job.
-- **D5 — `checkdocs = :exports` with warnings-as-errors**, which is why T9
-  (docstring audit) must land *before* T10 introduces the gate: turning the gate
-  on over an incomplete surface produces a wall of failures instead of a signal.
-- **D6 — Linux-only, Julia 1.10 and `1`.** Keeps T2 small.
-- **D8 — WGLMakie is probe-gated** with three acceptable assertion levels.
+- **D1–D3 — the bang convention and its `Base` collisions.** D3 is why T1 exists
+  as its own task and why T5 is a test rather than a checklist item: `fill!` and
+  `delete!` would have broken `Base` for every user, and only a test keeps that
+  from coming back.
+- **D5 — one dispatcher task per routed owner, handlers sequential.** The
+  central decision. Drives T10's shape and R1.
+- **D6/D7 — every route is settled, every handler exception is re-thrown at
+  release.** These are the two properties T11 exists to prove; they are also the
+  two most likely to regress silently.
+- **D9 — matchers are client-side, the driver gets the union.** Makes T8
+  (`globs.jl`) a pure, hermetic, table-driven task that can be done first and
+  reviewed on its own.
+- **D11 — network events live on the context; `Page` forms filter.** T12's whole
+  content, and the reason T12 is not simply "delete four entries from
+  `DEFERRED_EVENTS`".
+- **D12/D14 — `APIRequestContext` as far as fulfil-from-upstream, spelled
+  `Playwright.fetch`.** T13, gated behind T10 because it is useless without a
+  route to fulfil.
+- **D16 — the mocked backend goes in the existing Oxygen example**, so no CI
+  time is added and T16 is small.
 
 ## Dependency Graph
 
 ```
-T0 LICENSE (MIT) + compat bounds + ignore rules   [hermetic, no deps]
+PART A — must complete entirely before Part B begins (SC A2, Resolved item 1)
 
-T1 PROBE — headless WebGL for WGLMakie            ← gate: sets B4's level
- └── T7 WGLMakie example                     [B4]
+T1 set_value! / delete_file! / close!  [D3 — the three collision renames]
+T2 goto! / click! / dispatch_event!    [the plain action renames]
+T3 dispose! / save_as! / start_tracing! / stop_tracing!
+T4 clear_console_messages! / clear_page_errors!
+     └── T5 no-shadow regression test + old-name grep   [SC A4, A6]
 
-T2 CI: hermetic matrix + codegen + format    [C1]  ← gate: first green run
- ├── T3 smoke job, browsers cached           [C2]
- └── T8 examples job                         [C3]  ← also deps T4–T7
+     ══════════ Checkpoint A: Part A complete and green ══════════
 
-T4 examples scaffold + HTTP.jl example       [B1]
- ├── T5 Oxygen.jl example                    [B2]
- ├── T6 Genie.jl example                     [B3]
- └── T7 WGLMakie.jl example                  [B4, deps T1]
-      └── T8 examples CI job
+PART B
 
-T9 docstring audit + gaps + m5-api-gaps.md   [A3]  ─ hermetic, no deps
- └── T10 Documenter scaffold + api.md + checkdocs gate   [A1, A2]
-      ├── T11 guide pages from README        [A4]
-      │    └── T14 README slims to a landing page        [A5]
-      ├── T12 example pages (D3 include)     [deps T4–T7]
-      ├── T13 doctests                       [SC 3]
-      └── T15 docs workflow + deploy         [C4]
+T8 globs.jl — glob→Regex, matcher union    [hermetic, no deps]  ← start here
+T9 network.jl — Request/Response, headers, bodies  [no deps]
+     │  T8 ∥ T9 — genuinely disjoint, no shared code
+     ▼
+T10 routing.jl — Route, registry, dispatcher task   ← THE GATE
+     ├── T11 the three settle-guarantee tests   [D6, D7 — R1]
+     ├── T12 the four network events + page filtering  [D11]
+     ├── T13 apirequest.jl — Playwright.fetch, fulfil-from-upstream  [D12]
+     └── T14 with_route, unroute!, unroute_all! ergonomics
 
-T16 TagBot, CompatHelper, Dependabot, badges [C5]  ← deps T2, T15
-T17 Final verification of all 16 success criteria  ← deps everything
+     ══════════ Checkpoint B: routing works end to end ══════════
+
+T15 docs: guide/network.md, events.md, api.md      [deps: T8–T14]
+T16 examples/oxygen_jl.jl mocked-backend section    [deps: T10, T13]
+T17 README status, bonnie-parity re-score           [deps: T15]
+T18 final verification of all 27 criteria           [deps: everything]
+
+     ══════════ Checkpoint C: milestone complete ══════════
 ```
 
-Critical path: **T9 → T10 → T11 → T14 → T17.**
-
-Parallelizable, and worth exploiting because the two halves need different
-things: **T9 needs no network, no browser and no CI** — it is reading `src/` and
-writing docstrings, the ideal offline task. **T1, T2 and T4** need a browser, a
-pushed branch and four heavy dependency trees respectively. A session with no
-browser available should pick up T9 and get most of the milestone's writing done.
-
-Serialisation constraints not visible in the graph:
-
-- **T10 must follow T9.** D5's gate is only useful over a complete surface.
-- **T14 must follow T11.** The README can only shed material once the site has
-  somewhere to put it; doing it in the other order deletes content that has no
-  home yet.
-- **T3, T8 and T15 all write `.github/workflows/`.** T3 and T8 both edit
-  `CI.yml` — land them one at a time. T15 writes its own file and is disjoint.
+T8 ∥ T9 is the only real parallelism in Part B. Everything after T10 is
+parallel in principle but sequential in practice, since it all edits code T10
+introduced.
 
 ## Risks and Mitigations
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| **Headless WebGL does not render in CI** — WGLMakie's example asserts on a blank canvas, or worse, renders locally and not in the container | High — could gut B4 | T1 probes *in a container-like environment* before the example is written, and D8 pre-authorises three fallback levels so a negative result narrows the example rather than blocking the milestone. Dropping WGLMakie entirely stays an *Ask first* boundary |
-| **CI cannot be verified locally.** Workflow YAML is only truly tested by pushing | High — every "CI passes" criterion | T2 is deliberately first and deliberately minimal (hermetic tests only), so the first push proves the *scaffolding* — checkout, setup-julia, cache, `Pkg.test()` — before anything complicated is layered on. Later CI tasks add one job each |
-| **Docs deployment is the one step with no local dry run** — it is only true once pushed to `main` | Med — blocks SC 13 only | D10 removes the secret from the picture: `GITHUB_TOKEN` is issued to the run, so there is nothing to generate and no owner-only step. T15 still splits *build* (verified locally, gates PRs) from *deploy* (only on `main`), so a deploy problem cannot masquerade as a docs problem. Residual risk is repo settings — Pages must be pointed at `gh-pages` once, in the web UI |
-| **Turning on `checkdocs` reveals dozens of gaps at once** and T10 balloons | Med | T9 does the audit and the writing *first*, with the gap list as its deliverable; T10 then only turns the gate on. If T9's audit finds the surface is far worse than expected, that is visible before any Documenter work starts |
-| **Writing docs uncovers API gaps and the temptation is to fix them** | Med — scope creep into an API milestone | `SPEC-M5.md` Assumption 2 and SC 16: gaps go into `tasks/m5-api-gaps.md` and stay unfixed. This is an *Ask first* boundary, and T9 is where it will bite |
-| **Genie.jl is slow to load and may time out in CI** | Med | Its own job with a generous timeout; the example uses `retry_until(…; on_error = :retry)` for warm-up, which is precisely the M4 feature it is meant to demonstrate. If load time is genuinely prohibitive, the finding is recorded rather than worked around with `sleep` |
-| **Four example servers collide on ports** in a shared CI runner | Low | `examples/common.jl` binds port 0 and reads back the assigned port; no example hard-codes one. `runexamples.jl` runs them sequentially |
-| **The browser cache key is wrong** and CI silently redownloads every run | Low, but permanently slow | SC 11 requires reading a cache *hit* out of a second run's log, not assuming one. Key is the pinned `PLAYWRIGHT_VERSION` (D7) |
-| **The committed examples Manifest hides upstream breakage** | Low | D2's weekly unpinned job, added in T8. Its failure means "the ecosystem moved", and it cannot redden a PR |
-| **README and site drift apart**, the classic outcome of splitting docs | Med | T14 makes the README strictly a landing page (SC 5, under 150 lines) with no API material, so there is one home for each fact rather than two |
-| **A gate gets weakened to make CI green** | High — it would void the milestone | Named explicitly in `SPEC-M5.md` Boundaries as *Never*. T17 re-checks that `checkdocs`, warnings-as-errors and both engines are still on |
+**R1 — the dispatcher task leaks, or dies, or deadlocks.** The highest-severity
+risk in the milestone, because all three failure modes present identically to a
+user: requests hang and a `goto!` times out 30 seconds later with no clue.
+- *Mitigation:* T10 writes the task's lifetime before its behaviour — spawn on
+  first registration, stop on last, survive a handler that throws (D7), survive
+  an owner that closes mid-route. T11 tests each of those four directly, with
+  explicit timeouts so a hang fails fast instead of blocking CI.
+- *Tripwire:* if T11 needs a `sleep` to pass, the lifetime is wrong. Fix the
+  lifetime, not the test.
+
+**R2 — the glob dialect is subtly wrong.** `*` not crossing `/` while `**` does
+is the kind of rule that passes six hand-written tests and fails on the seventh
+real URL.
+- *Mitigation:* T8 is table-driven and the table is shared with the guide page
+  (SC 17), so a case that is documented but untested cannot exist. Cases are
+  taken from Playwright's own `globToRegex` behaviour, not invented.
+
+**R3 — a routing test hangs in CI.** Costs ten minutes and yields nothing.
+- *Mitigation:* every smoke test in T11–T14 wraps its body in an explicit
+  timeout. A hang becomes a failure with a message inside one minute.
+
+**R4 — `APIResponse` leaks driver-side buffers.** An unfetched `fetchUid` is
+held by the driver until disposed, and nothing in the existing subscription
+machinery covers it.
+- *Mitigation:* T13 owns disposal on both paths — handler exit and finalization
+  — and SC 15 asserts it rather than assuming it.
+
+**R5 — Part A breaks something no test covers.** Twelve renames across five
+directories; the suites are good but not total.
+- *Mitigation:* T5's grep (SC A4) proves no old spelling survives anywhere, and
+  the docs build plus both examples run at Checkpoint A, which together touch
+  nearly every renamed name in a way the unit tests do not.
+
+**R6 — scope creep from `tasks/m5-api-gaps.md`.** Part A puts every export under
+the eye at once, and eight of the nine recorded gaps will look fixable while
+passing.
+- *Mitigation:* Assumption 4 and Boundaries make it "ask first". Anything
+  noticed goes into `tasks/m6-api-gaps.md`, not into the diff.
 
 ## Verification Checkpoints
 
-- **Checkpoint A** — after T0–T3: `LICENSE` present; hermetic CI green on a
-  *pushed* branch across Julia 1.10 and `1`; codegen and format checks green;
-  smoke job green on both engines with a verified cache hit. **Human review of
-  the T1 probe findings before T7 is written** — this is the gate that fixes
-  B4's assertion level.
-- **Checkpoint B** — after T4–T8: all four examples exit 0 locally *and* in CI on
-  both engines, from a clean checkout, on the committed Manifest.
-- **Checkpoint C** — after T9–T15: `docs/make.jl` builds with zero warnings under
-  `checkdocs = :exports`; doctests pass; the site's navigation is complete; the
-  README is under 150 lines; the site is deployed and reachable.
-- **Checkpoint D** — after T16–T17: all sixteen `SPEC-M5.md` success criteria
-  verified, each by running the thing, not by reasoning about it.
+**Checkpoint A — Part A complete** (after T5, before any Part B code)
+- All twelve renames applied; `names(Playwright)` has every new name, no old one
+- Hermetic **and** smoke green after *each* rename commit, not just the last
+- `using Playwright` shadows nothing in `Base` — T5's test (SC A6)
+- Old-name grep across `src`, `test`, `docs`, `examples`, `README.md` is empty
+- Docs build warning-free; both examples pass on both engines
+- Diff reviewed commit by commit for signature or behaviour changes (SC A5)
+
+**Checkpoint B — routing works end to end** (after T14)
+- SC 1–8 all pass on Chromium and Firefox
+- No test needs a `sleep` to pass (R1's tripwire)
+- Dispatcher lifetime proved on all four paths (T11)
+- `tasks/m6-api-gaps.md` exists, whatever it contains
+
+**Checkpoint C — milestone complete** (after T18)
+- All 5 Part A and 22 Part B criteria verified, each by running it, in a table
+- Gates confirmed still on: `checkdocs = :exports`, `warnonly = false`,
+  `doctest = true`, both engines in smoke and `runexamples.jl`
+- Nothing in `tasks/m5-api-gaps.md` fixed beyond D3's incidental resolution
 
 ## Tasks
 
-### T0 — Licence, compat bounds and ignore rules (S) — no deps
+### T1 — The three collision renames (M) — D3, SC A3, A6, no deps
 
-- **Description:** The release-metadata groundwork that needs no CI and blocks
-  nothing, done first so it cannot be forgotten at the end. `SPEC-M5.md` D9
-  notes the current `[compat]` block is backwards: it bounds `HTTP` (a *test*
-  dependency) while `Base64`, `Dates`, `Downloads` and `p7zip_jll` — real
-  dependencies — carry none.
-- **Acceptance:** `LICENSE` is MIT, dated 2026, attributed to Frankie Robertson
-  (resolved: `SPEC-M5.md` Open Question 1). Every entry in `[deps]` has a
-  `[compat]` bound; stdlib entries get bounds too, as Registrator requires.
-  `julia = "1.10"` unchanged. `docs/build/` and `examples/Manifest.toml`'s
-  scratch output are handled in `.gitignore` (the Manifest itself is committed —
-  D2).
-- **Verify:** `Pkg.instantiate()` and hermetic `Pkg.test()` still green under the
-  new bounds — a too-tight bound shows up here; `git diff Project.toml` shows
-  `[deps]` unchanged (SC 15).
-- **Files:** `LICENSE`, `Project.toml`, `.gitignore`.
+- **Description:** `fill` → `set_value!`, `delete` → `delete_file!`,
+  `close` → `close!`. First because they are the only renames with any thinking
+  in them: the first two stop extending `Base` and become real exports, and
+  `close` stops being `Base.close`. Getting these wrong is the R5 failure mode.
+- **Acceptance:** All three are exported and appear in `names(Playwright)`.
+  Neither `Base.fill!` nor `Base.delete!` is extended anywhere. Every call site
+  in `src`, `test`, `docs`, `examples` and `README.md` updated. Each docstring's
+  first line names Playwright's own spelling (`fill`, `delete`) so a search for
+  it lands here.
+- **Verify:** Hermetic and smoke green. `checkdocs = :exports` now covers all
+  three, proved by deleting one docstring and watching the docs build go red,
+  then restoring it.
+- **Files:** `src/api/locators.jl`, `src/api/artifacts.jl`,
+  `src/api/lifecycle.jl`, `src/Playwright.jl`, and call sites throughout.
 
-### T1 — PROBE: headless WebGL for WGLMakie (M) — gate for B4, D8
+### T2 — The plain action renames (S) — D1, deps: T1
 
-- **Description:** Find out whether a WGLMakie page actually renders in a
-  headless browser in a CI-like container, before an example is designed around
-  the assumption. The unknown is not the Julia side; it is whether the engine has
-  a working software rasteriser.
-- **Acceptance:** `tasks/m5-probe.md` records, with evidence:
-  1. Whether a minimal WGLMakie/Bonito page renders on **Chromium** and on
-     **Firefox** headless — evidenced by a screenshot whose pixels are *not*
-     uniform, plus the pixel statistic used to decide.
-  2. Any flag needed to get there (`--use-gl=swiftshader`, `--enable-unsafe-swiftshader`
-     or similar), recorded as the exact `launch` argument this repo would pass.
-  3. Whether it holds with no GPU and no X display, i.e. the CI condition, not
-     just this workstation.
-  4. Page errors and console output from the load, which tell us what a
-     *structural* assertion could key on if rendering is out.
-  5. **A recommendation of one of D8's three levels** — full, structural, or
-     Chromium-only.
-- **Verify:** findings reproduced by a second run; **human review before T7
-  starts.** If the answer is "no rendering on either engine", that is a valid
-  outcome (level 2), not a blocker — but **dropping WGLMakie is *Ask first***.
-- **Files:** probe script under the `@pw-probe` shared env, `tasks/m5-probe.md`.
+- **Description:** `goto!`, `click!`, `dispatch_event!`. Purely mechanical.
+- **Acceptance:** One commit per name; repo-wide substitution, nothing else in
+  the diff.
+- **Verify:** Hermetic and smoke green **after each of the three commits**
+  (SC A2).
+- **Files:** `src/api/navigation.jl`, `src/api/locators.jl`, `src/Playwright.jl`,
+  call sites throughout.
 
-### T2 — CI: hermetic tests, codegen and format (M) — C1, D6, gate
+### T3 — The handle and artifact renames (S) — D1, deps: T2
 
-- **Description:** The first workflow this repo has ever had. Kept minimal on
-  purpose: its job is to prove the scaffolding — checkout, Julia setup, caching,
-  `Pkg.test()` — so that later jobs are layered onto something known-good.
-- **Acceptance:** `.github/workflows/CI.yml` runs on push and PR: a matrix of
-  Julia 1.10 and `1` on `ubuntu-latest` running hermetic `Pkg.test()` with no
-  Node and no browser; plus single-version jobs for `gen/generate.jl --check` and
-  a JuliaFormatter check using the pinned formatter from `gen/`. Uses
-  `julia-actions/setup-julia`, `julia-actions/cache`, `julia-actions/julia-runtest`.
-  Concurrency group cancels superseded runs.
-- **Verify:** **pushed to a branch and observed green** — this task is not done
-  on the strength of the YAML reading correctly. Confirm the format job actually
-  fails by pushing one badly formatted line, then reverting.
-- **Files:** `.github/workflows/CI.yml`.
+- **Description:** `dispose!`, `save_as!`, `start_tracing!`, `stop_tracing!`.
+- **Acceptance:** As T2. Note that `with_tracing` keeps no bang (D2) — it is
+  scaffolding, and the banging belongs on the calls inside the block.
+- **Verify:** Green after each commit; the tracing smoke tests specifically,
+  since they exercise all four.
+- **Files:** `src/api/evaluate.jl`, `src/api/artifacts.jl`, `src/Playwright.jl`.
 
-### T3 — CI: smoke job with cached browsers (M) — C2, D7, deps: T2
+### T4 — The buffer-clearing renames (S) — D1, deps: T3
 
-- **Description:** The job that makes CI mean something for this package: real
-  Chromium and Firefox against the local fixtures.
-- **Acceptance:** A `smoke` job on one Julia version sets `PLAYWRIGHT_BROWSERS_PATH`
-  to a workspace path, restores it with `actions/cache` keyed on the pinned
-  `PLAYWRIGHT_VERSION` from `src/driver.jl`, runs `julia bin/install.jl` on a
-  cache miss, and runs `PLAYWRIGHT_JL_SMOKE=1 Pkg.test()`. Both engines in one
-  job (D7). Node comes from `actions/setup-node` or the driver's own fetch —
-  whichever the install path already expects.
-- **Verify:** green in CI on both engines; **a second run shows a cache hit in
-  the log** (SC 11) and is materially faster; a deliberate bump of the cache key
-  shows a miss and a successful reinstall.
-- **Files:** `.github/workflows/CI.yml`.
+- **Description:** `clear_console_messages!`, `clear_page_errors!`.
+- **Acceptance:** As T2.
+- **Verify:** Green after each commit.
+- **Files:** `src/api/diagnostics.jl`, `src/Playwright.jl`.
 
-### T4 — Examples scaffold and the HTTP.jl example (M) — B1, D2, no deps
+### T5 — The no-shadow test and the old-name grep (S) — SC A4, A6, deps: T4
 
-- **Description:** The pattern every other example follows: start a server on a
-  free port, wait for it to warm up, drive it with the public API, tear it down
-  in a `finally`. HTTP.jl is chosen first because it is the thinnest possible
-  server, so the example shows *the pattern* and not a framework's conventions.
-- **Acceptance:** `examples/Project.toml` with HTTP, Test and Playwright (by
-  relative path), plus a committed `examples/Manifest.toml`. `examples/common.jl`
-  holds exactly two helpers — `free_port` (bind port 0, read it back) and a
-  server warm-up built on `retry_until(…; on_error = :retry)`. `examples/http_jl.jl`
-  serves a small page, drives it, asserts on rendered DOM, and exits non-zero on
-  failure. `examples/runexamples.jl` runs every example and aggregates.
-  `Project.toml`'s `[deps]` untouched.
-- **Verify:** `julia --project=examples examples/http_jl.jl` exits 0 from a clean
-  checkout on Chromium **and** Firefox (SC 6); it starts and stops its own server,
-  leaving no process behind; it reads as something a user would copy.
-- **Files:** `examples/Project.toml`, `examples/Manifest.toml`,
-  `examples/common.jl`, `examples/http_jl.jl`, `examples/runexamples.jl`.
+- **Description:** The task that makes Part A safe rather than merely done. Two
+  tests: one proving `using Playwright` shadows nothing in `Base`, one proving
+  no old spelling survives anywhere in the repo.
+- **Acceptance:** A test does `using Playwright` and then calls `fill!`,
+  `delete!`, `close`, `count` and `first` on ordinary Julia data (an array, a
+  `Dict`, an `IOBuffer`), asserting each resolves to `Base` and returns what
+  `Base` would. A second test greps `src`, `test`, `docs`, `examples` and
+  `README.md` for each old spelling *as a call* (`\bgoto\(`, `\bclick\(`,
+  `\bfill\(`, …) and asserts no match.
+- **Verify:** Both tests pass. Then prove them: reintroduce `export fill!` in a
+  scratch copy and watch the first go red; reintroduce one old call site and
+  watch the second go red. Neither is trusted until it has failed once.
+- **Files:** `test/test_exports.jl`, `test/runtests.jl`.
 
-### T5 — Oxygen.jl example (S) — B2, deps: T4
+### T6 — Checkpoint A verification (S) — deps: T5
 
-- **Description:** A modern micro-framework: routes plus a rendered page. Shows
-  asserting on *both* halves of a typical app — a JSON endpoint and the DOM.
-- **Acceptance:** `examples/oxygen_jl.jl` defines at least one JSON route and one
-  HTML route, drives the page, and asserts on the JSON endpoint through the
-  browser (via `evaluate` and `fetch`, so it is the browser's view, not Julia's).
-  Same start/stop discipline as T4.
-- **Verify:** exits 0 on both engines (SC 7); no leaked server.
-- **Files:** `examples/oxygen_jl.jl`, `examples/Project.toml`, `Manifest.toml`.
+- **Description:** Not a code task. Run every Checkpoint A item and record the
+  result. Part B does not start until this is clean (Resolved item 1).
+- **Acceptance:** Every Checkpoint A bullet ticked with the command that proved
+  it.
+- **Verify:** Docs build warning-free; `runexamples.jl` 8/8 on a quiet machine;
+  diff reviewed commit by commit against Assumption 3.
+- **Files:** `tasks/todo.md` (the verification table).
 
-### T6 — Genie.jl example (M) — B3, deps: T4
+### T7 — `tasks/m6-api-gaps.md` opened (S) — R6, no deps
 
-- **Description:** The full framework, and the slowest to start — which is the
-  point. This is the example where `retry_until`'s warm-up mode earns its place
-  rather than being demonstrated on a server that was ready instantly.
-- **Acceptance:** `examples/genie_jl.jl` stands up a Genie app with real routing
-  and HTML rendering, drives it, and asserts on rendered content. The warm-up
-  wait is the M4 API, never a `sleep`.
-- **Verify:** exits 0 on both engines (SC 7). Record its wall-clock startup in
-  the example's comments — it is the honest justification for the whole warm-up
-  feature.
-- **Files:** `examples/genie_jl.jl`, `examples/Project.toml`, `Manifest.toml`.
+- **Description:** Create the file with its preamble before Part B starts, so
+  that anything noticed during the milestone has somewhere to go that is not the
+  diff. M5's equivalent proved that a gap record nobody opened is a gap record
+  nobody writes.
+- **Acceptance:** File exists with the same framing as `tasks/m5-api-gaps.md`:
+  what it is for, and that nothing in it is fixed by this milestone.
+- **Verify:** It exists. It is allowed to be empty until it is not.
+- **Files:** `tasks/m6-api-gaps.md`.
 
-### T7 — WGLMakie.jl example (M) — B4, D8, deps: T1, T4
+### T8 — `globs.jl`: the matcher union (M) — D9, SC 17, R2, no deps
 
-- **Description:** The hardest example and the one that justifies M4: an
-  interactive plot, screenshotted and traced. Its assertion level is **not chosen
-  here** — it was fixed by T1's probe and human review.
-- **Acceptance:** `examples/wglmakie_jl.jl` serves a WGLMakie figure through
-  Bonito, drives the page, and asserts at the level T1 selected: rendered-pixel
-  content (level 1), DOM plus no-page-errors (level 2), or Chromium-only
-  (level 3). It captures a screenshot and a trace zip into an ignored output
-  directory, demonstrating the M4 artifact API on a real app. **If the level is
-  not "full", the example says so in a comment** — the docs page repeats it
-  (SC 8).
-- **Verify:** exits 0 at the selected level; run three times to confirm it is not
-  flaky. A flaky example is a failed task, not a passing one — retries are not an
-  acceptable fix.
-- **Files:** `examples/wglmakie_jl.jl`, `examples/Project.toml`, `Manifest.toml`,
-  `.gitignore`.
+- **Description:** Playwright's glob dialect as a pure function, plus the
+  three-way matcher union. Entirely hermetic — no driver, no browser, no
+  connection. First in Part B because it is the one piece that can be finished
+  and reviewed in isolation.
+- **Acceptance:** `glob_to_regex(::AbstractString) -> Regex` implementing `*`
+  (does not cross `/`), `**` (does), `?` (one non-`/`), `{a,b}` alternation, and
+  escaping of regex metacharacters in literal segments. A `matches(matcher, url)`
+  dispatching over `AbstractString`, `Regex` and `Function`. Base-URL resolution
+  for a scheme-less glob. The case table lives in one place and is read by both
+  the test and the guide (SC 17).
+- **Verify:** `test_globs.jl` passes hermetically. Every row of the shared table
+  is exercised. Metacharacter cases (`a.b`, `x+y`, `q?`) confirm literal
+  treatment.
+- **Files:** `src/api/globs.jl`, `test/test_globs.jl`, `src/Playwright.jl`.
 
-### T8 — CI: examples job and the weekly drift job (S) — C3, D2, deps: T2, T4–T7
+### T9 — `network.jl`: Request and Response (M) — D10, no deps
 
-- **Description:** Run the examples in CI on the pinned Manifest, plus the
-  scheduled unpinned run that catches upstream drift without reddening PRs.
-- **Acceptance:** An `examples` job installs browsers (sharing T3's cache), then
-  runs `julia --project=examples examples/runexamples.jl`. A separate scheduled
-  weekly workflow deletes `examples/Manifest.toml`, resolves fresh, and runs the
-  same script; its failure is clearly labelled as upstream drift.
-- **Verify:** examples job green in CI (SC 12); the weekly job triggered once by
-  hand (`workflow_dispatch`) to prove it runs at all.
-- **Files:** `.github/workflows/CI.yml`, `.github/workflows/drift.yml`.
+- **Description:** The accessors, read from initializers (D10). Independent of
+  T8 — no shared code — so the two run in parallel.
+- **Acceptance:** `Request`: `url`, `method`, `resource_type`,
+  `is_navigation_request`, `frame`, `redirected_from`, `post_data` (bytes),
+  `post_data_string`, `json`. `Response`: `url`, `status`, `status_text`, `ok`,
+  `request`, `body`, `text`, `json`. Headers as the three functions of D10 —
+  `headers`, `headers_array`, `raw_headers` — with lower-cased keys and
+  `", "`-joined duplicates in the first. `RequestFailure` struct. Every one
+  documented.
+- **Verify:** `test_network.jl` covers header normalisation, duplicate joining,
+  wire-order preservation and the three body forms against a fake connection, as
+  `test_events.jl` does. No browser needed.
+- **Files:** `src/api/network.jl`, `test/test_network.jl`, `src/Playwright.jl`.
 
-### T9 — Docstring audit, gap fill, and the API-gap record (L) — A3, D5, SC 16
+### T10 — `routing.jl`: Route, registry and the dispatcher (L) — D5–D8, R1 — **GATE**
 
-- **Description:** The largest task in the milestone and the one with no
-  dependencies. Walk the ~90-name export list, and for each: does it have a
-  docstring, does that docstring start with its signature, does it explain
-  arguments and defaults, does it show an example, does it cross-reference its
-  neighbours? Write what is missing.
-- **Acceptance:** Every exported name in `src/Playwright.jl` has a docstring in
-  the `SPEC-M5.md` Code Style shape. Cross-references use `[`name`](@ref)`.
-  Separately, `tasks/m5-api-gaps.md` records every API awkwardness found while
-  writing — inconsistent argument order, a missing keyword, a name that had to be
-  explained apologetically — **without fixing any of them** (Assumption 2).
-- **Verify:** a script enumerating `names(Playwright)` against
-  `Docs.meta(Playwright)` reports zero undocumented exports; the gap document is
-  non-empty (if writing ~90 docstrings surfaces *no* API awkwardness, the audit
-  was not honest).
-- **Files:** all of `src/api/*.jl`, `src/errors.jl`, `src/objects.jl`,
-  `src/timeouts.jl`; `tasks/m5-api-gaps.md`.
+- **Description:** The milestone's centre. The `Route` wrapper with `abort!`,
+  `continue!` and `fulfill!`; the per-owner registry that computes the driver
+  pattern union (D9); and the dispatcher task with the lifetime R1 is about.
+  Write the lifetime first, the behaviour second.
+- **Acceptance:** `route!` / `unroute!` / `unroute_all!` on `Page` and
+  `BrowserContext`. Dispatcher spawns on first registration, stops on last,
+  runs handlers sequentially newest-first (D5), holds no lock across user code,
+  survives a throwing handler (D7) and an owner closing mid-route. Driver
+  pattern union re-sent on every registration change, `**/*` when any matcher is
+  a `Regex` or `Function`. `fulfill!` per D15 with its mutual-exclusion
+  `ArgumentError`s; `abort!` validating its error code client-side.
+- **Verify:** SC 1, 2, 7, 8 on both engines. Hermetic tests for the pattern
+  union and `fulfill!` parameter building against a fake connection. **No test
+  may use `sleep` to pass** (R1's tripwire).
+- **Files:** `src/api/routing.jl`, `test/test_network.jl`,
+  `test/test_smoke_network.jl`, `test/fixtures/m6.html`, `src/Playwright.jl`.
 
-### T10 — Documenter scaffold, API reference and the checkdocs gate (M) — A1, A2, D5, deps: T9
+### T11 — The settle-guarantee tests (M) — D6, D7, R1, R3, deps: T10
 
-- **Description:** Stand up the site's skeleton and turn on the gate that keeps
-  it honest. Deliberately after T9, so the gate reports "green" rather than a
-  wall of pre-existing gaps.
-- **Acceptance:** `docs/Project.toml` (Documenter + Playwright by relative path),
-  `docs/make.jl` calling `makedocs` with `checkdocs = :exports`, warnings as
-  errors, and the page tree from `SPEC-M5.md` Project Structure. `docs/src/api.md`
-  carries `@docs` blocks covering the full export list, grouped by area rather
-  than alphabetically. `docs/src/index.md` exists as a landing page.
-- **Verify:** `julia --project=docs docs/make.jl` builds with zero warnings
-  (SC 1). **Delete one docstring, confirm the build fails, restore it** (SC 2) —
-  the gate is verified by breaking it, not by trusting the setting.
-- **Files:** `docs/Project.toml`, `docs/make.jl`, `docs/src/index.md`,
-  `docs/src/api.md`, `.gitignore`.
+- **Description:** A separate task from T10 on purpose. These are the tests that
+  prove the two properties most likely to regress silently, and they are worth
+  writing deliberately rather than as a corner of the feature task.
+- **Acceptance:** Four dispatcher-lifetime tests (spawn, stop, throwing handler,
+  owner closes mid-route) and three settle tests (no matcher → continued
+  silently; handler settles nothing → exactly one warning per registration, page
+  still loads; handler throws → exception out of `with_route`, page still
+  navigated). Every one wrapped in an explicit timeout (R3).
+- **Verify:** SC 3, 4, 5 on both engines. Each test proved by breaking the thing
+  it guards — remove the auto-`continue!` and watch the no-matcher test hang
+  into its timeout rather than pass.
+- **Files:** `test/test_smoke_network.jl`.
 
-### T11 — Guide pages (L) — A4, deps: T10
+### T12 — The four network events (M) — D11, deps: T10
 
-- **Description:** Move the README's substance into real guide pages, one per API
-  area, expanding rather than transcribing: the README compresses because it is
-  one file, and the site has no such constraint.
-- **Acceptance:** `docs/src/getting-started.md` (install, `bin/install.jl`,
-  browsers in CI, a first passing test) plus a `docs/src/guide/` page for each of
-  locators, waiting, assertions, events, artifacts and the failure path, and
-  errors and timeouts. Every page cross-links into the API reference with
-  `@ref`. Browser-requiring samples are plain ` ```julia ` (D4).
-- **Verify:** docs build stays at zero warnings — a broken `@ref` fails it;
-  navigation tree complete (SC 4); read each page start to finish for a reader
-  who has not seen the README.
-- **Files:** `docs/src/getting-started.md`, `docs/src/guide/*.md`, `docs/make.jl`.
+- **Description:** `:request`, `:response`, `:requestfinished`, `:requestfailed`
+  leave `DEFERRED_EVENTS`, plus the page-scoped filtering that D11 describes and
+  `expect_request` / `expect_response`.
+- **Acceptance:** All four as opt-in `EventSpec`s on `BrowserContext`. The
+  `Page` forms subscribe to the page's *context* with a built-in predicate
+  filtering on the `page` param — with a comment saying so, since it is
+  invisible at the call site. `expect_request` / `expect_response` take the T8
+  matcher union. `docs/src/guide/events.md`'s table grows.
+- **Verify:** SC 9, 10, 11, 12, 13 on both engines. SC 12 specifically with two
+  pages open in one context.
+- **Files:** `src/api/events.jl`, `src/api/network.jl`,
+  `test/test_smoke_network.jl`, `test/test_events.jl`.
 
-### T12 — Example pages (S) — D3, deps: T10, T4–T7
+### T13 — `apirequest.jl`: fetch and fulfil-from-upstream (M) — D12, D14, R4, deps: T10
 
-- **Description:** One page per example. Small by construction: the code is
-  *read from the executed file at build time*, so this task writes only prose and
-  the include.
-- **Acceptance:** Four pages under `docs/src/examples/`, each with the D3 `@eval`
-  include of its `examples/*.jl` file and prose explaining why the example is
-  shaped as it is. The WGLMakie page states its assertion level honestly if it is
-  not "full" (SC 8).
-- **Verify:** **edit an example script, rebuild, confirm the page changed with no
-  `.md` edit** (SC 9) — the anti-drift property is verified, not assumed.
-- **Files:** `docs/src/examples/*.md`, `docs/make.jl`.
+- **Description:** `APIResponse`, `Playwright.fetch`, and
+  `fulfill!(; response = …)`. Gated behind T10 because it is untestable without
+  a route to fulfil.
+- **Acceptance:** `APIResponse` as a plain immutable struct (not a
+  `ChannelOwner`) with `url`, `status`, `status_text`, `headers`, `fetch_uid`.
+  `Playwright.fetch(ctx, url; …)` and `Playwright.fetch(route)`, unexported
+  (D14). `body` / `text` / `json` via `fetchResponseBody`. `fulfill!` accepting
+  `response`, with `status`, `headers` and `content_type` overriding it.
+  Disposal on both paths (R4). `api.md` gets an explicit `Playwright.fetch`
+  `@docs` block and `test_exports.jl` asserts it has a docstring (D14).
+- **Verify:** SC 14, 15 on both engines. SC 15 asserts disposal happened rather
+  than assuming it — check the driver was told, not that no error occurred.
+- **Files:** `src/api/apirequest.jl`, `src/api/routing.jl`,
+  `test/test_smoke_network.jl`, `test/test_exports.jl`, `src/Playwright.jl`.
 
-### T13 — Doctests (S) — SC 3, deps: T10
+### T14 — `with_route` and ergonomics (S) — D8, deps: T10
 
-- **Description:** Make at least some docstring examples executable. Constrained
-  by D4: only browser-free paths qualify.
-- **Acceptance:** At least one ` ```jldoctest ` block on a browser-free path —
-  value serialisation, timeout resolution, or error construction — running as
-  part of the docs build.
-- **Verify:** doctests run and pass in the build (SC 3); break one deliberately
-  and confirm the build goes red.
-- **Files:** `src/serializers.jl`, `src/timeouts.jl` or `src/errors.jl`;
-  `docs/make.jl`.
+- **Description:** The block form, and the exception-collection semantics of D7
+  that `unroute!` and `with_route` share.
+- **Acceptance:** `with_route(body, target, matcher, handler)` — handler as
+  argument, body as do-block (D8). Handler exceptions rethrown at release, one
+  directly and several as a `CompositeException`. In-flight routes settled
+  before `unroute!` returns. Idempotent.
+- **Verify:** SC 6 (overlapping registrations, newest-first, unroute restores
+  the older) on both engines. The `CompositeException` path tested with two
+  throwing handlers.
+- **Files:** `src/api/routing.jl`, `test/test_smoke_network.jl`.
 
-### T14 — README becomes a landing page (S) — A5, deps: T11
+### T15 — Documentation (L) — SC 17, 19, deps: T8–T14
 
-- **Description:** The README stops being the manual. Strictly after T11, so
-  nothing is deleted before the site has a home for it.
-- **Acceptance:** `README.md` under 150 lines: what the package is, badges,
-  install, a quick-start snippet, the testing commands, the generated-channel-layer
-  note, Status, and links into the site. **No API reference material remains**
-  (SC 5).
-- **Verify:** line count; read it as a stranger — every removed fact is findable
-  on the site in one click.
-- **Files:** `README.md`.
+- **Description:** The guide page, and the API reference entries. The largest
+  Part B task after T10, and — per M5's experience — the one that finds the API
+  gaps that go in T7's file.
+- **Acceptance:** `docs/src/guide/network.md` covering routing, the matcher
+  dialect (reading T8's shared table, SC 17), the four events, and
+  fulfil-from-upstream. It states D5's sequential-handler cost and the
+  no-deadline decision (Resolved item 6's subject) out loud. `api.md` gains
+  every new name plus the explicit `Playwright.fetch` block. `events.md`'s table
+  updated.
+- **Verify:** SC 19 — `docs/make.jl` warning-free with `checkdocs = :exports`
+  and `warnonly = false` still on, `doctest = true` passing. Glob examples
+  doctested.
+- **Files:** `docs/src/guide/network.md`, `docs/src/guide/events.md`,
+  `docs/src/api.md`, `docs/make.jl`.
 
-### T15 — Docs workflow and deployment (M) — C4, deps: T10
+### T16 — The Oxygen example gains a mocked backend (S) — D16, SC 21, deps: T10, T13
 
-- **Description:** Build the docs in CI on every push, and deploy on `main`.
-  Split deliberately: the build gates PRs and is fully verifiable locally, while
-  the deploy is only ever exercised on `main` — keeping them separate means a
-  deployment problem cannot masquerade as a documentation problem.
-- **Acceptance:** `.github/workflows/docs.yml` builds the docs (with doctests and
-  the `checkdocs` gate) on push and PR, and calls `deploydocs` on `main`
-  authenticated by the workflow's built-in `GITHUB_TOKEN` (D10). The job declares
-  `permissions: contents: write` and nothing further. **No repository secret is
-  created and none is required** — if the implementation finds itself wanting a
-  `DOCUMENTER_KEY`, that contradicts D10 and is a stop-and-review, not a
-  workaround.
-- **Verify:** build job green in CI. Deploy verified by the site being reachable
-  at its Pages URL (SC 13). One **repo-settings** step remains, in the web UI
-  rather than in code: pointing GitHub Pages at the `gh-pages` branch after its
-  first deploy.
-- **Files:** `.github/workflows/docs.yml`, `docs/make.jl`.
+- **Description:** A second section in the existing example rather than a fifth
+  script, so CI time is unchanged (D16).
+- **Acceptance:** `examples/oxygen_jl.jl` drives the same page twice — once
+  against its real route, once with that route mocked by `with_route` — which is
+  the argument for the feature stated as code. Its docs page picks the section
+  up through the existing literate include.
+- **Verify:** SC 21 — passes on both engines; the new section appears in
+  `docs/build/examples/oxygen.html` while `docs/src/examples/oxygen.md` stays
+  md5-identical (the M5 SC 9 method).
+- **Files:** `examples/oxygen_jl.jl`.
 
-### T16 — TagBot, CompatHelper, Dependabot and badges (S) — C5, D9, deps: T2, T15
+### T17 — README and parity re-score (S) — SC 22, deps: T15
 
-- **Description:** The remaining release metadata. Nothing here bumps a version
-  or submits anything (D9 — ready, not registered).
-- **Acceptance:** `.github/workflows/TagBot.yml` and `CompatHelper.yml` in their
-  standard forms; `.github/dependabot.yml` keeping the actions current. README
-  badges for CI status and docs, pointing at real URLs.
-- **Verify:** workflows parse and appear in the Actions tab; CompatHelper
-  triggered once by hand; badges render and link correctly (SC 14).
-- **Files:** `.github/workflows/TagBot.yml`, `.github/workflows/CompatHelper.yml`,
-  `.github/dependabot.yml`, `README.md`.
+- **Description:** Status section, and `docs/bonnie-parity.md`'s network rows.
+- **Acceptance:** Network interception and the network events leave the
+  "not yet covered" list; what remains there is still accurate (WebKit, HAR,
+  downloads, dialogs, persistent contexts, async, WebSockets). Parity rows that
+  routing now covers are re-scored with the call that covers them.
+- **Verify:** Read against the actual exports, not against this plan.
+- **Files:** `README.md`, `docs/bonnie-parity.md`.
 
-### T17 — Final verification pass (M) — deps: everything
+### T18 — Final verification pass (M) — deps: everything
 
-- **Description:** Walk all sixteen `SPEC-M5.md` success criteria and record how
-  each was verified, in the table style M4's `todo.md` used. Every row is run,
-  not reasoned about.
-- **Acceptance:** A verification table in `tasks/todo.md` with one row per
-  criterion naming the command or run that proved it. Explicitly re-confirm the
-  gates are still on: `checkdocs = :exports`, warnings-as-errors, both engines in
-  smoke, and `Project.toml`'s `[deps]` unchanged (SC 15).
-- **Verify:** hermetic `Pkg.test()`, smoke on both engines, `gen/generate.jl
-  --check`, `format(".")`, docs build, all four examples — one clean sweep, in
-  one session, at the end.
+- **Description:** Run all 27 success criteria and record each with the command
+  that proved it, in the M5 verification-table style.
+- **Acceptance:** A table in `tasks/todo.md`, one row per criterion. Any
+  criterion that cannot be verified says so explicitly rather than being marked
+  green — M5's SC 13 is the precedent.
+- **Verify:** Hermetic `Pkg.test()` with no Node and no browser; smoke both
+  engines; `gen/generate.jl --check`; `format(".")`; `Project.toml` `[deps]`
+  diffed against `main`.
 - **Files:** `tasks/todo.md`.
