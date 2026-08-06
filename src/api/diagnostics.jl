@@ -141,7 +141,7 @@ end
     page_errors(page::Page) -> Vector{PageError}
 
 Every uncaught JavaScript error the page has raised since it opened, or since
-[`clear_page_errors`](@ref) was last called. Worth dumping when a test fails
+[`clear_page_errors!`](@ref) was last called. Worth dumping when a test fails
 for a reason the assertion alone does not explain:
 
 ```julia
@@ -193,16 +193,16 @@ click!(locator(page, "#go"))
 clear_console_messages!(page::Page) = _page_clear_console_messages(page)
 
 """
-    clear_page_errors(page::Page)
+    clear_page_errors!(page::Page)
 
 Drop the page's buffered uncaught errors, so a later [`page_errors`](@ref)
 only reports what happened next; the console equivalent is
 [`clear_console_messages!`](@ref).
 
 ```julia
-clear_page_errors(page)
+clear_page_errors!(page)
 click!(locator(page, "#go"))
 @test isempty(page_errors(page))
 ```
 """
-clear_page_errors(page::Page) = _page_clear_page_errors(page)
+clear_page_errors!(page::Page) = _page_clear_page_errors(page)

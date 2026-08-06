@@ -429,7 +429,7 @@ tryrun(cmd) =
                     @test errs[1].name == "Error"
 
                     clear_console_messages!(page)
-                    clear_page_errors(page)
+                    clear_page_errors!(page)
                     @test isempty(console_messages(page))
                     @test isempty(page_errors(page))
 
