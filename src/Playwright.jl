@@ -44,6 +44,7 @@ export playwright,
     goto!,
     title,
     locator,
+    glob_to_regex,
     click!,
     text_content,
     input_value,
@@ -122,6 +123,7 @@ include("generated/channels.jl")
 include("serializers.jl")
 include("objects.jl")
 include("timeouts.jl")
+include("api/globs.jl")
 include("api/events.jl")
 include("api/lifecycle.jl")
 include("api/navigation.jl")

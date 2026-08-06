@@ -79,6 +79,9 @@
         :install,
         :launch,
         :locator,
+        # M6 T8: the glob dialect, exported because a user debugging a route
+        # needs to be able to ask what their glob actually matches.
+        :glob_to_regex,
         :name,
         :new_context,
         :new_page,

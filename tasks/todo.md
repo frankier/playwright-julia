@@ -26,7 +26,7 @@ between each. A rename that breaks something must be attributable to itself.
       - ⚠️ **neither test is trusted until it has failed once** — reintroduce
         `export fill!` and one old call site in a scratch copy to prove both
 - [ ] T6: Checkpoint A verification (S) — deps: T5
-- [ ] T7: open `tasks/m6-api-gaps.md` with its preamble (S) — R6, no deps
+- [x] T7: open `tasks/m6-api-gaps.md` with its preamble (S) — R6, no deps
       - do this *before* Part B, or it will not get written at all (M5's lesson)
 
 T7 ∥ everything — it is a file with a preamble and no dependencies.

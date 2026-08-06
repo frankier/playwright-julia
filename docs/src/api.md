@@ -156,6 +156,12 @@ set_default_timeout!
 set_default_navigation_timeout!
 ```
 
+## Network matchers
+
+```@docs
+glob_to_regex
+```
+
 ## Error types
 
 ```@docs
