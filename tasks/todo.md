@@ -99,7 +99,7 @@ T8 ∥ T9 — genuinely disjoint, no shared code.
 
 ## Phase 4: Documentation, example and release
 
-- [ ] T15: `docs/src/guide/network.md`, `events.md` table, `api.md` (L) —
+- [x] T15: `docs/src/guide/network.md`, `events.md` table, `api.md` (L) —
       deps: T8–T14
       - states D5's sequential cost and the no-handler-deadline decision out loud
 - [ ] T16: `examples/oxygen_jl.jl` gains its mocked-backend section (S) — D16,
