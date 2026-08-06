@@ -107,7 +107,7 @@ T8 ∥ T9 — genuinely disjoint, no shared code.
       - the same page tested twice, real route and mocked — the argument for the
         feature, as code
 - [x] T17: README status + `docs/bonnie-parity.md` network rows (S) — deps: T15
-- [ ] T18: final verification of all 27 success criteria (M) — deps: all
+- [x] T18: final verification of all 27 success criteria (M) — deps: all
 
 ### Checkpoint C — milestone complete
 
@@ -129,12 +129,12 @@ One thing outside the criteria is **not** green, and is recorded rather than
 hidden: `runexamples.jl` is 7/8. See the Checkpoint A note — `wglmakie_jl.jl`
 fails on Firefox on an assertion about WebGL availability that reproduces
 identically at `e45f3f4`, before this milestone began.
-- [ ] All 5 Part A and 22 Part B criteria verified, each by running it — table
+- [x] All 5 Part A and 22 Part B criteria verified, each by running it — table
       below
-- [ ] Gates confirmed still on: `checkdocs = :exports` and `warnonly = false`
+- [x] Gates confirmed still on: `checkdocs = :exports` and `warnonly = false`
       in `docs/make.jl`; `doctest = true`; both engines in the smoke job and in
       `runexamples.jl`. None weakened to make anything green.
-- [ ] Nothing in `tasks/m5-api-gaps.md` fixed beyond D3's incidental resolution
+- [x] Nothing in `tasks/m5-api-gaps.md` fixed beyond D3's incidental resolution
       of gap 1 for `fill` and `close` (Assumption 4)
 
 ## Verification table
