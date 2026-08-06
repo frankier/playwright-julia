@@ -21,7 +21,7 @@ between each. A rename that breaks something must be attributable to itself.
       - one commit per name, green after each
 - [x] T3: `dispose!`, `save_as!`, `start_tracing!`, `stop_tracing!` (S) — deps: T2
       - `with_tracing` keeps no bang (D2)
-- [ ] T4: `clear_console_messages!`, `clear_page_errors!` (S) — deps: T3
+- [x] T4: `clear_console_messages!`, `clear_page_errors!` (S) — deps: T3
 - [ ] T5: the no-shadow test and the old-name grep (S) — SC A4, A6, deps: T4
       - ⚠️ **neither test is trusted until it has failed once** — reintroduce
         `export fill!` and one old call site in a scratch copy to prove both

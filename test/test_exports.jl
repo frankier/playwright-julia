@@ -130,3 +130,126 @@
         end
     end
 end
+
+# --- Part A's two safety nets (M6 T5) --------------------------------------
+#
+# The renames in SPEC-M6 D1–D3 are mechanical, and mechanical changes are
+# exactly the ones that regress quietly. These two testsets are what stop that:
+# the first guards the D3 trap, the second guards the substitution being total.
+
+@testset "using Playwright shadows nothing in Base" begin
+    # D3's trap, made permanent. `fill!` and `delete!` are exported by Base, so
+    # a Playwright export of the same name would not extend Base — it would
+    # make both ambiguous and break `fill!` on arrays for anyone who writes
+    # `using Playwright`. That is why the renames are `set_value!` and
+    # `delete_file!`. If either ever comes back as the obvious spelling, the
+    # identity assertions below fail before any user sees an UndefVarError.
+    #
+    # This file is included after `using Playwright` in runtests.jl, so these
+    # names resolve here exactly as they would in a user's script.
+
+    @test fill! === Base.fill!
+    @test delete! === Base.delete!
+    @test close === Base.close
+    @test count === Base.count
+    @test first === Base.first
+
+    # ...and they still do what Base does, on ordinary Julia data.
+    @test fill!([1, 2, 3], 0) == [0, 0, 0]
+
+    d = Dict(:a => 1, :b => 2)
+    @test delete!(d, :a) === d
+    @test !haskey(d, :a)
+
+    io = IOBuffer()
+    write(io, "hello")
+    close(io)
+    @test !isopen(io)
+
+    @test count(isodd, [1, 2, 3]) == 2
+    @test first([10, 20, 30]) == 10
+
+    # `count` and `first` are extended for Locator and so are the same function
+    # objects as Base's — which is the point of D3's "these keep extending
+    # Base" half. Extending is fine; exporting a second binding is not.
+    @test Locator in [
+        m.sig.parameters[2] for
+        m in methods(count) if m.module === Playwright && length(m.sig.parameters) == 2
+    ]
+end
+
+@testset "no old spelling survives anywhere (SC A4)" begin
+    # SPEC-M6 D4: the claim that Part A is complete is a grep, not a habit.
+    # Each old name is searched for *as a call*, across every hand-written
+    # source in the repo.
+    root = dirname(@__DIR__)
+
+    # Hand-written sources only. src/generated/ is codegen output whose wire
+    # names (`_frame_goto`, `_page_clear_console_messages`) legitimately keep
+    # Playwright's spelling, and docs/build/ is a build artifact.
+    function hand_written_files()
+        paths = String[joinpath(root, "README.md")]
+        for dir in ("src", "test", "docs/src", "examples")
+            for (base, _, names) in walkdir(joinpath(root, dir))
+                occursin(joinpath("src", "generated"), base) && continue
+                for n in names
+                    endswith(n, ".jl") || endswith(n, ".md") || continue
+                    push!(paths, joinpath(base, n))
+                end
+            end
+        end
+        return paths
+    end
+
+    files = hand_written_files()
+    @test length(files) > 30      # the walk found something, i.e. it is not vacuous
+
+    # A leading `.` means a JavaScript method call inside an `evaluate` string
+    # — `document.getElementById("x").click()` is not this package's `click`,
+    # and rewriting it would break only inside the browser. A leading word
+    # character means a generated channel function.
+    old_call(name) = Regex("(?<![.\\w])" * name * "\\(")
+
+    renamed = [
+        "goto" => "goto!",
+        "click" => "click!",
+        "fill" => "set_value!",
+        "delete" => "delete_file!",
+        "dispose" => "dispose!",
+        "save_as" => "save_as!",
+        "start_tracing" => "start_tracing!",
+        "stop_tracing" => "stop_tracing!",
+        "clear_console_messages" => "clear_console_messages!",
+        "clear_page_errors" => "clear_page_errors!",
+        "dispatch_event" => "dispatch_event!",
+    ]
+
+    for (old, new) in renamed
+        pattern = old_call(old)
+        offenders = String[]
+        for path in files
+            for (i, line) in enumerate(eachline(path))
+                occursin(pattern, line) &&
+                    push!(offenders, relpath(path, root) * ":" * string(i))
+            end
+        end
+        # The message names the replacement, so a failure tells you the fix.
+        @test isempty(offenders) ||
+              error("`$old(` survives (should be `$new`): " * join(offenders, ", "))
+    end
+
+    # `close` cannot join that list: `close(sub)`, `close(conn)`, `close(io)`
+    # and `close(server)` are all still correct — only the three channel-owner
+    # methods were renamed. So it is checked by what it is applied to.
+    close_offenders = String[]
+    for path in files
+        for (i, line) in enumerate(eachline(path))
+            occursin(r"(?<![.\w])close\((browser|page|ctx|context)\)", line) &&
+                push!(close_offenders, relpath(path, root) * ":" * string(i))
+        end
+    end
+    @test isempty(close_offenders) || error(
+        "`close(` on a channel owner survives (should be `close!`): " *
+        join(close_offenders, ", "),
+    )
+end
