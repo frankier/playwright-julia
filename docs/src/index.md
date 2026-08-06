@@ -10,7 +10,7 @@ playwright() do pw
     browser = launch(pw.chromium; headless = true)
     try
         page = new_page(browser)
-        goto(page, "https://example.com")
+        goto!(page, "https://example.com")
         expect(locator(page, "h1"); to_have_text = "Example Domain")
     finally
         close!(browser)

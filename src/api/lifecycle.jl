@@ -294,7 +294,7 @@ is yours.
 
 ```julia
 page = new_page(browser)     # its own context, cleaned up with the page
-goto(page, url)
+goto!(page, url)
 close!(page)                  # …and the implicit context goes too
 
 ctx = new_context(browser)   # or share one context between pages

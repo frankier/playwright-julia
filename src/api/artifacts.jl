@@ -121,7 +121,7 @@ even when the block throws, which is the run worth tracing.
 ```julia
 start_tracing(ctx; title = "checkout")
 try
-    goto(page, url)
+    goto!(page, url)
     click(locator(page, "#submit"))
 finally
     stop_tracing(ctx; path = "artifacts/trace.zip")
@@ -177,7 +177,7 @@ to `path`, returning `path`. Parent directories are created as needed.
 
 ```julia
 start_tracing(ctx)
-goto(page, url)
+goto!(page, url)
 stop_tracing(ctx; path = "artifacts/trace.zip")
 ```
 
@@ -220,7 +220,7 @@ run worth tracing is the one that threw:
 
 ```julia
 with_tracing(ctx; path = "artifacts/trace.zip") do
-    goto(page, url)
+    goto!(page, url)
     click(locator(page, "#submit"))
 end
 ```
@@ -268,7 +268,7 @@ the protocol offers:
 ```julia
 ctx = new_context(browser; record_video = (dir = "artifacts/video",))
 page = new_page(ctx)
-goto(page, url)
+goto!(page, url)
 
 close!(page)                          # ...the file is finished by this
 @test isfile(path(video(page)))

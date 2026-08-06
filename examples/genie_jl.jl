@@ -84,7 +84,7 @@ try
         browser = launch(engine(pw); headless = true)
         try
             page = new_page(browser)
-            goto(page, url)
+            goto!(page, url)
 
             @testset "Genie.jl example" begin
                 expect(page; to_have_title = "Playwright.jl · Genie.jl")

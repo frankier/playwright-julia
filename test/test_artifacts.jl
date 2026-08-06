@@ -571,7 +571,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                             snapshots = true,
                         ) do
                             page = new_page(ctx)
-                            goto(page, "$base_url/m4.html")
+                            goto!(page, "$base_url/m4.html")
                             click(locator(page, "h1"))
                             return :done
                         end
@@ -599,7 +599,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         err = try
                             with_tracing(ctx; path = dest) do
                                 page = new_page(ctx)
-                                goto(page, "$base_url/m4.html")
+                                goto!(page, "$base_url/m4.html")
                                 error("deliberate failure mid-trace")
                             end
                             nothing
@@ -630,7 +630,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                             ),
                         )
                         page = new_page(ctx)
-                        goto(page, "$base_url/m4.html")
+                        goto!(page, "$base_url/m4.html")
                         click(locator(page, "h1"))
 
                         v = video(page)
@@ -657,7 +657,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         page = new_page(ctx)
-                        goto(page, "$base_url/m4.html")
+                        goto!(page, "$base_url/m4.html")
                         @test video(page) === nothing
                         close!(browser)
                     end
@@ -666,7 +666,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         page = new_page(ctx)
-                        goto(page, "$base_url/m4.html")
+                        goto!(page, "$base_url/m4.html")
 
                         @test browser_name(page) == engine
 

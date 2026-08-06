@@ -1,7 +1,7 @@
 # Navigation and page-level capture.
 
 """
-    goto(page::Page, url; timeout=nothing, wait_until="load") -> Union{Response,Nothing}
+    goto!(page::Page, url; timeout=nothing, wait_until="load") -> Union{Response,Nothing}
 
 Navigate `page` to `url` and wait for the navigation to finish.
 
@@ -20,7 +20,7 @@ with [`expect`](@ref), which waits for that one thing rather than for the whole
 page to go quiet.
 
 ```julia
-goto(page, "http://127.0.0.1:8000/")
+goto!(page, "http://127.0.0.1:8000/")
 expect(page; to_have_title = "Home")
 ```
 
@@ -28,7 +28,7 @@ expect(page; to_have_title = "Home")
 [`set_default_navigation_timeout!`](@ref) — and running out of it raises
 [`TimeoutError`](@ref).
 """
-function goto(
+function goto!(
     page::Page,
     url::AbstractString;
     timeout::MaybeTimeout = nothing,

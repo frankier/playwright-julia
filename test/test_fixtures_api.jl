@@ -342,7 +342,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         page = new_page(ctx)
-                        goto(page, "$base_url/m4.html")
+                        goto!(page, "$base_url/m4.html")
                         close!(ctx)
 
                         dir = mktempdir()

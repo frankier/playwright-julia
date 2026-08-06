@@ -10,7 +10,7 @@
         playwright() do pw
             browser = launch(getfield(pw, Symbol(name)))
             page = new_page(browser)
-            goto(page, "$base_url/evaluate.html")
+            goto!(page, "$base_url/evaluate.html")
 
             @testset "values out" begin
                 @test evaluate(page, "1 + 1") == 2

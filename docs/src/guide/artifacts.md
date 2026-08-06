@@ -49,7 +49,7 @@ Playwright's own viewer.
 
 ```julia
 with_tracing(ctx; path = "artifacts/trace.zip", screenshots = true) do
-    goto(page, url)
+    goto!(page, url)
     click(locator(page, "#submit"))     # if this throws, the zip is still written
 end
 ```
@@ -83,7 +83,7 @@ Video is recorded per page, and switched on at the **context**:
 ```julia
 ctx = new_context(browser; record_video = (dir = "artifacts/video",))
 page = new_page(ctx)
-goto(page, url)
+goto!(page, url)
 ```
 
 !!! warning "The video does not exist until the page closes"

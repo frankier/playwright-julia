@@ -63,7 +63,7 @@ try
         browser = launch(engine(pw); headless = true)
         try
             page = new_page(browser)
-            goto(page, url)
+            goto!(page, url)
 
             @testset "HTTP.jl example" begin
                 # Document-level assertions: the page is the one we think it is.

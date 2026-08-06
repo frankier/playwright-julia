@@ -63,7 +63,7 @@ set_default_timeout!(target::TimeoutOwner, milliseconds::Integer) =
 """
     set_default_navigation_timeout!(target, milliseconds)
 
-Set the default timeout for navigations (`goto` and friends) on a
+Set the default timeout for navigations (`goto!` and friends) on a
 [`Page`](@ref) or [`BrowserContext`](@ref).
 
 Navigations fall back to the [`set_default_timeout!`](@ref) setting when no
@@ -75,11 +75,11 @@ Milliseconds; `0` means no timeout.
 ```julia
 set_default_navigation_timeout!(ctx, 60_000)   # a slow app to first paint
 set_default_timeout!(ctx, 5_000)               # but assertions stay snappy
-goto(page, url)                                # gets the 60s budget
+goto!(page, url)                                # gets the 60s budget
 ```
 
 Set on a context it applies to every page in it; set on a page it applies to
-that page only. A `timeout` keyword on [`goto`](@ref) itself beats both.
+that page only. A `timeout` keyword on [`goto!`](@ref) itself beats both.
 """
 set_default_navigation_timeout!(target::TimeoutOwner, milliseconds::Integer) =
     set_timeout_setting!(target, :navigation, milliseconds)

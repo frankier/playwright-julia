@@ -30,7 +30,7 @@ include("bonnie_shim.jl")
     @testset "the shim drives a real page" begin
         with_fixture_server() do base_url
             with_page() do page
-                goto(page, "$base_url/target.html")
+                goto!(page, "$base_url/target.html")
 
                 # evaluate needs no shim; poll_js is built on it.
                 @test evaluate(page, "1 + 1") == 2
@@ -71,7 +71,7 @@ include("bonnie_shim.jl")
                 )
                 ctx = new_context(browser)
                 page = new_page(ctx)
-                goto(page, url)
+                goto!(page, url)
 
                 # 1. evaluate: values in and out
                 @assert evaluate(page, "1 + 1") == 2
@@ -127,7 +127,7 @@ end
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 2_000)                     # gap 3
                     page = new_page(ctx)
-                    goto(page, url)
+                    goto!(page, url)
 
                     # gap 1 — real auto-waiting, no hand-rolled polling
                     wait_for_selector(page, "#late")
@@ -216,7 +216,7 @@ end
                     ) do
                         page = new_page(ctx)
                         set_default_timeout!(page, 2_000)
-                        goto(page, "file://" * fixture)
+                        goto!(page, "file://" * fixture)
 
                         # B6: assertions about the document, not just an element
                         expect(page; to_have_title = "M4")

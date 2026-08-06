@@ -69,7 +69,7 @@
         :frame_locator,
         :frames,
         :get_attribute,
-        :goto,
+        :goto!,
         :inner_html,
         :inner_text,
         :input_value,

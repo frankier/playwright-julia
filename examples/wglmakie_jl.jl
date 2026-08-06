@@ -93,7 +93,7 @@ try
                     screenshots = true,
                 ) do
                     page = new_page(ctx)
-                    goto(page, url)
+                    goto!(page, url)
 
                     @testset "WGLMakie.jl example ($engine_name)" begin
                         # Structural, and true on both engines. Bonito injects

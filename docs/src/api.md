@@ -42,7 +42,7 @@ JSHandle
 ## Navigation and capture
 
 ```@docs
-goto
+goto!
 title
 url
 screenshot

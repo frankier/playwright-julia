@@ -256,11 +256,11 @@ end
         close(f.fake.connection)
     end
 
-    @testset "goto sends the navigation timeout, not the action timeout" begin
+    @testset "goto! sends the navigation timeout, not the action timeout" begin
         f = timeout_fixture()
         set_default_timeout!(f.context, 2_000)
         set_default_navigation_timeout!(f.context, 9_000)
-        @test sent_params(f.fake, () -> goto(f.page, "about:blank"))["timeout"] == 9_000
+        @test sent_params(f.fake, () -> goto!(f.page, "about:blank"))["timeout"] == 9_000
         close(f.fake.connection)
     end
 

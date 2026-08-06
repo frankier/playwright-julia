@@ -11,7 +11,7 @@ between each. A rename that breaks something must be attributable to itself.
 
 ## Phase 1: Part A — the bang convention
 
-- [ ] T1: the three collision renames — `fill` → `set_value!`,
+- [x] T1: the three collision renames — `fill` → `set_value!`,
       `delete` → `delete_file!`, `close` → `close!` (M) — D3, no deps
       - the only renames with thinking in them: two stop extending `Base`
       - each docstring's first line names Playwright's own spelling

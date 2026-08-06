@@ -59,7 +59,7 @@ end
                 @test browser_name(browser) == engine
                 # Launching is not enough — the browser has to be usable.
                 page = new_page(browser)
-                goto(page, "data:text/html,<h1>shared options</h1>")
+                goto!(page, "data:text/html,<h1>shared options</h1>")
                 @test text_content(locator(page, "h1")) == "shared options"
                 close!(browser)
             end
@@ -82,7 +82,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     late = locator(page, "#late")
                     @test expect(late; to_have_text = "late arrival") === late
@@ -95,7 +95,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     expect(locator(page, "h1"); to_have_text = "Hello")
                     expect(locator(page, "h1"); to_have_text = r"^Hel")
@@ -116,7 +116,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     expect(locator(page, "h1"); to_have_text = Not("Goodbye"))
                     expect(locator(page, "#nope"); to_be_visible = false)
@@ -132,7 +132,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     err = try
                         expect(locator(page, "h1"); to_have_text = "Goodbye", timeout = 1_000)
@@ -153,7 +153,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     err = try
                         expect(
@@ -176,7 +176,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     err = try
                         expect(
@@ -199,7 +199,7 @@ end
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 1_000)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     elapsed = @elapsed @test_throws Playwright.AssertionFailure expect(
                         locator(page, "h1");
@@ -214,7 +214,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m4.html")
+                    goto!(page, "$base_url/m4.html")
 
                     # m4.html loads as "M4 (loading)" and renames itself 300ms
                     # later, so this can only pass by retrying driver-side.
@@ -246,7 +246,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     # A condition expect cannot express: a JS flag flipping.
                     @test retry_until(; timeout = 10_000, interval = 50) do
@@ -278,7 +278,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
                     @test title(page) == "Milestone 3 fixture"
 
                     close!(page)
@@ -289,7 +289,7 @@ end
                         p -> title(p),
                         p -> evaluate(p, "1 + 1"),
                         p -> locator(p, "h1"),
-                        p -> goto(p, "$base_url/m3.html"),
+                        p -> goto!(p, "$base_url/m3.html"),
                         p -> wait_for_selector(p, "h1"),
                     )
                         err = try
@@ -309,7 +309,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     close!(ctx)
                     @test_throws Playwright.TargetClosedError title(page)
@@ -324,7 +324,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m4.html")
+                    goto!(page, "$base_url/m4.html")
 
                     # Alive: they report what the page really produced.
                     @test js_wait(page, "window.__threwAt !== undefined")
@@ -361,7 +361,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     slider = locator(page, "#first")
                     evaluate(slider, "(el, v) => el.value = v", 7)
@@ -380,7 +380,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     @test evaluate(locator(page, "h1"), "el => el.textContent") == "Hello"
                     @test evaluate(locator(page, "#first"), "el => el.max") == "10"
@@ -392,7 +392,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     strict_multi = locator(page, "input[type=range]")
                     @test_throws PlaywrightError evaluate(strict_multi, "el => el.value")
@@ -404,7 +404,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     sliders = locator(page, "input[type=range]"; strict = false)
                     @test evaluate_all(sliders, "els => els.length") == 2
@@ -425,7 +425,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     handle = element_handle(locator(page, "h1"))
                     @test handle isa Playwright.ElementHandle
@@ -441,7 +441,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     loc = locator(page, "#first")
                     @test frame(loc) === Playwright.main_frame(page)
@@ -473,7 +473,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     # #late is appended 300ms after parse. No sleep here: the
                     # driver holds the call open until it lands (SC 2).
@@ -492,7 +492,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     @test wait_for_selector(page, "#late"; state = :visible) isa
                           Playwright.ElementHandle
@@ -507,7 +507,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     el = wait_for_selector(locator(page, "#late"); state = :visible)
                     @test el isa Playwright.ElementHandle
@@ -521,7 +521,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     err = try
                         wait_for_selector(page, "#never-arrives"; timeout = 1_000)
@@ -539,7 +539,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     handle = wait_for_function(page, "() => window.ready === true")
                     @test handle !== nothing
@@ -552,7 +552,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     wait_for_function(
                         page,
@@ -571,7 +571,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     err = try
                         wait_for_function(
@@ -595,7 +595,7 @@ end
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 1_000)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     elapsed =
                         @elapsed @test_throws Playwright.TimeoutError wait_for_selector(
@@ -623,7 +623,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     popup = expect_event(ctx, :page) do
                         click(locator(page, "#open-popup"))
@@ -645,7 +645,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3-events.html")
+                    goto!(page, "$base_url/m3-events.html")
 
                     msg =
                         expect_event(ctx, :console; predicate = m -> m.text == "shouted") do
@@ -662,7 +662,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3-events.html")
+                    goto!(page, "$base_url/m3-events.html")
 
                     floods = with_events(ctx, :console) do stream
                         click(locator(page, "#flood"))
@@ -682,7 +682,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     closed = expect_event(page, :close) do
                         close!(page)
@@ -696,7 +696,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     err = expect_event(ctx, :pageerror) do
                         # setTimeout so the throw escapes evaluate's own reply
@@ -716,7 +716,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     elapsed = @elapsed @test_throws Playwright.TimeoutError expect_event(
                         ctx,
@@ -748,7 +748,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3-events.html")
+                    goto!(page, "$base_url/m3-events.html")
                     conn = page.connection
 
                     expect_event(ctx, :console) do
@@ -780,7 +780,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/m3.html")
 
                     # The h1 the target snippet asserts on is there immediately.
                     @test text_content(locator(page, "h1")) == "Hello"
@@ -810,7 +810,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m4.html")
+                    goto!(page, "$base_url/m4.html")
 
                     # The title is wrong at parse and right later. Asserted from
                     # the page's own clock, as m3.html's late element is, rather
@@ -835,7 +835,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto(page, "$base_url/m3-events.html")
+                    goto!(page, "$base_url/m3-events.html")
 
                     # #shout logs synchronously inside its own click handler: the
                     # message must already exist by the time the handler returns.

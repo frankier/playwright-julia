@@ -10,7 +10,7 @@ using Playwright
 playwright() do pw
     browser = launch(pw.chromium; headless=true)
     page = new_page(browser)
-    goto(page, "https://example.com")
+    goto!(page, "https://example.com")
     println(title(page))
     close!(browser)
 end
@@ -41,7 +41,7 @@ export playwright,
     launch,
     new_page,
     close!,
-    goto,
+    goto!,
     title,
     locator,
     click,

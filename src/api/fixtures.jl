@@ -128,7 +128,7 @@ not have to reimplement the fixture. Any other value is an `ArgumentError`
 listing the two, and `artifacts_on` without `artifacts` is an `ArgumentError`
 too — it can only be a mistake about where the files were meant to go.
 
-Remaining keywords go to [`goto`](@ref), so `wait_until` and `timeout` work as
+Remaining keywords go to [`goto!`](@ref), so `wait_until` and `timeout` work as
 usual.
 
 !!! note "Your exception always wins"
@@ -165,7 +165,7 @@ function with_page(
     page = new_page(target)
     threw = false
     try
-        url === nothing || goto(page, url; kw...)
+        url === nothing || goto!(page, url; kw...)
         return f(page)
     catch
         threw = true

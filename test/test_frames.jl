@@ -8,7 +8,7 @@
         playwright() do pw
             browser = launch(getfield(pw, Symbol(browser_name)))
             page = new_page(browser)
-            goto(page, "$base_url/iframe.html")
+            goto!(page, "$base_url/iframe.html")
 
             main = Playwright.main_frame(page)
 

@@ -71,7 +71,7 @@ tryrun(cmd) =
                 pw_ref[] = pw
                 browser = launch(pw.chromium; headless = true)
                 page = new_page(browser)
-                goto(page, "data:text/html,<h1>leak check</h1>")
+                goto!(page, "data:text/html,<h1>leak check</h1>")
                 # deliberately no close!(browser)
             end
             @test !process_running(pw_ref[].process)
@@ -88,20 +88,20 @@ tryrun(cmd) =
             for browser_name in ("chromium", "firefox")
                 bt = getfield(pw, Symbol(browser_name))
 
-                @testset "$browser_name: launch → new_page → goto → title → close" begin
+                @testset "$browser_name: launch → new_page → goto! → title → close!" begin
                     browser = launch(bt; headless = true)
                     @test browser isa Playwright.Browser
                     page = new_page(browser)
                     @test page isa Playwright.Page
 
-                    response = goto(page, "$base_url/")
+                    response = goto!(page, "$base_url/")
                     @test response isa Playwright.Response
                     @test title(page) == "Playwright.jl Fixture"
 
-                    goto(page, "$base_url/second.html")
+                    goto!(page, "$base_url/second.html")
                     @test title(page) == "Second Fixture Page"
 
-                    @test_throws PlaywrightError goto(
+                    @test_throws PlaywrightError goto!(
                         page,
                         "http://127.0.0.1:1/unreachable";
                         timeout = 5_000,
@@ -120,7 +120,7 @@ tryrun(cmd) =
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 2_000)
                     page = new_page(ctx)
-                    goto(page, "$base_url/")
+                    goto!(page, "$base_url/")
 
                     missing_el = locator(page, "#definitely-not-here")
                     elapsed = @elapsed @test_throws Playwright.TimeoutError text_content(
@@ -148,7 +148,7 @@ tryrun(cmd) =
                 @testset "$browser_name: locators — text_content, click, fill" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
-                    goto(page, "$base_url/")
+                    goto!(page, "$base_url/")
 
                     heading = locator(page, "h1")
                     @test heading isa Playwright.Locator
@@ -193,7 +193,7 @@ tryrun(cmd) =
 
                     # A call against a closed page classifies as TargetClosedError.
                     doomed = new_page(browser)
-                    goto(doomed, "$base_url/")
+                    goto!(doomed, "$base_url/")
                     close!(doomed)
                     closed_err = try
                         screenshot(doomed)
@@ -209,7 +209,7 @@ tryrun(cmd) =
                 @testset "$browser_name: multi-match locators over sliders.html" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
-                    goto(page, "$base_url/sliders.html")
+                    goto!(page, "$base_url/sliders.html")
 
                     sliders = locator(page, "input[type=range]"; strict = false)
                     @test count(sliders) == 2
@@ -259,7 +259,7 @@ tryrun(cmd) =
                 @testset "$browser_name: dispatch_event drives a range input" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
-                    goto(page, "$base_url/sliders.html")
+                    goto!(page, "$base_url/sliders.html")
 
                     readout = locator(page, "#readout")
                     second = locator(page, "#second")
@@ -300,7 +300,7 @@ tryrun(cmd) =
                 @testset "$browser_name: content and state queries" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
-                    goto(page, "$base_url/sliders.html")
+                    goto!(page, "$base_url/sliders.html")
 
                     body = locator(page, "body")
                     # inner_text is what a user sees; text_content is the raw
@@ -329,7 +329,7 @@ tryrun(cmd) =
                         args = ["--disable-dev-shm-usage"],
                     )
                     page = new_page(browser)
-                    goto(page, "$base_url/")
+                    goto!(page, "$base_url/")
                     # The browser started and is usable, which is what these
                     # flags being accepted rather than rejected looks like.
                     @test evaluate(page, "navigator.userAgent") isa String
@@ -344,7 +344,7 @@ tryrun(cmd) =
                             firefox_user_prefs = Dict("dom.max_script_run_time" => 20),
                         )
                         page = new_page(browser)
-                        goto(page, "$base_url/")
+                        goto!(page, "$base_url/")
                         @test title(page) == "Playwright.jl Fixture"
                         close!(browser)
                     end
@@ -364,7 +364,7 @@ tryrun(cmd) =
 
                     page = new_page(ctx)
                     @test length(Playwright.pages(ctx)) == 1
-                    goto(page, "$base_url/")
+                    goto!(page, "$base_url/")
                     @test title(page) == "Playwright.jl Fixture"
                     # The viewport option was applied, not silently dropped.
                     @test evaluate(page, "window.innerWidth") == 800
@@ -377,7 +377,7 @@ tryrun(cmd) =
                 @testset "$browser_name: new_page(browser) no longer leaks its context" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
-                    goto(page, "$base_url/")
+                    goto!(page, "$base_url/")
                     @test length(Playwright.contexts(browser)) == 1
 
                     close!(page)
@@ -399,7 +399,7 @@ tryrun(cmd) =
                 @testset "$browser_name: console messages and page errors" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
-                    goto(page, "$base_url/noisy.html")
+                    goto!(page, "$base_url/noisy.html")
 
                     # The uncaught error is thrown from a timeout callback, so
                     # it can land after load.
@@ -446,7 +446,7 @@ tryrun(cmd) =
                 @testset "$browser_name: screenshot writes a non-empty PNG" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
-                    goto(page, "$base_url/")
+                    goto!(page, "$base_url/")
 
                     path = joinpath(mktempdir(), "example.png")
                     bytes = screenshot(page; path)

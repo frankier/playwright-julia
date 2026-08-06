@@ -60,7 +60,7 @@
         # not merely the helper they share.
         for call in (
             page -> title(page),
-            page -> goto(page, "about:blank"),
+            page -> goto!(page, "about:blank"),
             page -> evaluate(page, "1 + 1"),
             page -> locator(page, "#x"),
             page -> frames(page),

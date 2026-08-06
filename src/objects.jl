@@ -79,7 +79,7 @@ end
 Main frame backing `page`; page-level actions delegate to it.
 
 Raises [`TargetClosedError`](@ref) once the page has closed. Every page-level
-entry point (`goto`, `title`, `evaluate`, `locator`, `frames`, `frame_locator`,
+entry point (`goto!`, `title`, `evaluate`, `locator`, `frames`, `frame_locator`,
 the waiting calls) hops through here, so this one guard covers them all.
 
 The check is on the **page**, not on the frame, and that distinction is load
@@ -168,7 +168,7 @@ playwright() do pw
     browser = launch(pw.chromium; headless = true)
     try
         page = new_page(browser)
-        goto(page, "https://example.com")
+        goto!(page, "https://example.com")
     finally
         close!(browser)
     end
@@ -211,7 +211,7 @@ end
 @doc """
     Page
 
-One tab. The main thing you drive: [`goto`](@ref), [`locator`](@ref),
+One tab. The main thing you drive: [`goto!`](@ref), [`locator`](@ref),
 [`evaluate`](@ref), [`screenshot`](@ref). Created by [`new_page`](@ref), and
 also what arrives from `expect_event(ctx, :page)` when a popup opens.
 
@@ -219,7 +219,7 @@ Calls on a closed page raise [`TargetClosedError`](@ref).
 
 ```julia
 page = new_page(browser)
-goto(page, "https://example.com")
+goto!(page, "https://example.com")
 expect(locator(page, "h1"); to_have_text = "Example Domain")
 ```
 """ Page
