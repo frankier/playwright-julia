@@ -1,0 +1,588 @@
+# Route interception, hermetically: the registry, the pattern union, the
+# settle verbs' parameter building, and — first — the dispatcher's lifetime.
+#
+# R1 is why the lifetime tests come first and get their own section. A
+# dispatcher that leaks, dies or deadlocks presents to a user identically:
+# requests hang and an unrelated `goto!` times out thirty seconds later. The
+# tests therefore assert on the task and the registry directly rather than
+# inferring from behaviour — "no route arrived" is also what a silently broken
+# dispatcher looks like.
+#
+# R1's tripwire: no test here may use `sleep` to pass. Where a test must wait
+# for the dispatcher to get to something, it waits on a condition with
+# `timedwait`, never on a duration.
+
+using Base64: base64decode
+using JSON
+
+using Playwright:
+    route!,
+    unroute!,
+    unroute_all!,
+    with_route,
+    abort!,
+    continue!,
+    fulfill!,
+    request,
+    RouteRegistration,
+    is_settled
+
+"""
+Wait for the most recent client message whose method is `method`, and return
+it. Fails rather than hangs — the same rule as R3's timeouts.
+"""
+function until_message(requests, method; seconds = 10.0)
+    found = Ref{Any}(nothing)
+    ok = timedwait(seconds) do
+        idx = findlast(m -> get(m, "method", "") == method, requests)
+        idx === nothing && return false
+        found[] = requests[idx]
+        return true
+    end
+    ok === :ok || error("no `$method` message arrived within $(seconds)s")
+    return found[]
+end
+
+"The registry for `owner`, or `nothing` when nothing is registered."
+routing_registry(owner) = Playwright.registry_for(owner)
+
+"Number of live registrations on `owner`."
+registration_count(owner) =
+    (r = routing_registry(owner)) === nothing ? 0 : length(r.registrations)
+
+"Wait for `cond` to hold, failing rather than hanging. Never a bare sleep."
+function until(cond, seconds = 10.0)
+    ok = timedwait(cond, seconds) === :ok
+    ok || error("condition never held within $(seconds)s")
+    return true
+end
+
+"Build browser → context → page over a FakeDriver, with a route-capable owner."
+function routing_fixture()
+    fake = FakeDriver()
+    conn = fake.connection
+    requests = autoreply!(fake)
+    send_create(fake, "", "Browser", "browser@1")
+    send_create(fake, "browser@1", "BrowserContext", "context@1")
+    send_create(fake, "context@1", "Page", "page@1")
+    @test timedwait(() -> Playwright.lookup_object(conn, "page@1") !== nothing, 5.0) === :ok
+    return (
+        fake = fake,
+        conn = conn,
+        requests = requests,
+        context = Playwright.lookup_object(conn, "context@1"),
+        page = Playwright.lookup_object(conn, "page@1"),
+    )
+end
+
+const ROUTE_GUID_SEQ = Ref(0)
+
+"""
+Deliver a `route` event carrying a Route whose request is for `target`.
+
+`guid` is suffixed with a counter so no two routes in this file ever share one.
+Reused guids let one testset's state decide another's outcome, which is how the
+unbounded SETTLED_ROUTES leak first showed itself.
+"""
+function send_route(fake, owner_guid, guid, target)
+    guid = "$(guid)-$(ROUTE_GUID_SEQ[] += 1)"
+    send_create(
+        fake,
+        "",
+        "Request",
+        "req-$guid",
+        Dict{String,Any}(
+            "url" => target,
+            "method" => "GET",
+            "resourceType" => "fetch",
+            "isNavigationRequest" => false,
+            "headers" => Any[],
+        ),
+    )
+    send_create(
+        fake,
+        "",
+        "Route",
+        guid,
+        Dict{String,Any}("request" => Dict("guid" => "req-$guid")),
+    )
+    @test timedwait(
+        () -> Playwright.lookup_object(fake.connection, guid) !== nothing,
+        5.0,
+    ) === :ok
+    send_event(fake, owner_guid, "route", Dict{String,Any}("route" => Dict("guid" => guid)))
+    return Playwright.lookup_object(fake.connection, guid)
+end
+
+"The interception patterns of the most recent setNetworkInterceptionPatterns."
+function last_patterns(requests)
+    for msg in Iterators.reverse(requests)
+        if get(msg, "method", "") == "setNetworkInterceptionPatterns"
+            return [p["glob"] for p in msg["params"]["patterns"]]
+        end
+    end
+    return nothing
+end
+
+@testset "routing" begin
+    # --- The dispatcher's lifetime (R1) -----------------------------------
+
+    @testset "the dispatcher spawns on the first registration, not before" begin
+        f = routing_fixture()
+
+        # Nothing registered: no registry, no task, no subscription. A package
+        # that spawns a task per owner regardless leaks one per page.
+        @test routing_registry(f.context) === nothing
+
+        reg = route!(f.context, "**/api/*", route -> abort!(route))
+        registry = routing_registry(f.context)
+        @test registry !== nothing
+        @test registry.task isa Task
+        @test !istaskdone(registry.task)
+        @test registry.subscription !== nothing
+
+        # A second registration reuses the task rather than spawning another:
+        # one per owner, not one per route (D5).
+        task = registry.task
+        reg2 = route!(f.context, "**/other/*", route -> abort!(route))
+        @test routing_registry(f.context).task === task
+        @test registration_count(f.context) == 2
+
+        unroute!(f.context, reg)
+        unroute!(f.context, reg2)
+        close(f.conn)
+    end
+
+    @testset "the dispatcher stops on the last unregistration" begin
+        f = routing_fixture()
+        reg1 = route!(f.context, "**/a", route -> abort!(route))
+        reg2 = route!(f.context, "**/b", route -> abort!(route))
+        task = routing_registry(f.context).task
+
+        unroute!(f.context, reg1)
+        # One left, so the task lives on.
+        @test !istaskdone(task)
+        @test routing_registry(f.context) !== nothing
+
+        unroute!(f.context, reg2)
+        # ...and now it is gone, waited for rather than assumed.
+        @test istaskdone(task)
+        @test routing_registry(f.context) === nothing
+
+        close(f.conn)
+    end
+
+    @testset "a handler that throws does not kill the dispatcher (D7)" begin
+        f = routing_fixture()
+        seen = Channel{String}(10)
+        reg = route!(f.context, "**/*", function (route)
+            put!(seen, url(request(route)))
+            error("handler is broken")
+        end)
+        task = routing_registry(f.context).task
+
+        send_route(f.fake, "context@1", "route@1", "https://x.test/one")
+        @test take!(seen) == "https://x.test/one"
+
+        # The dispatcher survived, and serves the *next* request — which is the
+        # property that matters: a dead dispatcher hangs everything after it.
+        @test !istaskdone(task)
+        send_route(f.fake, "context@1", "route@2", "https://x.test/two")
+        @test take!(seen) == "https://x.test/two"
+        @test !istaskdone(task)
+
+        # ...and the exceptions surface on the caller's task at release (D7).
+        @test_throws CompositeException unroute!(f.context, reg)
+
+        close(f.conn)
+    end
+
+    @testset "the dispatcher survives an owner that closes mid-route" begin
+        f = routing_fixture()
+        entered = Channel{Bool}(4)
+        reg = route!(f.context, "**/*", function (route)
+            put!(entered, true)
+            # Settling a route whose owner has gone raises inside the handler;
+            # that is a handler exception like any other and must not be fatal.
+            continue!(route)
+        end)
+        task = routing_registry(f.context).task
+
+        send_route(f.fake, "context@1", "route@1", "https://x.test/one")
+        @test take!(entered)
+        @test !istaskdone(task)
+
+        # Tear the connection down under the dispatcher, then release. The
+        # handler's `continue!` fails against a dead connection — that is a
+        # handler exception like any other, so it is collected and rethrown
+        # here rather than killing the dispatcher where it happened.
+        close(f.conn)
+        @test_throws Exception unroute!(f.context, reg)
+
+        # The point of the test: the task ended cleanly rather than being left
+        # blocked on a channel nobody will ever feed.
+        @test istaskdone(task)
+    end
+
+    # --- Registration and the pattern union (D9) --------------------------
+
+    @testset "the driver gets the union, re-sent on every change (D9)" begin
+        f = routing_fixture()
+
+        reg1 = route!(f.context, "**/api/*", route -> abort!(route))
+        @test until(() -> last_patterns(f.requests) == ["**/api/*"])
+
+        reg2 = route!(f.context, "**/img/*", route -> abort!(route))
+        @test until(() -> last_patterns(f.requests) == ["**/api/*", "**/img/*"])
+
+        unroute!(f.context, reg1)
+        @test until(() -> last_patterns(f.requests) == ["**/img/*"])
+
+        unroute!(f.context, reg2)
+        @test until(() -> last_patterns(f.requests) == String[])
+
+        close(f.conn)
+    end
+
+    @testset "a Regex or predicate widens the union to **/* (D9)" begin
+        f = routing_fixture()
+
+        reg = route!(f.context, r"api", route -> abort!(route))
+        @test until(() -> last_patterns(f.requests) == ["**/*"])
+        unroute!(f.context, reg)
+
+        reg = route!(f.context, u -> occursin("api", u), route -> abort!(route))
+        @test until(() -> last_patterns(f.requests) == ["**/*"])
+        unroute!(f.context, reg)
+
+        # A glob alongside a Regex still widens: the union is what the driver
+        # can express, and it cannot express the Regex.
+        reg1 = route!(f.context, "**/api/*", route -> abort!(route))
+        reg2 = route!(f.context, r"other", route -> abort!(route))
+        @test until(() -> last_patterns(f.requests) == ["**/api/*", "**/*"])
+        unroute!(f.context, reg1)
+        unroute!(f.context, reg2)
+
+        close(f.conn)
+    end
+
+    @testset "a Page routes through its own channel, not its context's" begin
+        f = routing_fixture()
+        reg = route!(f.page, "**/api/*", route -> abort!(route))
+
+        sent = [
+            m for
+            m in f.requests if get(m, "method", "") == "setNetworkInterceptionPatterns"
+        ]
+        @test !isempty(sent)
+        @test last(sent)["guid"] == "page@1"
+
+        unroute!(f.page, reg)
+        close(f.conn)
+    end
+
+    # --- Handler selection (D5) -------------------------------------------
+
+    @testset "the newest matching registration wins (D5)" begin
+        f = routing_fixture()
+        winner = Channel{String}(4)
+
+        old = route!(f.context, "**/*", route -> (put!(winner, "old"); abort!(route)))
+        new = route!(f.context, "**/*", route -> (put!(winner, "new"); abort!(route)))
+
+        send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        @test take!(winner) == "new"
+
+        # Remove the newest and the older one takes over — the registration
+        # order is a stack, not a set.
+        unroute!(f.context, new)
+        send_route(f.fake, "context@1", "route@2", "https://x.test/b")
+        @test take!(winner) == "old"
+
+        unroute!(f.context, old)
+        close(f.conn)
+    end
+
+    @testset "a non-matching registration is skipped, not consulted" begin
+        f = routing_fixture()
+        ran = Channel{String}(4)
+
+        miss = route!(f.context, "**/never/*", route -> (put!(ran, "miss"); abort!(route)))
+        hit = route!(f.context, "**/api/*", route -> (put!(ran, "hit"); abort!(route)))
+
+        send_route(f.fake, "context@1", "route@1", "https://x.test/api/items")
+        @test take!(ran) == "hit"
+
+        unroute!(f.context, miss)
+        unroute!(f.context, hit)
+        close(f.conn)
+    end
+
+    @testset "handlers run sequentially, never concurrently (D5)" begin
+        f = routing_fixture()
+        # If two handlers ran at once this counter would see 2. Sequential
+        # dispatch is what lets a user closure touch shared state unlocked.
+        concurrent = Ref(0)
+        peak = Ref(0)
+        done = Channel{Bool}(8)
+        gate = Channel{Bool}(8)
+
+        reg = route!(f.context, "**/*", function (route)
+            concurrent[] += 1
+            peak[] = max(peak[], concurrent[])
+            take!(gate)                   # hold the handler open
+            concurrent[] -= 1
+            abort!(route)
+            put!(done, true)
+        end)
+
+        send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        send_route(f.fake, "context@1", "route@2", "https://x.test/b")
+        put!(gate, true)
+        @test take!(done)
+        put!(gate, true)
+        @test take!(done)
+        @test peak[] == 1
+
+        unroute!(f.context, reg)
+        close(f.conn)
+    end
+
+    # --- Exception collection (D7) ----------------------------------------
+
+    @testset "one handler exception is rethrown directly" begin
+        f = routing_fixture()
+        ran = Channel{Bool}(4)
+        reg = route!(f.context, "**/*", function (route)
+            put!(ran, true)
+            throw(ArgumentError("just the one"))
+        end)
+
+        send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        @test take!(ran)
+
+        err = try
+            unroute!(f.context, reg)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test err.msg == "just the one"
+
+        close(f.conn)
+    end
+
+    @testset "several become a CompositeException" begin
+        f = routing_fixture()
+        ran = Channel{Bool}(8)
+        reg = route!(f.context, "**/*", function (route)
+            put!(ran, true)
+            error("boom")
+        end)
+
+        send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        @test take!(ran)
+        send_route(f.fake, "context@1", "route@2", "https://x.test/b")
+        @test take!(ran)
+
+        err = try
+            unroute!(f.context, reg)
+            nothing
+        catch e
+            e
+        end
+        @test err isa CompositeException
+        @test length(err.exceptions) == 2
+
+        close(f.conn)
+    end
+
+    @testset "with_route unregisters even when the body throws (D8)" begin
+        f = routing_fixture()
+        reg_count_before = registration_count(f.context)
+
+        @test_throws ErrorException with_route(f.context, "**/*", route -> abort!(route)) do
+            error("the body failed")
+        end
+
+        # The registration is gone despite the throw, and so is the dispatcher.
+        @test registration_count(f.context) == reg_count_before
+        @test routing_registry(f.context) === nothing
+
+        close(f.conn)
+    end
+
+    @testset "with_route returns the body's value" begin
+        f = routing_fixture()
+        result = with_route(f.context, "**/*", route -> abort!(route)) do
+            42
+        end
+        @test result == 42
+        @test routing_registry(f.context) === nothing
+        close(f.conn)
+    end
+
+    @testset "unroute! is idempotent and unroute_all! clears everything" begin
+        f = routing_fixture()
+        reg = route!(f.context, "**/a", route -> abort!(route))
+        route!(f.context, "**/b", route -> abort!(route))
+
+        unroute!(f.context, reg)
+        unroute!(f.context, reg)          # again: a no-op, not an error
+        @test registration_count(f.context) == 1
+
+        unroute_all!(f.context)
+        @test routing_registry(f.context) === nothing
+        unroute_all!(f.context)           # nothing registered: still a no-op
+        @test routing_registry(f.context) === nothing
+
+        close(f.conn)
+    end
+
+    # --- The settle verbs --------------------------------------------------
+
+    @testset "abort! validates its error code client-side (D15)" begin
+        f = routing_fixture()
+        route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+
+        @test_throws ArgumentError abort!(route; error_code = "failled")
+        # ...and the typo did not settle it, so a correct call still can.
+        @test !is_settled(route)
+        abort!(route; error_code = "connectionrefused")
+        @test is_settled(route)
+
+        close(f.conn)
+    end
+
+    @testset "a route settles exactly once" begin
+        f = routing_fixture()
+        route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+
+        continue!(route)
+        @test is_settled(route)
+        @test_throws ArgumentError continue!(route)
+        @test_throws ArgumentError abort!(route)
+        @test_throws ArgumentError fulfill!(route; body = "late")
+
+        close(f.conn)
+    end
+
+    @testset "fulfill! rejects two body sources at the call site (D15)" begin
+        f = routing_fixture()
+        route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+
+        err = try
+            fulfill!(route; body = "a", json = Dict("b" => 1))
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("body", err.msg) && occursin("json", err.msg)
+        # The rejection happened before anything was sent, so the route is
+        # still settleable — an ArgumentError must not consume the route.
+        @test !is_settled(route)
+
+        close(f.conn)
+    end
+
+    @testset "fulfill! builds the parameters the protocol expects" begin
+        f = routing_fixture()
+
+        route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        fulfill!(route; json = Dict("items" => [1, 2]))
+        sent = until_message(f.requests, "fulfill")
+        @test sent["params"]["body"] == JSON.json(Dict("items" => [1, 2]))
+        @test sent["params"]["isBase64"] == false
+        @test ("content-type" => "application/json") in
+              [h["name"] => h["value"] for h in sent["params"]["headers"]]
+
+        route2 = send_route(f.fake, "context@1", "route@2", "https://x.test/b")
+        fulfill!(route2; status = 404, body = "nope")
+        sent2 = until_message(f.requests, "fulfill")
+        @test sent2["params"]["status"] == 404
+        @test sent2["params"]["body"] == "nope"
+        @test sent2["params"]["isBase64"] == false
+
+        # Bytes go base64, which is the difference a String cannot express.
+        route3 = send_route(f.fake, "context@1", "route@3", "https://x.test/c")
+        fulfill!(route3; body = UInt8[0x00, 0xff])
+        sent3 = until_message(f.requests, "fulfill")
+        @test sent3["params"]["isBase64"] == true
+        @test base64decode(sent3["params"]["body"]) == UInt8[0x00, 0xff]
+
+        close(f.conn)
+    end
+
+    @testset "fulfill! infers content type from a path's extension" begin
+        f = routing_fixture()
+        dir = mktempdir()
+        file = joinpath(dir, "mock.json")
+        write(file, "{\"from\":\"disk\"}")
+
+        route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        fulfill!(route; path = file)
+        sent = until_message(f.requests, "fulfill")
+        @test ("content-type" => "application/json") in
+              [h["name"] => h["value"] for h in sent["params"]["headers"]]
+        @test String(base64decode(sent["params"]["body"])) == "{\"from\":\"disk\"}"
+
+        # ...and an explicit content_type beats the inference.
+        route2 = send_route(f.fake, "context@1", "route@2", "https://x.test/b")
+        fulfill!(route2; path = file, content_type = "text/plain")
+        sent2 = until_message(f.requests, "fulfill")
+        @test ("content-type" => "text/plain") in
+              [h["name"] => h["value"] for h in sent2["params"]["headers"]]
+
+        close(f.conn)
+    end
+
+    @testset "fulfill! names a bad body type rather than sending it" begin
+        f = routing_fixture()
+        route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        @test_throws ArgumentError fulfill!(route; body = 42)
+        @test_throws ArgumentError fulfill!(route; response = "not an APIResponse")
+        @test !is_settled(route)
+        close(f.conn)
+    end
+
+    @testset "continue! sends its rewrites in the protocol's shape" begin
+        f = routing_fixture()
+
+        route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        continue!(
+            route;
+            url = "https://x.test/elsewhere",
+            method = "POST",
+            headers = Dict("X-Test" => "1"),
+            post_data = "hello",
+        )
+        sent = until_message(f.requests, "continue")
+        @test sent["params"]["url"] == "https://x.test/elsewhere"
+        @test sent["params"]["method"] == "POST"
+        @test sent["params"]["isFallback"] == false
+        @test [h["name"] => h["value"] for h in sent["params"]["headers"]] == ["X-Test" => "1"]
+        @test base64decode(sent["params"]["postData"]) == Vector{UInt8}("hello")
+
+        close(f.conn)
+    end
+
+    @testset "abort! sends its error code" begin
+        f = routing_fixture()
+        route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        abort!(route)
+        sent = until_message(f.requests, "abort")
+        @test sent["params"]["errorCode"] == "failed"
+        close(f.conn)
+    end
+
+    @testset "request(route) and url(route) read the initializer" begin
+        f = routing_fixture()
+        route = send_route(f.fake, "context@1", "route@1", "https://x.test/api/items")
+        @test request(route) isa Playwright.Request
+        @test url(route) == "https://x.test/api/items"
+        @test url(request(route)) == url(route)
+        close(f.conn)
+    end
+end

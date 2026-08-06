@@ -67,6 +67,16 @@ export playwright,
     method,
     RequestFailure,
     error_text,
+    # M6 T10: route interception (D5–D9)
+    Route,
+    route!,
+    unroute!,
+    unroute_all!,
+    with_route,
+    abort!,
+    continue!,
+    fulfill!,
+    RouteRegistration,
     click!,
     text_content,
     input_value,
@@ -146,7 +156,6 @@ include("serializers.jl")
 include("objects.jl")
 include("timeouts.jl")
 include("api/globs.jl")
-include("api/network.jl")
 include("api/events.jl")
 include("api/lifecycle.jl")
 include("api/navigation.jl")
@@ -157,6 +166,10 @@ include("api/frames.jl")
 include("api/evaluate.jl")
 include("api/diagnostics.jl")
 include("api/artifacts.jl")
+# Network: after events.jl, whose Subscription the route dispatcher holds, and
+# after lifecycle.jl, whose name_value_array it mirrors.
+include("api/network.jl")
+include("api/routing.jl")
 include("api/fixtures.jl")
 
 end # module

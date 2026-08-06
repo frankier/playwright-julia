@@ -194,6 +194,23 @@ headers_array
 raw_headers
 ```
 
+## Route interception
+
+Handlers run on a dispatcher task, one per routed owner, sequentially — see
+[`route!`](@ref) for what that buys and what it costs.
+
+```@docs
+Route
+route!
+unroute!
+unroute_all!
+with_route
+abort!
+continue!
+fulfill!
+RouteRegistration
+```
+
 ### Failures and matchers
 
 ```@docs

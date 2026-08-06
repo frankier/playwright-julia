@@ -272,6 +272,24 @@ end   # disposed on the way out
 """ JSHandle
 
 @doc """
+    Route
+
+One intercepted request, waiting for you to decide what happens to it.
+
+Handed to a [`route!`](@ref) handler, and settled exactly once with
+[`abort!`](@ref), [`continue!`](@ref) or [`fulfill!`](@ref). A route nobody
+settles is continued for you with a warning (D6) — never left hanging, because
+a hung request surfaces as an unrelated timeout thirty seconds later.
+
+[`request`](@ref) reads what was asked for; [`url`](@ref) is shorthand for its
+URL.
+
+```julia
+route!(ctx, "**/api/items", route -> fulfill!(route; json = ["a", "b"]))
+```
+""" Route
+
+@doc """
     Request
 
 One HTTP request the browser made — the object delivered by the `:request`

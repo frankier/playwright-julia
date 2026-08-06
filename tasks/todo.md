@@ -68,7 +68,7 @@ that cannot be met says so, instead of being ticked.
 - [x] T8: `globs.jl` — glob→Regex and the matcher union (M) — D9, R2, no deps
       - the case table lives in **one** place, read by both the test and the
         guide (SC 17)
-- [ ] T9: `network.jl` — Request/Response accessors, the three header
+- [x] T9: `network.jl` — Request/Response accessors, the three header
       functions, the three body functions (M) — D10, no deps
 
 T8 ∥ T9 — genuinely disjoint, no shared code.

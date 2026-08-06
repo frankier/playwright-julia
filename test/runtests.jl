@@ -20,6 +20,7 @@ using Playwright
     include("test_globs.jl")
     include("test_network.jl")
     include("test_events.jl")
+    include("test_routing.jl")
     include("test_waiting.jl")
     include("test_locator_eval.jl")
     include("test_closed.jl")
