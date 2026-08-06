@@ -16,7 +16,7 @@ end
 
 using Base64: base64encode
 using Playwright:
-    pdf, save_as!, path, delete_file!, start_tracing, stop_tracing, with_tracing, video
+    pdf, save_as!, path, delete_file!, start_tracing!, stop_tracing, with_tracing, video
 
 """
 Answer a whole `with_tracing` session on the fake driver: the two start calls,
@@ -165,14 +165,14 @@ function fixture_tracing(f)
 end
 
 @testset "tracing (T5)" begin
-    @testset "start_tracing starts a recording and opens a chunk" begin
+    @testset "start_tracing! starts a recording and opens a chunk" begin
         # Both calls are needed: tracingStart configures the recording,
         # tracingStartChunk opens the span that tracingStopChunk closes. A
         # stop with no chunk open has nothing to archive (probed, T1).
         f = timeout_fixture()
         fixture_tracing(f)
         sent = Vector{Any}()
-        task = @async start_tracing(f.context; screenshots = true, snapshots = true)
+        task = @async start_tracing!(f.context; screenshots = true, snapshots = true)
         for _ = 1:2
             @test timedwait(() -> isready(f.fake.client_messages), 10.0) === :ok
             msg = take!(f.fake.client_messages)
@@ -196,7 +196,7 @@ end
         f = timeout_fixture()
         fixture_tracing(f)
         err = try
-            start_tracing(f.context; sources = true)
+            start_tracing!(f.context; sources = true)
             nothing
         catch e
             e

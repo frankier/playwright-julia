@@ -110,7 +110,7 @@ tracing_channel(ctx::BrowserContext) =
     from_channel(ctx.connection, ctx.initializer["tracing"])::Tracing
 
 """
-    start_tracing(ctx::BrowserContext; screenshots=true, snapshots=true,
+    start_tracing!(ctx::BrowserContext; screenshots=true, snapshots=true,
                   sources=false, name=nothing, title=nothing)
 
 Begin recording a Playwright trace on `ctx` — the full record of what the
@@ -119,7 +119,7 @@ browser did, viewable afterwards in Playwright's own trace viewer. Pair with
 even when the block throws, which is the run worth tracing.
 
 ```julia
-start_tracing(ctx; title = "checkout")
+start_tracing!(ctx; title = "checkout")
 try
     goto!(page, url)
     click!(locator(page, "#submit"))
@@ -147,7 +147,7 @@ nothing to archive.
     than being silently dropped: a flag that quietly does nothing is worse than
     one that is not offered.
 """
-function start_tracing(
+function start_tracing!(
     ctx::BrowserContext;
     screenshots::Bool = true,
     snapshots::Bool = true,
@@ -172,17 +172,17 @@ end
 """
     stop_tracing(ctx::BrowserContext; path) -> path
 
-Stop the recording started by [`start_tracing`](@ref) and write the trace zip
+Stop the recording started by [`start_tracing!`](@ref) and write the trace zip
 to `path`, returning `path`. Parent directories are created as needed.
 
 ```julia
-start_tracing(ctx)
+start_tracing!(ctx)
 goto!(page, url)
 stop_tracing(ctx; path = "artifacts/trace.zip")
 ```
 
-Each stop consumes the chunk `start_tracing` opened, so tracing a second run
-means calling `start_tracing` again. [`with_tracing`](@ref) does both halves
+Each stop consumes the chunk `start_tracing!` opened, so tracing a second run
+means calling `start_tracing!` again. [`with_tracing`](@ref) does both halves
 for you. Open the result with:
 
 ```
@@ -228,7 +228,7 @@ end
 Returns whatever `f()` returned. Open the trace with
 `npx playwright show-trace artifacts/trace.zip`.
 
-Options other than `path` are passed straight to [`start_tracing`](@ref); the
+Options other than `path` are passed straight to [`start_tracing!`](@ref); the
 zip is written by [`stop_tracing`](@ref). For a whole test wrapped in a trace
 *and* a screenshot on failure, see [`with_page`](@ref).
 
@@ -240,7 +240,7 @@ zip is written by [`stop_tracing`](@ref). For a whole test wrapped in a trace
     called to explain.
 """
 function with_tracing(f, ctx::BrowserContext; path::AbstractString, kw...)
-    start_tracing(ctx; kw...)
+    start_tracing!(ctx; kw...)
     try
         return f()
     finally

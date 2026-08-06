@@ -2,7 +2,7 @@
 
 Every exported name, grouped by what it is for rather than alphabetically —
 alphabetical order puts `click!` next to `clear_page_errors` and separates
-`start_tracing` from `stop_tracing`, which helps nobody.
+`start_tracing!` from `stop_tracing`, which helps nobody.
 
 `checkdocs = :exports` is on, so this page is complete by construction: an
 export missing from it fails the build.
@@ -128,7 +128,7 @@ pending_events
 
 ```@docs
 Artifact
-start_tracing
+start_tracing!
 stop_tracing
 with_tracing
 video
