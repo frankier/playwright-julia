@@ -22,6 +22,11 @@ using HTTP
 using JSON
 using Sockets
 
+# Base.CoreLogging rather than `using Logging`: the stdlib would have to join
+# Project.toml's test target, and assumption 9 says no new dependency. These
+# are the same objects under a name that is always in scope.
+const CoreLogging = Base.CoreLogging
+
 using Playwright:
     route!,
     unroute!,
@@ -228,6 +233,138 @@ todo_texts(page) =
                     @test seen.page_scoped.routed == ["page-scoped"]
                     @test seen.page_scoped.other == ["from the server"]
                     @test seen.both == ["context-scoped", "context-scoped"]
+                end
+
+                @testset "$engine: unmatched requests are continued, page loads (SC 3)" begin
+                    seen = within_deadline("$engine SC 3") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+
+                            # A *predicate* that never matches, deliberately —
+                            # not a glob. D9 widens the driver's pattern union
+                            # to `**/*` for a predicate, so every request on this
+                            # page really is delivered to the client and really
+                            # does reach D6's "nothing matched" path: the
+                            # document, /missing.css, /missing.png and the API
+                            # call alike. With a glob matcher the driver filters
+                            # them out first and the auto-continue is never
+                            # exercised — which is what proving this test by
+                            # breaking the auto-continue revealed.
+                            with_route(
+                                ctx,
+                                _url -> false,
+                                route -> fulfill!(route; body = "unreachable"),
+                            ) do
+                                response = goto!(page, "$base_url/m6.html")
+
+                                # And a normal API call still reaches the server
+                                # through the un-matching registration.
+                                click!(locator(page, "#load"))
+                                expect(locator(page, "#status"); to_have_text = "loaded")
+
+                                (
+                                    navigated = response !== nothing && ok(response),
+                                    heading = text_content(locator(page, "h1")),
+                                    todos = todo_texts(page),
+                                )
+                            end
+                        end
+                    end
+
+                    @test seen.navigated
+                    @test seen.heading == "M6"
+                    @test seen.todos == ["from the server"]
+                end
+
+                @testset "$engine: a throwing handler surfaces out of with_route (SC 4)" begin
+                    seen = within_deadline("$engine SC 4") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            thrown = nothing
+                            try
+                                with_route(
+                                    ctx,
+                                    "**/api/todos",
+                                    route -> error("the handler is broken"),
+                                ) do
+                                    click!(locator(page, "#load"))
+                                    # D7: the route is continued despite the
+                                    # throw, so the page still gets its answer.
+                                    expect(
+                                        locator(page, "#status");
+                                        to_have_text = "loaded",
+                                    )
+                                end
+                            catch e
+                                thrown = e
+                            end
+
+                            (
+                                thrown = thrown,
+                                todos = todo_texts(page),
+                                heading = text_content(locator(page, "h1")),
+                            )
+                        end
+                    end
+
+                    # The exception came out of the block that installed the
+                    # handler, which is where a Julia user looks for it.
+                    @test seen.thrown !== nothing
+                    @test occursin("the handler is broken", sprint(showerror, seen.thrown))
+                    # ...and the page underneath still completed (D7).
+                    @test seen.heading == "M6"
+                    @test seen.todos == ["from the server"]
+                end
+
+                @testset "$engine: a handler that settles nothing warns once, no hang (SC 5)" begin
+                    seen = within_deadline("$engine SC 5") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            logger = Test.TestLogger(; min_level = CoreLogging.Warn)
+                            todos = CoreLogging.with_logger(logger) do
+                                with_route(ctx, "**/api/todos", route -> nothing) do
+                                    # Two matching requests through one
+                                    # registration: D6 says one warning total,
+                                    # not one per request.
+                                    click!(locator(page, "#load"))
+                                    expect(
+                                        locator(page, "#status");
+                                        to_have_text = "loaded",
+                                    )
+                                    first_pass = todo_texts(page)
+
+                                    click!(locator(page, "#load"))
+                                    expect(
+                                        locator(page, "#status");
+                                        to_have_text = "loaded",
+                                    )
+                                    (first_pass, todo_texts(page))
+                                end
+                            end
+
+                            unsettled = count(
+                                r ->
+                                    r.level == CoreLogging.Warn &&
+                                        occursin("without settling", r.message),
+                                logger.logs,
+                            )
+                            (todos = todos, warnings = unsettled)
+                        end
+                    end
+
+                    # It did not hang — the route was continued for the handler
+                    # — and the page got the server's real answer both times.
+                    @test seen.todos[1] == ["from the server"]
+                    @test seen.todos[2] == ["from the server"]
+                    # Exactly one warning per registration, not per request.
+                    @test seen.warnings == 1
                 end
 
                 @testset "$engine: abort! stops the request reaching the server (SC 7)" begin
