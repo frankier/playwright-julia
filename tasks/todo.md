@@ -17,7 +17,7 @@ between each. A rename that breaks something must be attributable to itself.
       - each docstring's first line names Playwright's own spelling
       - prove the docs gate now covers them: delete one docstring, watch the
         build go red, restore
-- [ ] T2: `goto!`, `click!`, `dispatch_event!` (S) — deps: T1
+- [x] T2: `goto!`, `click!`, `dispatch_event!` (S) — deps: T1
       - one commit per name, green after each
 - [ ] T3: `dispose!`, `save_as!`, `start_tracing!`, `stop_tracing!` (S) — deps: T2
       - `with_tracing` keeps no bang (D2)

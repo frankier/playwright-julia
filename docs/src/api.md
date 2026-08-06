@@ -100,7 +100,7 @@ evaluate_all
 evaluate_handle
 eval_on_selector
 eval_on_selector_all
-dispose
+dispose!
 ```
 
 ## Assertion functions

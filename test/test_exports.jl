@@ -58,7 +58,7 @@
         :pending_events,
         :click!,
         :console_messages,
-        :dispose,
+        :dispose!,
         :eval_on_selector,
         :eval_on_selector_all,
         :evaluate,

@@ -53,7 +53,7 @@
                 @test evaluate(handle, "a => a.count") == 3
                 # ...and passed back into another evaluate as an argument.
                 @test evaluate(page, "a => a.name", handle) == "fixture"
-                dispose(handle)
+                dispose!(handle)
                 # Once disposed it is no longer usable.
                 @test_throws PlaywrightError evaluate(handle, "a => a.count")
             end

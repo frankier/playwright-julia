@@ -76,7 +76,7 @@ Evaluate `expression` and keep the result *in the browser*, returning a
 (DOM nodes, functions, objects with cycles you do not want to copy).
 
 Handles hold a browser-side reference and must be released with
-[`dispose`](@ref). The block form does it for you, on the way out of the block
+[`dispose!`](@ref). The block form does it for you, on the way out of the block
 whether or not the body threw, and is the recommended way to use handles:
 
 ```julia
@@ -125,12 +125,12 @@ function evaluate_handle(
     try
         return f(handle)
     finally
-        dispose(handle)
+        dispose!(handle)
     end
 end
 
 """
-    dispose(handle::JSHandle)
+    dispose!(handle::JSHandle)
 
 Release a handle's browser-side reference. Handles left undisposed are
 reclaimed when their page or context closes, so leaking one costs memory
@@ -141,7 +141,7 @@ handle = evaluate_handle(page, "() => document.body")
 try
     evaluate(page, "el => el.childElementCount", handle)
 finally
-    dispose(handle)
+    dispose!(handle)
 end
 ```
 
@@ -151,7 +151,7 @@ recommended way to use handles. Applies to [`ElementHandle`](@ref) too, which
 
 Prefer the block form of [`evaluate_handle`](@ref), which disposes for you.
 """
-dispose(handle::JSHandleChannel) = _js_handle_dispose(handle)
+dispose!(handle::JSHandleChannel) = _js_handle_dispose(handle)
 
 """
     eval_on_selector(target, selector, expression, arg=missing; is_function=nothing, strict=true) -> Any

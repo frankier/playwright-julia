@@ -247,12 +247,12 @@ A reference to one specific element in the browser, from
 
 A snapshot, unlike a [`Locator`](@ref): it keeps pointing at *that* element and
 goes stale when the page re-renders. Prefer a locator unless you need to hold
-onto one element. [`dispose`](@ref) it when done.
+onto one element. [`dispose!`](@ref) it when done.
 
 ```julia
 handle = wait_for_selector(page, "#chart")
 evaluate(page, "el => el.dataset.ready", handle)
-dispose(handle)
+dispose!(handle)
 ```
 """ ElementHandle
 
@@ -261,7 +261,7 @@ dispose(handle)
 
 A reference to a JavaScript value kept *in the browser*, from
 [`evaluate_handle`](@ref) — for values that cannot cross the wire, like a DOM
-node or a closure. [`dispose`](@ref) it when done, or use the do-block form of
+node or a closure. [`dispose!`](@ref) it when done, or use the do-block form of
 `evaluate_handle`, which disposes for you.
 
 ```julia

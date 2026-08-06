@@ -434,14 +434,14 @@ Resolve `loc` now and return an [`ElementHandle`](@ref) for the match, or
 ```julia
 handle = element_handle(locator(page, "#chart"))
 evaluate(page, "el => el.getBoundingClientRect().width", handle)
-dispose(handle)
+dispose!(handle)
 ```
 
 This is a snapshot, and that is the whole difference from a locator: the handle
 keeps pointing at *that* element, so it goes stale if the page re-renders,
 whereas a locator re-resolves on every use. Prefer the locator unless you
 specifically need to hold on to one element — for instance to pass it into
-[`evaluate`](@ref) as an argument. Handles should be [`dispose`](@ref)d when
+[`evaluate`](@ref) as an argument. Handles should be [`dispose!`](@ref)d when
 you are done with them.
 
 To wait for an element that is not there yet, use

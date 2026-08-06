@@ -430,7 +430,7 @@ end
                     handle = element_handle(locator(page, "h1"))
                     @test handle isa Playwright.ElementHandle
                     @test evaluate(handle, "el => el.textContent") == "Hello"
-                    dispose(handle)
+                    dispose!(handle)
 
                     @test element_handle(locator(page, "#not-there")) === nothing
 

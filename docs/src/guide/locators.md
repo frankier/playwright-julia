@@ -150,7 +150,7 @@ handle = element_handle(locator(page, "#chart"))
 try
     evaluate(page, "el => el.getBoundingClientRect().width", handle)
 finally
-    dispose(handle)
+    dispose!(handle)
 end
 ```
 
