@@ -737,9 +737,12 @@ end
                 @testset "$engine: an unsupported event is refused, not faked" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
-                    @test_throws ArgumentError expect_event(ctx, :request) do
-                    end
+                    # `:request` used to be here. M6 T12 shipped it, so the
+                    # examples are now events that really are still deferred —
+                    # the ones whose payload types have no accessors.
                     @test_throws ArgumentError expect_event(ctx, :download) do
+                    end
+                    @test_throws ArgumentError expect_event(ctx, :dialog) do
                     end
                     close!(browser)
                 end

@@ -28,6 +28,9 @@ using Sockets
 const CoreLogging = Base.CoreLogging
 
 using Playwright:
+    expect_request,
+    expect_response,
+    error_text,
     route!,
     unroute!,
     unroute_all!,
@@ -365,6 +368,174 @@ todo_texts(page) =
                     @test seen.todos[2] == ["from the server"]
                     # Exactly one warning per registration, not per request.
                     @test seen.warnings == 1
+                end
+
+                @testset "$engine: expect_request returns the real request (SC 9)" begin
+                    seen = within_deadline("$engine SC 9") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            got = expect_request(ctx, "**/api/todos") do
+                                click!(locator(page, "#post"))
+                            end
+
+                            (
+                                url = url(got),
+                                method = method(got),
+                                headers = headers(got),
+                                body = post_data_string(got),
+                                resource = resource_type(got),
+                            )
+                        end
+                    end
+
+                    @test endswith(seen.url, "/api/todos")
+                    @test seen.method == "POST"
+                    @test occursin(
+                        "application/json",
+                        get(seen.headers, "content-type", ""),
+                    )
+                    @test seen.body == "{\"title\":\"written by the page\"}"
+                    @test seen.resource in ("fetch", "xhr")
+                end
+
+                @testset "$engine: expect_response reads status, headers and body (SC 10)" begin
+                    seen = within_deadline("$engine SC 10") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            got = expect_response(ctx, "**/api/todos") do
+                                click!(locator(page, "#load"))
+                            end
+
+                            # Read the body *before* navigating again. A
+                            # response's body lives in the browser and is
+                            # discarded on navigation — asking afterwards gets
+                            # "No resource with given identifier found", which
+                            # is what the first draft of this test did.
+                            first_seen = (
+                                status = status(got),
+                                ok = ok(got),
+                                content_type = get(headers(got), "content-type", ""),
+                                json = json(got),
+                                text = text(got),
+                            )
+
+                            # A non-200 as well, so `ok` is proved false
+                            # somewhere and not merely true everywhere.
+                            missing_one = expect_response(ctx, "**/missing.png") do
+                                goto!(page, "$base_url/m6.html")
+                            end
+
+                            (
+                                first_seen...,
+                                missing_status = status(missing_one),
+                                missing_ok = ok(missing_one),
+                            )
+                        end
+                    end
+
+                    @test seen.status == 200
+                    @test seen.ok
+                    @test occursin("application/json", seen.content_type)
+                    @test seen.json == ["from the server"]
+                    @test occursin("from the server", seen.text)
+                    @test seen.missing_status == 404
+                    @test seen.missing_ok == false
+                end
+
+                @testset "$engine: :requestfailed fires with the engine's text (SC 11)" begin
+                    seen = within_deadline("$engine SC 11") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            failure = expect_event(ctx, :requestfailed) do
+                                # Abort is a failure from the page's point of
+                                # view, which is the point of aborting — and it
+                                # is the deterministic way to produce one.
+                                with_route(
+                                    ctx,
+                                    "**/api/hits",
+                                    route -> abort!(
+                                        route;
+                                        error_code = "connectionrefused",
+                                    ),
+                                ) do
+                                    click!(locator(page, "#hit"))
+                                    expect(locator(page, "#status"); to_have_text = "error")
+                                end
+                            end
+
+                            (failed_url = url(request(failure)), text = error_text(failure))
+                        end
+                    end
+
+                    @test endswith(seen.failed_url, "/api/hits")
+                    # Chromium says net::ERR_…, Firefox says NS_ERROR_… — the
+                    # engines do not agree on the spelling, so assert only that
+                    # there is one.
+                    @test !isempty(seen.text)
+                end
+
+                @testset "$engine: page-scoped events see only their page (SC 12)" begin
+                    seen = within_deadline("$engine SC 12") do
+                        with_browser(bt) do browser
+                            ctx = new_context(browser)
+                            watched = new_page(ctx)
+                            noisy = new_page(ctx)
+                            goto!(watched, "$base_url/m6.html")
+                            goto!(noisy, "$base_url/m6.html")
+
+                            # Both pages call the same URL inside the block. The
+                            # page-scoped subscription must return the watched
+                            # page's request, never the other one's — D11's
+                            # filter is the whole of this test.
+                            got = expect_request(watched, "**/api/todos") do
+                                click!(locator(noisy, "#load"))
+                                expect(locator(noisy, "#status"); to_have_text = "loaded")
+                                click!(locator(watched, "#load"))
+                            end
+
+                            # The frame that issued it belongs to the watched
+                            # page, which is the check that cannot pass by luck.
+                            (
+                                same_page = frame(got) === Playwright.main_frame(watched),
+                                url = url(got),
+                            )
+                        end
+                    end
+
+                    @test seen.same_page
+                    @test endswith(seen.url, "/api/todos")
+                end
+
+                @testset "$engine: the four network events are no longer deferred (SC 13)" begin
+                    seen = within_deadline("$engine SC 13") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            # expect_event(ctx, :request) used to raise
+                            # ArgumentError("deferred"). It returns a Request now.
+                            req = expect_event(ctx, :request) do
+                                click!(locator(page, "#load"))
+                            end
+                            finished = expect_event(ctx, :requestfinished) do
+                                click!(locator(page, "#load"))
+                            end
+                            (req = req, finished = finished)
+                        end
+                    end
+
+                    @test seen.req isa Playwright.Request
+                    @test seen.finished isa Playwright.Request
                 end
 
                 @testset "$engine: abort! stops the request reaching the server (SC 7)" begin

@@ -33,11 +33,19 @@ mutable struct Subscription
     # see the note on EventSpec for why not at take! time.
     owner::ChannelOwner
     payload::Function
+    # M6 D11: a filter applied at delivery, before the payload is buffered.
+    # The network events live on the BrowserContext and carry an optional
+    # `page`, so a Page subscription is really a context subscription that
+    # drops other pages' traffic. Filtering here rather than at `take!` keeps
+    # another page's requests out of this buffer entirely, which matters
+    # because the buffer is unbounded.
+    accept::Function
 
     function Subscription(
         owner::ChannelOwner,
         event::AbstractString,
         payload::Function = (_owner, params) -> params,
+        accept::Function = (_owner, _params) -> true,
     )
         # Unbounded: put! from the reader task must never block, or a slow
         # consumer would stall the whole protocol connection.
@@ -49,6 +57,7 @@ mutable struct Subscription
             false,
             owner,
             payload,
+            accept,
         )
         # Last-resort net for a handle the user leaked, not the mechanism the
         # design relies on: the do-block forms and the owner-close cascade are.
@@ -76,8 +85,9 @@ function subscribe(
     owner::ChannelOwner,
     event::AbstractString,
     payload::Function = (_owner, params) -> params,
+    accept::Function = (_owner, _params) -> true,
 )
-    sub = Subscription(owner, event, payload)
+    sub = Subscription(owner, event, payload, accept)
     conn = owner.connection
     lock(conn.lock) do
         push!(get!(Vector{Subscription}, conn.subscriptions, owner.guid), sub)
@@ -148,6 +158,9 @@ function deliver_event(
         # a channel nobody holds — harmless, and cheaper than holding the
         # connection lock across the put!.
         try
+            # D11's filter runs before the mapping and before the buffering, so
+            # a page-scoped subscription never holds another page's payloads.
+            sub.accept(sub.owner, params) || continue
             # Mapping here rather than at take! time is what lets a payload
             # outlive its wire reference: `frameDetached`'s frame is disposed
             # immediately after this event, so a later lookup would find
@@ -237,9 +250,22 @@ struct EventSpec
     # `console` is supported here. `page`, `close`, `crash`, `pageError` and
     # the frame events fire unconditionally.
     opt_in::Bool
+    # M6 D11: the owner whose channel actually carries this event, and the
+    # filter that decides which of its payloads this target wants.
+    #
+    # This is the first event whose subscription owner differs from the owner
+    # the user named, and it is invisible at the call site, so it is said out
+    # loud here: `page.yml` has no request/response events at all — only
+    # `browserContext.yml` does, each carrying an optional `page`. So
+    # `expect_event(page, :request)` subscribes to the page's *context* and
+    # drops payloads belonging to other pages.
+    subscription_owner::Function      # target -> the owner to subscribe on
+    accept::Function                  # (target, params) -> Bool
 end
 
 EventSpec(wire, payload) = EventSpec(wire, payload, false)
+EventSpec(wire, payload, opt_in) =
+    EventSpec(wire, payload, opt_in, identity, (_target, _params) -> true)
 
 # The owner itself, for events whose payload is "this thing, and it happened".
 owner_payload(owner, _params) = owner
@@ -280,16 +306,30 @@ const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
         "pageError",
         (_owner, params) -> page_error(get(params, "error", params)),
     ),
+    # M6 T12 (D11). All four are opt-in: the driver stays silent until the
+    # client asks, and the existing ref-counted enable/disable already handles
+    # overlapping blocks.
+    :request => EventSpec("request", channel_payload("request", Request), true),
+    :response => EventSpec("response", channel_payload("response", Response), true),
+    :requestfinished =>
+        EventSpec("requestFinished", channel_payload("request", Request), true),
+    # The odd one out: its failure text lives in the event params and nowhere
+    # else, so a bare Request would silently lose the only interesting thing
+    # about it.
+    :requestfailed => EventSpec(
+        "requestFailed",
+        (owner, params) -> RequestFailure(
+            from_channel(owner.connection, params["request"])::Request,
+            String(something(get(params, "failureText", nothing), "")),
+        ),
+        true,
+    ),
 )
 
 # Events the driver really does emit, whose wrapper types this milestone does
 # not ship. Named separately so the error can say "deferred" rather than
 # "no such event" — the difference between a roadmap entry and a typo.
 const DEFERRED_EVENTS = Dict(
-    :request => "Request has no hand-written accessors yet",
-    :response => "Response has no hand-written accessors yet",
-    :requestfailed => "Request has no hand-written accessors yet",
-    :requestfinished => "Request has no hand-written accessors yet",
     :download => "Artifact is not wrapped yet",
     :dialog => "Dialog is not wrapped yet",
     :filechooser => "no file-chooser wrapper yet",
@@ -299,7 +339,32 @@ const DEFERRED_EVENTS = Dict(
     :bindingcall => "BindingCall is not wrapped yet",
 )
 
-events_for(::Page) = PAGE_EVENTS
+"""
+The four network events as seen from a `Page`: subscribed on the page's
+context, filtered down to that page's own traffic (D11).
+
+Built from the context table so the payload mapping cannot drift between the
+two spellings of the same event.
+"""
+const PAGE_NETWORK_EVENTS = Dict{Symbol,EventSpec}(
+    key => EventSpec(
+        spec.wire,
+        spec.payload,
+        spec.opt_in,
+        owning_context,
+        # The driver sends the context every page's traffic; this keeps the
+        # page's own. A payload with no `page` at all — a service worker's
+        # request — belongs to no page and so is not this one's.
+        (target, params) -> begin
+            ref = get(params, "page", nothing)
+            ref === nothing && return false
+            return get(ref, "guid", nothing) == target.guid
+        end,
+    ) for (key, spec) in CONTEXT_EVENTS if
+    key in (:request, :response, :requestfinished, :requestfailed)
+)
+
+events_for(page::Page) = merge(PAGE_EVENTS, PAGE_NETWORK_EVENTS)
 events_for(::BrowserContext) = CONTEXT_EVENTS
 events_for(owner::ChannelOwner) = Dict{Symbol,EventSpec}()
 
@@ -537,13 +602,22 @@ end
 # `expect_event(ctx, :console)` blocks must not have the inner one switch the
 # outer one's events off when it finishes.
 function subscribe_spec(target::ChannelOwner, spec::EventSpec)
-    spec.opt_in && update_subscription(target, spec.wire, true)
-    return subscribe(target, spec.wire, spec.payload)
+    # D11: for the page-scoped network events this is the page's context, not
+    # the page. Everything else subscribes to the owner the user named.
+    owner = spec.subscription_owner(target)
+    spec.opt_in && update_subscription(owner, spec.wire, true)
+    return subscribe(
+        owner,
+        spec.wire,
+        spec.payload,
+        (_owner, params) -> spec.accept(target, params),
+    )
 end
 
 function release_spec(target::ChannelOwner, spec::EventSpec, sub::Subscription)
+    owner = spec.subscription_owner(target)
     close(sub)
-    spec.opt_in && update_subscription(target, spec.wire, false)
+    spec.opt_in && update_subscription(owner, spec.wire, false)
     return nothing
 end
 

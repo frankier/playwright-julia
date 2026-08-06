@@ -80,7 +80,7 @@ T8 ∥ T9 — genuinely disjoint, no shared code.
       - write the task's **lifetime** first, its behaviour second
       - ⚠️ **no test may use `sleep` to pass.** If one needs it, the lifetime is
         wrong — fix the lifetime, not the test (R1's tripwire)
-- [ ] T11: the settle-guarantee tests (M) — D6, D7, R1, R3, deps: T10
+- [x] T11: the settle-guarantee tests (M) — D6, D7, R1, R3, deps: T10
       - four lifetime tests + three settle tests, every one with an explicit
         timeout (R3)
       - each proved by breaking what it guards

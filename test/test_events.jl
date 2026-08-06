@@ -488,7 +488,11 @@ end
 
     @testset "an unsupported event names itself and says it is deferred" begin
         f = event_fixture()
-        for bad in (:request, :response, :download, :dialog, :websocket)
+        # M6 T12 removed :request, :response, :requestfinished and
+        # :requestfailed from DEFERRED_EVENTS (SC 13) — they are supported now,
+        # and are asserted as such below. What remains deferred is what still
+        # has no wrapper type.
+        for bad in (:download, :dialog, :websocket, :worker, :bindingcall)
             err = try
                 expect_event(f.context, bad) do
                 end
@@ -500,6 +504,18 @@ end
             @test occursin(String(bad), lowercase(err.msg))
             @test occursin("deferred", lowercase(err.msg))
         end
+        # SC 13: the four network events are gone from DEFERRED_EVENTS, so
+        # asking for one is no longer an ArgumentError. It reaches the wait and
+        # times out instead, which is what "supported but nothing happened"
+        # looks like.
+        for supported in (:request, :response, :requestfinished, :requestfailed)
+            @test haskey(Playwright.CONTEXT_EVENTS, supported)
+            @test !haskey(Playwright.DEFERRED_EVENTS, supported)
+            # ...and on a Page too, where it is the context subscription with a
+            # page filter (D11).
+            @test haskey(Playwright.events_for(f.page), supported)
+        end
+
         # An event that simply does not exist is also an ArgumentError, but
         # must not claim to be deferred — it is a typo, not a roadmap entry.
         err = try

@@ -27,11 +27,41 @@ event. Nothing the block does can be missed.
 | `BrowserContext` | `:close` | the [`BrowserContext`](@ref) |
 | `BrowserContext` | `:console` | [`ConsoleMessage`](@ref) |
 | `BrowserContext` | `:pageerror` | [`PageError`](@ref) |
+| `BrowserContext` or `Page` | `:request` | [`Request`](@ref) |
+| `BrowserContext` or `Page` | `:response` | [`Response`](@ref) |
+| `BrowserContext` or `Page` | `:requestfinished` | [`Request`](@ref) |
+| `BrowserContext` or `Page` | `:requestfailed` | [`RequestFailure`](@ref) |
 
-Anything else raises `ArgumentError`. Network events (`:request`, `:response`,
-…), `:dialog` and `:download` are deferred rather than designed away: their
-payload types exist in the generated layer but have no accessors yet, and
-handing one back would look like support without being it.
+Anything else raises `ArgumentError`. `:dialog`, `:download`, `:worker` and
+the WebSocket events are deferred rather than designed away: their payload
+types exist in the generated layer but have no accessors yet, and handing one
+back would look like support without being it.
+
+### The network events are the context's, even on a page
+
+There are no request or response events on a page in the protocol — only on the
+`BrowserContext`, each carrying the page it belongs to. So
+`expect_event(page, :request)` subscribes to the page's *context* and filters
+out the other pages' traffic. Two pages in one context each see their own.
+
+That is worth knowing for one practical reason: a request that belongs to no
+page — a service worker's — reaches the context form and not the page form.
+
+For the common cases there is sugar, because the predicate is the part that is
+easy to get wrong:
+
+```julia
+request = expect_request(ctx, "**/api/todos") do
+    click!(locator(page, "#load"))
+end
+
+response = expect_response(page, "**/api/todos") do
+    click!(locator(page, "#load"))
+end
+```
+
+Both take the same matcher union as [`route!`](@ref): a glob, a `Regex`, or a
+`url -> Bool` predicate.
 
 ## Filtering
 

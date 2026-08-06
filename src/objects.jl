@@ -53,6 +53,31 @@ function owning_browser(obj::ChannelOwner)
 end
 
 """
+    owning_context(obj::ChannelOwner) -> Union{BrowserContext,Nothing}
+
+The `BrowserContext` an object belongs to, found by walking the registry's
+parent links — the same walk as [`owning_browser`](@ref), stopping one level
+sooner.
+
+A `BrowserContext` owns itself, which makes `owning_context` safe to call on
+either owner without asking which one it has. That is what lets the network
+events (D11) subscribe on "the context of whatever you named".
+"""
+function owning_context(obj::ChannelOwner)
+    conn = obj.connection
+    return lock(conn.lock) do
+        guid = obj.guid
+        while true
+            candidate = get(conn.objects, guid, nothing)
+            candidate isa BrowserContext && return candidate
+            parent = get(conn.parents, guid, nothing)
+            (parent === nothing || isempty(parent)) && return nothing
+            guid = parent
+        end
+    end
+end
+
+"""
     browser_name(page::Page) -> String
     browser_name(context::BrowserContext) -> String
 

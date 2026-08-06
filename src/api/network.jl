@@ -287,3 +287,78 @@ error_text(f::RequestFailure) = f.error_text
 
 Base.show(io::IO, f::RequestFailure) =
     print(io, "RequestFailure(", repr(url(f.request)), ", ", repr(f.error_text), ")")
+
+# --- expect_request / expect_response (D11) --------------------------------
+#
+# Sugar over expect_event with a matcher-derived predicate. They exist because
+# the predicate spelling is the part users get wrong, and because these two are
+# most of real network-event use.
+
+"""
+    expect_request(f, target, matcher; timeout=nothing) -> Request
+
+Run `f()` and return the first request on `target` whose URL satisfies
+`matcher` — a glob, a `Regex` or a `url -> Bool` predicate, the same union
+[`route!`](@ref) takes.
+
+The subscription is attached before `f` runs, so a request the body fires
+immediately is still caught.
+
+```julia
+request = expect_request(ctx, "**/api/todos") do
+    click!(locator(page, "#load"))
+end
+method(request)      # "GET"
+```
+
+`target` may be a [`BrowserContext`](@ref) or a [`Page`](@ref). The page form
+watches the page's *context* and keeps only that page's traffic (D11), so with
+two pages open each sees its own.
+"""
+function expect_request(
+    f::Function,
+    target::Union{Page,BrowserContext},
+    matcher;
+    timeout = nothing,
+)
+    return expect_event(
+        f,
+        target,
+        :request;
+        timeout,
+        predicate = req -> matches(matcher, url(req)),
+    )
+end
+
+"""
+    expect_response(f, target, matcher; timeout=nothing) -> Response
+
+Run `f()` and return the first response on `target` whose URL satisfies
+`matcher`. The response form of [`expect_request`](@ref), and the same matcher
+union.
+
+```julia
+response = expect_response(ctx, "**/api/todos") do
+    click!(locator(page, "#load"))
+end
+status(response)     # 200
+json(response)
+```
+
+The body is not fetched until you ask for it — [`body`](@ref), [`text`](@ref)
+and [`json`](@ref) each cost a round trip and block until it has arrived.
+"""
+function expect_response(
+    f::Function,
+    target::Union{Page,BrowserContext},
+    matcher;
+    timeout = nothing,
+)
+    return expect_event(
+        f,
+        target,
+        :response;
+        timeout,
+        predicate = resp -> matches(matcher, url(resp)),
+    )
+end

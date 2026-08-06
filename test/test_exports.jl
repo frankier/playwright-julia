@@ -104,6 +104,8 @@
         :method,
         :RequestFailure,
         :error_text,
+        :expect_request,
+        :expect_response,
         # M6 T10: route interception (D5–D9)
         :Route,
         :RouteRegistration,

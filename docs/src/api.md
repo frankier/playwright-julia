@@ -211,6 +211,18 @@ fulfill!
 RouteRegistration
 ```
 
+### Network events
+
+`expect_request` and `expect_response` are sugar over
+[`expect_event`](@ref) with a matcher-derived predicate. The four raw events —
+`:request`, `:response`, `:requestfinished`, `:requestfailed` — are listed in
+the events guide.
+
+```@docs
+expect_request
+expect_response
+```
+
 ### Failures and matchers
 
 ```@docs
