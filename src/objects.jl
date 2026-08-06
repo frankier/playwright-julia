@@ -272,6 +272,41 @@ end   # disposed on the way out
 """ JSHandle
 
 @doc """
+    Request
+
+One HTTP request the browser made — the object delivered by the `:request`
+event and handed to a route handler.
+
+Nearly everything on it is free, because it arrives in the initializer (D10):
+[`url`](@ref), [`method`](@ref), [`resource_type`](@ref),
+[`is_navigation_request`](@ref), [`headers`](@ref), [`post_data`](@ref) and
+[`redirected_from`](@ref). Only [`response`](@ref) and [`raw_headers`](@ref)
+go back to the driver, and both say so.
+
+```julia
+request -> resource_type(request) == "image"    # a predicate matcher
+```
+""" Request
+
+@doc """
+    Response
+
+What came back for a [`Request`](@ref): [`status`](@ref),
+[`status_text`](@ref), [`ok`](@ref), [`headers`](@ref) and the URL it finally
+came from, all read from the initializer.
+
+The body is not in the initializer and cannot be — it may still be arriving.
+[`body`](@ref), [`text`](@ref) and [`json`](@ref) fetch it, block until it is
+complete, and say so in their docstrings.
+
+```julia
+resp = goto!(page, url)
+@test ok(resp)
+@test json(resp)["items"] == [1, 2]
+```
+""" Response
+
+@doc """
     Artifact
 
 A file the driver is producing — a trace zip from [`stop_tracing!`](@ref) or a

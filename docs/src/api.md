@@ -156,9 +156,49 @@ set_default_timeout!
 set_default_navigation_timeout!
 ```
 
-## Network matchers
+## Network
+
+`Request` and `Response` read almost everything from their initializer, so the
+accessors below are free unless their docstring says otherwise. The four that
+cost a protocol round trip say so: [`body`](@ref), [`text`](@ref),
+[`json`](@ref) on a response, [`raw_headers`](@ref) and [`response`](@ref) on a
+request.
 
 ```@docs
+Request
+Response
+resource_type
+is_navigation_request
+redirected_from
+post_data
+post_data_string
+request
+response
+status
+status_text
+ok
+body
+text
+json
+method
+```
+
+### Headers
+
+Three functions, because there are three genuinely different questions — see
+each docstring for which one to reach for.
+
+```@docs
+headers
+headers_array
+raw_headers
+```
+
+### Failures and matchers
+
+```@docs
+RequestFailure
+error_text
 glob_to_regex
 ```
 

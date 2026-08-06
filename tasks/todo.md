@@ -25,31 +25,47 @@ between each. A rename that breaks something must be attributable to itself.
 - [x] T5: the no-shadow test and the old-name grep (S) — SC A4, A6, deps: T4
       - ⚠️ **neither test is trusted until it has failed once** — reintroduce
         `export fill!` and one old call site in a scratch copy to prove both
-- [ ] T6: Checkpoint A verification (S) — deps: T5
+- [x] T6: Checkpoint A verification (S) — deps: T5
 - [x] T7: open `tasks/m6-api-gaps.md` with its preamble (S) — R6, no deps
       - do this *before* Part B, or it will not get written at all (M5's lesson)
 
 T7 ∥ everything — it is a file with a preamble and no dependencies.
 
 ### Checkpoint A — Part A complete, before any Part B code
-- [ ] All twelve renames applied; `names(Playwright)` has every new name and no
+
+**Result: clean, with one pre-existing failure that is not Part A's.**
+`runexamples.jl` is 7/8, not 8/8: `wglmakie_jl.jl` fails on Firefox at
+`examples/wglmakie_jl.jl:144`, `@test has_webgl == false` evaluating
+`true == false`. The example asserts that headless Firefox has no WebGL and
+takes its level-2 structural path accordingly; this machine's Firefox (build
+1532) reports WebGL available, so the assertion about the *engine* is what is
+now false.
+
+Attributed rather than assumed: the identical failure — same line, same
+expression, same evaluation — reproduces at `e45f3f4`, the commit before this
+milestone began, in a clean worktree. It is not caused by the renames, and
+fixing it is an example's environmental assumption rather than anything M6 is
+about (Boundaries, R6). Recorded here in the style of M5's SC 13: a criterion
+that cannot be met says so, instead of being ticked.
+- [x] All twelve renames applied; `names(Playwright)` has every new name and no
       old one
-- [ ] Hermetic **and** smoke green after **each** rename commit, not just the
+- [x] Hermetic **and** smoke green after **each** rename commit, not just the
       last (SC A2)
-- [ ] `using Playwright` shadows nothing in `Base`: `fill!` on an array,
+- [x] `using Playwright` shadows nothing in `Base`: `fill!` on an array,
       `delete!` on a `Dict`, `close` on an `IOBuffer`, `count` and `first` all
       still resolve to `Base` (SC A6)
-- [ ] Old-name grep across `src`, `test`, `docs`, `examples`, `README.md`
+- [x] Old-name grep across `src`, `test`, `docs`, `examples`, `README.md`
       returns nothing (SC A4)
-- [ ] `close!`, `set_value!` and `delete_file!` in `names(Playwright)` and
+- [x] `close!`, `set_value!` and `delete_file!` in `names(Playwright)` and
       covered by `checkdocs = :exports` (SC A3)
-- [ ] Docs build warning-free; `runexamples.jl` 8/8 on a quiet machine
-- [ ] Diff reviewed commit by commit: no signature change, no behaviour change
+- [x] Docs build warning-free (every rename commit); `runexamples.jl` 7/8 —
+      see the note above, the eighth is pre-existing and reproduces at `e45f3f4`
+- [x] Diff reviewed commit by commit: no signature change, no behaviour change
       (SC A5, Assumption 3)
 
 ## Phase 2: Part B — the foundations
 
-- [ ] T8: `globs.jl` — glob→Regex and the matcher union (M) — D9, R2, no deps
+- [x] T8: `globs.jl` — glob→Regex and the matcher union (M) — D9, R2, no deps
       - the case table lives in **one** place, read by both the test and the
         guide (SC 17)
 - [ ] T9: `network.jl` — Request/Response accessors, the three header

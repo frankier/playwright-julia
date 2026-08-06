@@ -18,6 +18,7 @@ using Playwright
     include("test_connection.jl")
     include("test_timeouts.jl")
     include("test_globs.jl")
+    include("test_network.jl")
     include("test_events.jl")
     include("test_waiting.jl")
     include("test_locator_eval.jl")

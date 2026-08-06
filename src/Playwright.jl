@@ -45,6 +45,28 @@ export playwright,
     title,
     locator,
     glob_to_regex,
+    # M6 T9: the network surface — Request and Response (D10)
+    Request,
+    Response,
+    headers,
+    headers_array,
+    raw_headers,
+    resource_type,
+    is_navigation_request,
+    redirected_from,
+    post_data,
+    post_data_string,
+    request,
+    response,
+    status,
+    status_text,
+    ok,
+    body,
+    text,
+    json,
+    method,
+    RequestFailure,
+    error_text,
     click!,
     text_content,
     input_value,
@@ -124,6 +146,7 @@ include("serializers.jl")
 include("objects.jl")
 include("timeouts.jl")
 include("api/globs.jl")
+include("api/network.jl")
 include("api/events.jl")
 include("api/lifecycle.jl")
 include("api/navigation.jl")
