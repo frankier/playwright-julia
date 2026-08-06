@@ -90,7 +90,7 @@
         :playwright,
         # M4 T7/T4: artifact capture and the Artifact surface
         :pdf,
-        :save_as,
+        :save_as!,
         :path,
         :delete_file!,
         # M4 T5: tracing

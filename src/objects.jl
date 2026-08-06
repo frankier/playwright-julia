@@ -276,7 +276,7 @@ end   # disposed on the way out
 
 A file the driver is producing — a trace zip from [`stop_tracing`](@ref) or a
 [`video`](@ref) recording. Three verbs: [`path`](@ref) blocks until it is
-completely written and says where it is, [`save_as`](@ref) copies it somewhere
+completely written and says where it is, [`save_as!`](@ref) copies it somewhere
 of your choosing, and [`delete_file!`](@ref) removes it.
 
 The distinction worth knowing: the driver knows the eventual path immediately,
@@ -285,6 +285,6 @@ closes. `path` is what waits.
 
 ```julia
 artifact = stop_tracing(ctx)
-save_as(artifact, "artifacts/trace.zip")   # blocks until fully written
+save_as!(artifact, "artifacts/trace.zip")   # blocks until fully written
 ```
 """ Artifact

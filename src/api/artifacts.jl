@@ -20,13 +20,13 @@
 # initializer would hand back a path to a file that does not exist yet.
 
 """
-    save_as(a::Artifact, path::AbstractString) -> path
+    save_as!(a::Artifact, path::AbstractString) -> path
 
 Copy a driver-side artifact — a trace zip, a video — to `path`, **blocking
 until it has finished being written**. Returns `path`, so it composes.
 
 ```julia
-save_as(video(page), "artifacts/run.webm")
+save_as!(video(page), "artifacts/run.webm")
 ```
 
 Parent directories are created if they do not exist, because the caller
@@ -37,7 +37,7 @@ The blocking is the useful part: [`path`](@ref) tells you where the driver
 [`delete_file!`](@ref) for an artifact a passing test does not need to keep, and see
 [`Artifact`](@ref) for the three verbs together.
 """
-function save_as(a::Artifact, path::AbstractString)
+function save_as!(a::Artifact, path::AbstractString)
     dir = dirname(path)
     isempty(dir) || mkpath(dir)
     _artifact_save_as(a; path)
@@ -63,7 +63,7 @@ a test rather than a race.
 
 The path is on the machine running the driver. That is this machine — the
 driver is a child process (`SPEC-M4.md` assumption 7) — so the file is readable
-from Julia directly. Use [`save_as`](@ref) to put a copy somewhere of your own
+from Julia directly. Use [`save_as!`](@ref) to put a copy somewhere of your own
 choosing instead.
 """
 path(a::Artifact) = _artifact_path_after_finished(a)::String
@@ -84,12 +84,12 @@ close!(page)
 if test_passed
     delete_file!(recording)                       # nothing to look at
 else
-    save_as(recording, "artifacts/run.webm")
+    save_as!(recording, "artifacts/run.webm")
 end
 ```
 
 This deletes the *driver's* copy; a file already copied out with
-[`save_as`](@ref) is yours and is untouched. See [`Artifact`](@ref).
+[`save_as!`](@ref) is yours and is untouched. See [`Artifact`](@ref).
 """
 function delete_file!(a::Artifact)
     _artifact_delete(a)
@@ -204,7 +204,7 @@ function stop_tracing(ctx::BrowserContext; path::AbstractString)
             name = "Error",
         ),
     )
-    save_as(artifact, path)
+    save_as!(artifact, path)
     _tracing_tracing_stop(tracing)
     return path
 end
@@ -282,7 +282,7 @@ close!(page)                          # ...the file is finished by this
     this package. Close the page first, as above.
 
 The result is an ordinary [`Artifact`](@ref), so [`path`](@ref),
-[`save_as`](@ref) and [`delete_file!`](@ref) all work on it — `save_as` being the way
+[`save_as!`](@ref) and [`delete_file!`](@ref) all work on it — `save_as` being the way
 to move it somewhere of your choosing rather than the driver's temporary
 directory.
 """

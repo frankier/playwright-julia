@@ -135,7 +135,7 @@ producing. Three verbs:
 | Call | Does |
 |---|---|
 | [`path`](@ref) | blocks until it is completely written, returns where it is |
-| [`save_as`](@ref) | copies it somewhere of your choosing, creating directories |
+| [`save_as!`](@ref) | copies it somewhere of your choosing, creating directories |
 | [`delete_file!`](@ref) | removes the driver's copy |
 
 ```julia
@@ -144,7 +144,7 @@ close!(page)
 if test_passed
     delete_file!(recording)                          # nothing to look at
 else
-    save_as(recording, "artifacts/run.webm")   # your copy; delete_file! cannot touch it
+    save_as!(recording, "artifacts/run.webm")   # your copy; delete_file! cannot touch it
 end
 ```
 

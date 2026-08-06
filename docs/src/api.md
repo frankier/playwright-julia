@@ -132,7 +132,7 @@ start_tracing
 stop_tracing
 with_tracing
 video
-save_as
+save_as!
 path
 delete_file!
 ```

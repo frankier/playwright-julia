@@ -16,7 +16,7 @@ end
 
 using Base64: base64encode
 using Playwright:
-    pdf, save_as, path, delete_file!, start_tracing, stop_tracing, with_tracing, video
+    pdf, save_as!, path, delete_file!, start_tracing, stop_tracing, with_tracing, video
 
 """
 Answer a whole `with_tracing` session on the fake driver: the two start calls,
@@ -98,23 +98,23 @@ end
 # to keep wire spellings out of the API layer.
 
 @testset "Artifact (T4)" begin
-    @testset "save_as sends the path and returns it" begin
+    @testset "save_as! sends the path and returns it" begin
         f = timeout_fixture()
         art = fixture_artifact(f)
         dest = joinpath(mktempdir(), "saved.zip")
 
-        sent = waiting_request(f.fake, () -> save_as(art, dest))
+        sent = waiting_request(f.fake, () -> save_as!(art, dest))
         @test sent["guid"] == "artifact@1"
         @test sent["method"] == "saveAs"
         @test sent["params"]["path"] == dest
         close(f.fake.connection)
     end
 
-    @testset "save_as returns the path it was given, so calls chain" begin
+    @testset "save_as! returns the path it was given, so calls chain" begin
         f = timeout_fixture()
         art = fixture_artifact(f)
         dest = joinpath(mktempdir(), "saved.zip")
-        task = @async save_as(art, dest)
+        task = @async save_as!(art, dest)
         msg = take!(f.fake.client_messages)
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
         @test fetch(task) == dest
@@ -644,10 +644,10 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         @test isfile(file)
                         @test filesize(file) > 0
 
-                        # ...and save_as puts a copy where the caller wants it.
+                        # ...and save_as! puts a copy where the caller wants it.
                         dest = joinpath(ARTIFACT_DIR, "run-$engine.webm")
                         isfile(dest) && rm(dest)
-                        @test save_as(v, dest) == dest
+                        @test save_as!(v, dest) == dest
                         @test filesize(dest) > 0
 
                         close!(browser)
