@@ -56,7 +56,7 @@ include("bonnie_shim.jl")
         # need for — `evaluate` now takes the Locator itself.
         fill_range!(slider, value) = begin
             evaluate(slider, "(el, v) => el.value = v", value)
-            dispatch_event(slider, "input")
+            dispatch_event!(slider, "input")
         end
 
         with_fixture_server() do base_url
@@ -89,8 +89,8 @@ include("bonnie_shim.jl")
                     @assert input_value(slider) isa String
                 end
 
-                # 4. dispatch_event to drive a range input precisely
-                fill_range!(first(sliders), 7)   # user-side helper built on dispatch_event
+                # 4. dispatch_event! to drive a range input precisely
+                fill_range!(first(sliders), 7)   # user-side helper built on dispatch_event!
 
                 # scoped JSHandle
                 evaluate_handle(page, "() => window.app") do app

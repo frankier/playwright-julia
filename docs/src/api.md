@@ -77,7 +77,7 @@ is_enabled
 ```@docs
 click!
 set_value!
-dispatch_event
+dispatch_event!
 element_handle
 ```
 

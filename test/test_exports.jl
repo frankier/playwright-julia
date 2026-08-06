@@ -65,7 +65,7 @@
         :evaluate_handle,
         :content_frame,
         :contexts,
-        :dispatch_event,
+        :dispatch_event!,
         :frame_locator,
         :frames,
         :get_attribute,

@@ -301,7 +301,7 @@ expect(locator(page, "li.greeting"); to_have_text = "Hello!")
 `timeout` covers the whole wait and defaults to the
 [`set_default_timeout!`](@ref) cascade; a click that never becomes actionable
 raises [`TimeoutError`](@ref). For a synthetic event with none of those checks,
-see [`dispatch_event`](@ref).
+see [`dispatch_event!`](@ref).
 """
 click!(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_click(
     loc.frame;
@@ -328,7 +328,7 @@ expect(locator(page, "#name"); to_have_value = "Ada")
 ```
 
 Elements that refuse to be filled — a `range` input, say — want
-[`evaluate`](@ref) plus [`dispatch_event`](@ref) instead.
+[`evaluate`](@ref) plus [`dispatch_event!`](@ref) instead.
 """
 set_value!(loc::Locator, value::AbstractString; timeout::MaybeTimeout = nothing) =
     _frame_fill(
@@ -340,7 +340,7 @@ set_value!(loc::Locator, value::AbstractString; timeout::MaybeTimeout = nothing)
     )
 
 """
-    dispatch_event(loc::Locator, type, event_init=missing; timeout=nothing)
+    dispatch_event!(loc::Locator, type, event_init=missing; timeout=nothing)
 
 Dispatch a DOM event of `type` (`"input"`, `"change"`, `"click"`, …) on the
 matched element. `event_init` is serialized with the same mapping as
@@ -353,10 +353,10 @@ precisely — setting an `input[type=range]` to an exact value, for example:
 
 ```julia
 eval_on_selector(page, "#volume", "(el, v) => el.value = v", 7)
-dispatch_event(locator(page, "#volume"), "input")   # let listeners react
+dispatch_event!(locator(page, "#volume"), "input")   # let listeners react
 ```
 """
-dispatch_event(
+dispatch_event!(
     loc::Locator,
     type::AbstractString,
     event_init = missing;
@@ -386,13 +386,13 @@ return the result converted to Julia.
 The locator's own selector and `strict` flag are used, so a strict locator
 matching several elements raises here just as it would for [`click!`](@ref).
 This is the precise tool for controls that ordinary interaction cannot drive
-exactly — pair it with [`dispatch_event`](@ref) so the page's listeners still
+exactly — pair it with [`dispatch_event!`](@ref) so the page's listeners still
 run:
 
 ```julia
 slider = locator(page, "#volume")
 evaluate(slider, "(el, v) => el.value = v", 7)
-dispatch_event(slider, "input")
+dispatch_event!(slider, "input")
 ```
 
 Raises a [`PlaywrightError`](@ref) when nothing matches. See

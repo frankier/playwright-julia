@@ -256,7 +256,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: dispatch_event drives a range input" begin
+                @testset "$browser_name: dispatch_event! drives a range input" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/sliders.html")
@@ -269,7 +269,7 @@ tryrun(cmd) =
                     @test inner_text(readout) == "first=0 second=0"
 
                     # ...dispatching the event is what makes the page react.
-                    dispatch_event(second, "input")
+                    dispatch_event!(second, "input")
                     @test input_value(second) == "7"
                     @test inner_text(readout) == "first=0 second=7"
 
@@ -287,7 +287,7 @@ tryrun(cmd) =
              }
              """,
                     )
-                    dispatch_event(
+                    dispatch_event!(
                         locator(page, "#first"),
                         "keydown",
                         Dict("key" => "Escape"),

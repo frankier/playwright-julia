@@ -110,12 +110,12 @@ it different from assigning `.value` through `evaluate` — the page's listeners
 actually run.
 
 For controls ordinary interaction cannot drive exactly — a range input, say —
-combine [`evaluate`](@ref) with [`dispatch_event`](@ref):
+combine [`evaluate`](@ref) with [`dispatch_event!`](@ref):
 
 ```julia
 slider = locator(page, "#volume")
 evaluate(slider, "(el, v) => el.value = v", 7)
-dispatch_event(slider, "input")            # let the listeners react
+dispatch_event!(slider, "input")            # let the listeners react
 ```
 
 ## Locators inside iframes

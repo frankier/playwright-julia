@@ -365,7 +365,7 @@ end
 
                     slider = locator(page, "#first")
                     evaluate(slider, "(el, v) => el.value = v", 7)
-                    dispatch_event(slider, "input")
+                    dispatch_event!(slider, "input")
 
                     @test input_value(slider) == "7"
                     # The readout only updates if a real `input` event fired,

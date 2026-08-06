@@ -228,7 +228,7 @@ end
         @test sent_params(f.fake, () -> click!(loc))["timeout"] == 2_000
         @test sent_params(f.fake, () -> set_value!(loc, "v"))["timeout"] == 2_000
         @test sent_params(f.fake, () -> get_attribute(loc, "href"))["timeout"] == 2_000
-        @test sent_params(f.fake, () -> dispatch_event(loc, "click"))["timeout"] == 2_000
+        @test sent_params(f.fake, () -> dispatch_event!(loc, "click"))["timeout"] == 2_000
         close(f.fake.connection)
     end
 
