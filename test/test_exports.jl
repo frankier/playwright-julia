@@ -104,6 +104,8 @@
         :method,
         :RequestFailure,
         :error_text,
+        :APIResponse,
+        :fetch_uid,
         :expect_request,
         :expect_response,
         # M6 T10: route interception (D5–D9)
@@ -151,6 +153,19 @@
     # behind it only fails at the call site.
     for name in expected
         @test isdefined(Playwright, name)
+    end
+
+    # D14: `Playwright.fetch` is deliberately NOT exported — Base.fetch and
+    # Distributed.fetch both exist, and exporting this name would make `using
+    # Playwright` alongside either of them ambiguous. The cost is that
+    # `checkdocs = :exports` cannot see its docstring, which is gap 1's shape
+    # arrived at on purpose this time. So the gate the export list would have
+    # given is replaced by this test rather than dropped.
+    @testset "Playwright.fetch is unexported but documented (D14)" begin
+        @test !(:fetch in names(Playwright))
+        @test isdefined(Playwright, :fetch)
+        documented = Base.Docs.meta(Playwright)
+        @test haskey(documented, Base.Docs.Binding(Playwright, :fetch))
     end
 
     # ...and every one carries documentation. The generated channel types are

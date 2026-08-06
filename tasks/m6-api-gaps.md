@@ -25,4 +25,38 @@ Recorded 2026-08-06, at the start of Part B.
 
 ---
 
-_(No gaps recorded yet.)_
+## 1. The code generator shadows any protocol parameter named `params`
+
+Found while wiring `Playwright.fetch` (T13). `gen/generate.jl` emits
+
+```julia
+function _api_request_context_fetch(_obj; …, params::Union{AbstractVector,Nothing} = nothing, …)
+    params = Dict{String,Any}()          # shadows the keyword argument
+    …
+    params === nothing || (params["params"] = to_wire(params))
+```
+
+The local parameter dict is called `params`, and two protocol commands have a
+parameter of that name. The local shadows the keyword, so:
+
+- the keyword is unreachable — you cannot pass `params` at all; and
+- `params === nothing` is never true, so the call **always** sends
+  `params: {…}`, the dict serialized into itself.
+
+The driver rejects that with `DriverError: params: expected array, got object`,
+so **both affected functions fail on every call regardless of arguments**:
+
+| Function | Command |
+|---|---|
+| `_api_request_context_fetch` | `APIRequestContext.fetch` (`api.yml`) |
+| `_cdp_session_send` | `CDPSession.send` (`playwright.yml`) |
+
+Not fixed here. `SPEC-M6.md` assumption 5 says this milestone does not
+regenerate `src/generated/channels.jl`, and the fix belongs in the generator —
+rename the local to something that cannot collide (`_params`, say) and
+regenerate, which touches every generated function. `src/api/apirequest.jl`
+therefore builds this one call by hand, with a comment pointing here.
+
+Worth doing early in whichever milestone next touches `gen/`: nothing else in
+the package calls either function today, so the bug is invisible until someone
+needs `params` — as M6 just did.

@@ -28,6 +28,12 @@ using Sockets
 const CoreLogging = Base.CoreLogging
 
 using Playwright:
+    APIResponse,
+    fetch_uid,
+    is_disposed,
+    dispose!,
+    raw_headers,
+    headers_array,
     expect_request,
     expect_response,
     error_text,
@@ -536,6 +542,145 @@ todo_texts(page) =
 
                     @test seen.req isa Playwright.Request
                     @test seen.finished isa Playwright.Request
+                end
+
+                @testset "$engine: fulfil from a real upstream response (SC 14)" begin
+                    seen = within_deadline("$engine SC 14") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            upstream_status = Ref(0)
+                            upstream_body = Ref("")
+
+                            # Intercept, forward, modify — the whole reason
+                            # APIRequestContext ships at all (D12).
+                            with_route(
+                                ctx,
+                                "**/api/todos",
+                                function (route)
+                                    upstream = Playwright.fetch(route)
+                                    upstream_status[] = status(upstream)
+                                    upstream_body[] = text(upstream)
+                                    fulfill!(route; response = upstream, status = 500)
+                                end,
+                            ) do
+                                click!(locator(page, "#load"))
+                                # The page's fetch resolves (500 is a response,
+                                # not a failure), and its handler renders the
+                                # upstream body.
+                                expect(locator(page, "#status"); to_have_text = "loaded")
+                            end
+
+                            (
+                                upstream_status = upstream_status[],
+                                upstream_body = upstream_body[],
+                                rendered = todo_texts(page),
+                            )
+                        end
+                    end
+
+                    # The fetch really went to the server and got the real answer...
+                    @test seen.upstream_status == 200
+                    @test occursin("from the server", seen.upstream_body)
+                    # ...and the page received that body, under a forced status.
+                    @test seen.rendered == ["from the server"]
+                end
+
+                @testset "$engine: an APIResponse is disposed after its handler (SC 15)" begin
+                    seen = within_deadline("$engine SC 15") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            captured = Ref{Any}(nothing)
+                            with_route(
+                                ctx,
+                                "**/api/todos",
+                                function (route)
+                                    upstream = Playwright.fetch(route)
+                                    captured[] = upstream
+                                    # Disposed *after* this returns, so reading the
+                                    # body here is still fine.
+                                    fulfill!(route; response = upstream)
+                                end,
+                            ) do
+                                click!(locator(page, "#load"))
+                                expect(locator(page, "#status"); to_have_text = "loaded")
+                            end
+
+                            handler_response = captured[]
+
+                            # A response fetched *outside* a handler is not
+                            # disposed for you — it is the finalization case, and
+                            # dispose! is the explicit one.
+                            standalone = Playwright.fetch(ctx, "$base_url/api/todos")
+                            standalone_before = is_disposed(standalone)
+                            dispose!(standalone)
+
+                            (
+                                handler_disposed = is_disposed(handler_response),
+                                handler_uid = fetch_uid(handler_response),
+                                standalone_before = standalone_before,
+                                standalone_after = is_disposed(standalone),
+                                # Asserted, not assumed: the driver really was
+                                # told, so the body is gone rather than merely
+                                # unreferenced.
+                                body_after_dispose = try
+                                    body(handler_response)
+                                    "no error"
+                                catch e
+                                    "raised"
+                                end,
+                            )
+                        end
+                    end
+
+                    @test seen.handler_disposed
+                    @test !isempty(seen.handler_uid)
+                    @test seen.standalone_before == false
+                    @test seen.standalone_after == true
+                    @test seen.body_after_dispose == "raised"
+                end
+
+                @testset "$engine: raw_headers differs from headers (SC 16)" begin
+                    seen = within_deadline("$engine SC 16") do
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            goto!(page, "$base_url/m6.html")
+
+                            got = expect_request(ctx, "**/api/todos") do
+                                click!(locator(page, "#load"))
+                            end
+
+                            (
+                                plain = headers(got),
+                                raw = Dict(
+                                    lowercase(k) => v for (k, v) in raw_headers(got)
+                                ),
+                            )
+                        end
+                    end
+
+                    # raw_headers returns what the browser really sent, which
+                    # includes headers the page never set — `user-agent` is the
+                    # one both engines add.
+                    #
+                    # The engines disagree on how much of that the *initializer*
+                    # already carries: on Chromium raw is strictly larger than
+                    # `headers`, on Firefox the two match. So the assertion is
+                    # the one that holds on both — raw contains everything
+                    # `headers` does, plus the browser's own — rather than a
+                    # strict inequality that would be a Chromium-only fact
+                    # dressed up as a general one.
+                    @test haskey(seen.raw, "user-agent")
+                    @test length(seen.raw) >= length(seen.plain)
+                    for (k, v) in seen.plain
+                        @test haskey(seen.raw, k)
+                    end
                 end
 
                 @testset "$engine: abort! stops the request reaching the server (SC 7)" begin

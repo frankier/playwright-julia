@@ -223,6 +223,18 @@ expect_request
 expect_response
 ```
 
+## Fetching outside the page
+
+`Playwright.fetch` is **not exported** (D14) and so is written qualified. That
+also keeps it out of `checkdocs`' reach, which is why its entry here is
+explicit and why a test asserts it has a docstring.
+
+```@docs
+Playwright.fetch
+APIResponse
+fetch_uid
+```
+
 ### Failures and matchers
 
 ```@docs

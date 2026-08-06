@@ -67,6 +67,8 @@ export playwright,
     method,
     RequestFailure,
     error_text,
+    APIResponse,
+    fetch_uid,
     expect_request,
     expect_response,
     # M6 T10: route interception (D5–D9)
@@ -172,6 +174,7 @@ include("api/artifacts.jl")
 # after lifecycle.jl, whose name_value_array it mirrors.
 include("api/network.jl")
 include("api/routing.jl")
+include("api/apirequest.jl")
 include("api/fixtures.jl")
 
 end # module

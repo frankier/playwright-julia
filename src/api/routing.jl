@@ -214,15 +214,20 @@ function handle_route_inner(registry::RouteRegistry, route::Route)
         matched || continue
 
         try
-            # `invokelatest`, and this is load-bearing rather than defensive.
-            # The dispatcher task is spawned at the *first* registration, which
-            # fixes its world age; a handler closure defined after that — the
-            # second `route!` in any ordinary script — is "too new" for it and
-            # raises MethodError instead of running. The symptom is the worst
-            # one available here: the second registration silently never fires.
-            # This is the same world-age constraint api/events.jl's header
-            # describes for the transport reader task.
-            Base.invokelatest(reg.handler, route)
+            # R4: anything the handler fetches with Playwright.fetch is disposed
+            # when it returns. The driver buffers an unfetched body until it is
+            # told otherwise, so without this every mock-from-upstream leaks one.
+            with_fetch_scope() do
+                # `invokelatest`, and this is load-bearing rather than defensive.
+                # The dispatcher task is spawned at the *first* registration, which
+                # fixes its world age; a handler closure defined after that — the
+                # second `route!` in any ordinary script — is "too new" for it and
+                # raises MethodError instead of running. The symptom is the worst
+                # one available here: the second registration silently never fires.
+                # This is the same world-age constraint api/events.jl's header
+                # describes for the transport reader task.
+                Base.invokelatest(reg.handler, route)
+            end
         catch e
             record_exception!(reg, e)
             settle_default!(route)          # D7: the page proceeds regardless
