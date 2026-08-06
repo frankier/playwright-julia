@@ -12,7 +12,7 @@ failing run itself.
 |---|---|
 | [`with_page`](@ref) | all of the below, on failure |
 | [`with_tracing`](@ref) | a trace zip, written however the block exits |
-| [`start_tracing!`](@ref) / [`stop_tracing`](@ref) | the same, unpaired |
+| [`start_tracing!`](@ref) / [`stop_tracing!`](@ref) | the same, unpaired |
 | [`screenshot`](@ref) | PNG bytes, and a file if you pass `path` |
 | [`video`](@ref) | a `.webm` per page, with `record_video` on the context |
 | [`pdf`](@ref) | PDF bytes — **Chromium only** |
@@ -65,7 +65,7 @@ for the viewer:
 $ npx playwright@1.61.1 show-trace artifacts/trace.zip
 ```
 
-The unpaired form is [`start_tracing!`](@ref) and [`stop_tracing`](@ref). Each
+The unpaired form is [`start_tracing!`](@ref) and [`stop_tracing!`](@ref). Each
 stop consumes the chunk the start opened, so tracing a second run means
 starting again.
 

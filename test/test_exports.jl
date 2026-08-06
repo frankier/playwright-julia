@@ -95,7 +95,7 @@
         :delete_file!,
         # M4 T5: tracing
         :start_tracing!,
-        :stop_tracing,
+        :stop_tracing!,
         :with_tracing,
         # M4 T6: video
         :video,

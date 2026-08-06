@@ -115,7 +115,7 @@ tracing_channel(ctx::BrowserContext) =
 
 Begin recording a Playwright trace on `ctx` — the full record of what the
 browser did, viewable afterwards in Playwright's own trace viewer. Pair with
-[`stop_tracing`](@ref), or use [`with_tracing`](@ref) to guarantee the pairing
+[`stop_tracing!`](@ref), or use [`with_tracing`](@ref) to guarantee the pairing
 even when the block throws, which is the run worth tracing.
 
 ```julia
@@ -124,7 +124,7 @@ try
     goto!(page, url)
     click!(locator(page, "#submit"))
 finally
-    stop_tracing(ctx; path = "artifacts/trace.zip")
+    stop_tracing!(ctx; path = "artifacts/trace.zip")
 end
 ```
 
@@ -135,7 +135,7 @@ end
 | `name`, `title` | naming for the trace and the chunk |
 
 Two protocol calls, not one: the recording is configured, then a *chunk* is
-opened. `stop_tracing` closes the chunk, and a stop with no chunk open has
+opened. `stop_tracing!` closes the chunk, and a stop with no chunk open has
 nothing to archive.
 
 !!! note "`sources` is not available on this path"
@@ -170,7 +170,7 @@ function start_tracing!(
 end
 
 """
-    stop_tracing(ctx::BrowserContext; path) -> path
+    stop_tracing!(ctx::BrowserContext; path) -> path
 
 Stop the recording started by [`start_tracing!`](@ref) and write the trace zip
 to `path`, returning `path`. Parent directories are created as needed.
@@ -178,7 +178,7 @@ to `path`, returning `path`. Parent directories are created as needed.
 ```julia
 start_tracing!(ctx)
 goto!(page, url)
-stop_tracing(ctx; path = "artifacts/trace.zip")
+stop_tracing!(ctx; path = "artifacts/trace.zip")
 ```
 
 Each stop consumes the chunk `start_tracing!` opened, so tracing a second run
@@ -193,7 +193,7 @@ The zip is assembled by the driver, not by Julia — this package has no zip
 dependency and does not parse the trace. It is an opaque artifact for the
 upstream viewer.
 """
-function stop_tracing(ctx::BrowserContext; path::AbstractString)
+function stop_tracing!(ctx::BrowserContext; path::AbstractString)
     tracing = tracing_channel(ctx)
     result = _tracing_tracing_stop_chunk(tracing; mode = "archive")
     artifact = result.artifact
@@ -229,7 +229,7 @@ Returns whatever `f()` returned. Open the trace with
 `npx playwright show-trace artifacts/trace.zip`.
 
 Options other than `path` are passed straight to [`start_tracing!`](@ref); the
-zip is written by [`stop_tracing`](@ref). For a whole test wrapped in a trace
+zip is written by [`stop_tracing!`](@ref). For a whole test wrapped in a trace
 *and* a screenshot on failure, see [`with_page`](@ref).
 
 !!! note "A failed save never replaces your exception"
@@ -247,7 +247,7 @@ function with_tracing(f, ctx::BrowserContext; path::AbstractString, kw...)
         # Teardown: a failure to save the trace must not replace the caller's
         # exception with a less interesting one.
         try
-            stop_tracing(ctx; path)
+            stop_tracing!(ctx; path)
         catch e
             @warn "could not save trace" path exception = e
         end

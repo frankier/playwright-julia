@@ -274,7 +274,7 @@ end   # disposed on the way out
 @doc """
     Artifact
 
-A file the driver is producing — a trace zip from [`stop_tracing`](@ref) or a
+A file the driver is producing — a trace zip from [`stop_tracing!`](@ref) or a
 [`video`](@ref) recording. Three verbs: [`path`](@ref) blocks until it is
 completely written and says where it is, [`save_as!`](@ref) copies it somewhere
 of your choosing, and [`delete_file!`](@ref) removes it.
@@ -284,7 +284,7 @@ but the file is only complete later — a video not until its page or context
 closes. `path` is what waits.
 
 ```julia
-artifact = stop_tracing(ctx)
+artifact = stop_tracing!(ctx)
 save_as!(artifact, "artifacts/trace.zip")   # blocks until fully written
 ```
 """ Artifact

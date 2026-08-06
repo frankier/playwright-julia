@@ -16,7 +16,7 @@ end
 
 using Base64: base64encode
 using Playwright:
-    pdf, save_as!, path, delete_file!, start_tracing!, stop_tracing, with_tracing, video
+    pdf, save_as!, path, delete_file!, start_tracing!, stop_tracing!, with_tracing, video
 
 """
 Answer a whole `with_tracing` session on the fake driver: the two start calls,
@@ -207,12 +207,12 @@ end
         close(f.fake.connection)
     end
 
-    @testset "stop_tracing archives and saves, in that order" begin
+    @testset "stop_tracing! archives and saves, in that order" begin
         f = timeout_fixture()
         fixture_tracing(f)
         dest = joinpath(mktempdir(), "trace.zip")
 
-        task = @async stop_tracing(f.context; path = dest)
+        task = @async stop_tracing!(f.context; path = dest)
 
         stop = take!(f.fake.client_messages)
         @test stop["method"] == "tracingStopChunk"
