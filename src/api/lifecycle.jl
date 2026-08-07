@@ -221,7 +221,8 @@ Options (all optional, omitted from the wire when unset): `viewport` (a `Dict`
 or `NamedTuple` of `width`/`height`), `user_agent`, `locale`, `timezone_id`,
 `color_scheme`, `device_scale_factor`, `is_mobile`, `has_touch`, `offline`,
 `permissions`, `base_url`, `extra_http_headers` (a `Dict`),
-`ignore_https_errors`, `java_script_enabled`, `record_video`.
+`ignore_https_errors`, `java_script_enabled`, `record_video`,
+`accept_downloads`.
 
 ```julia
 ctx = new_context(browser; viewport=(width=1280, height=720))
@@ -237,6 +238,16 @@ not complete until the page or context closes:
 ```julia
 ctx = new_context(browser; record_video = (dir = "artifacts/video",))
 ```
+
+`accept_downloads` is a convenience rather than boilerplate: **downloads
+already work with it unset**, on both engines (probed). Pass `false` to make
+the browser refuse them — which does not stop the [`Download`](@ref) arriving,
+only makes [`failure`](@ref) non-`nothing`. Leaving it unset omits the
+parameter from the wire entirely; see [`Download`](@ref).
+
+To choose where the driver puts downloaded files, pass `downloads_path` to
+[`launch`](@ref) — the protocol carries it as a launch option, not a context
+one.
 """
 function new_context(
     browser::Browser;
@@ -255,6 +266,7 @@ function new_context(
     extra_http_headers::Union{AbstractDict,Nothing} = nothing,
     ignore_https_errors::Union{Bool,Nothing} = nothing,
     java_script_enabled::Union{Bool,Nothing} = nothing,
+    accept_downloads::Union{Bool,Nothing} = nothing,
 )
     return _browser_new_context(
         browser;
@@ -274,6 +286,10 @@ function new_context(
                            name_value_array(extra_http_headers),
         ignoreHTTPSErrors = ignore_https_errors,
         javaScriptEnabled = java_script_enabled,
+        # `nothing` omits the parameter rather than mapping to the enum's
+        # third value -- see accept_downloads_option, where the reason is a
+        # silent timeout rather than a style preference.
+        acceptDownloads = accept_downloads_option(accept_downloads),
     )::BrowserContext
 end
 

@@ -492,7 +492,7 @@ end
         # :requestfailed from DEFERRED_EVENTS (SC 13) — they are supported now,
         # and are asserted as such below. What remains deferred is what still
         # has no wrapper type.
-        for bad in (:download, :dialog, :websocket, :worker, :bindingcall)
+        for bad in (:dialog, :websocket, :worker, :bindingcall)
             err = try
                 expect_event(f.context, bad) do
                 end
@@ -515,6 +515,21 @@ end
             # page filter (D11).
             @test haskey(Playwright.events_for(f.page), supported)
         end
+
+        # M7 T12 did the same for :download, which is a *Page* event -- so on a
+        # context it is now an ordinary "no such event for this owner", and
+        # must no longer claim to be deferred.
+        @test haskey(Playwright.events_for(f.page), :download)
+        @test !haskey(Playwright.DEFERRED_EVENTS, :download)
+        err = try
+            expect_event(f.context, :download) do
+            end
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test !occursin("deferred", lowercase(err.msg))
 
         # An event that simply does not exist is also an ArgumentError, but
         # must not claim to be deferred — it is a typo, not a roadmap entry.

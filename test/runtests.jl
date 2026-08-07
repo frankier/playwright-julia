@@ -22,6 +22,9 @@ using Playwright
     include("test_events.jl")
     include("test_routing.jl")
     include("test_waiting.jl")
+    # After test_waiting.jl: these use its waiting_request helper, as well as
+    # timeout_fixture (test_timeouts.jl) and send_event (test_events.jl).
+    include("test_downloads.jl")
     include("test_locator_eval.jl")
     include("test_closed.jl")
     include("test_expect.jl")

@@ -90,6 +90,13 @@ export playwright,
     pdf,
     pdf_bytes,
     save_as!,
+    # M7 T12: downloads (D10, D11)
+    Download,
+    expect_download,
+    suggested_filename,
+    artifact,
+    cancel!,
+    failure,
     path,
     delete_file!,
     start_tracing!,
@@ -173,6 +180,7 @@ include("api/frames.jl")
 include("api/evaluate.jl")
 include("api/diagnostics.jl")
 include("api/artifacts.jl")
+include("api/downloads.jl")
 # Network: after events.jl, whose Subscription the route dispatcher holds, and
 # after lifecycle.jl, whose name_value_array it mirrors.
 include("api/network.jl")

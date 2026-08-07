@@ -139,6 +139,17 @@ path
 delete_file!
 ```
 
+## Downloads
+
+```@docs
+Download
+expect_download
+suggested_filename
+artifact
+cancel!
+failure
+```
+
 ## Diagnostic readers
 
 ```@docs

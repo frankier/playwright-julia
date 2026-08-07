@@ -293,6 +293,18 @@ const PAGE_EVENTS = Dict{Symbol,EventSpec}(
     :crash => EventSpec("crash", owner_payload),
     :frameattached => EventSpec("frameAttached", channel_payload("frame", Frame)),
     :framedetached => EventSpec("frameDetached", channel_payload("frame", Frame)),
+    # M7 D11. NOT opt-in: `download` is absent from page.yml's
+    # updateSubscription enum, so the driver sends it unconditionally (probed,
+    # tasks/m7-probe.md). Its payload reaches into params for `url` and
+    # `suggestedFilename`, which exist nowhere else -- the same shape
+    # :requestfailed needed for its failure text.
+    # Wrapped in a closure, not passed by name: download_payload lives in
+    # downloads.jl, which is included after this file, so the name does not
+    # exist yet when this table is built. Same forward reference `:pageerror`
+    # makes to page_error in diagnostics.jl, and resolved the same way -- at
+    # call time, long after every include has run.
+    :download =>
+        EventSpec("download", (owner, params) -> download_payload(owner, params)),
 )
 
 const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
@@ -330,7 +342,6 @@ const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
 # not ship. Named separately so the error can say "deferred" rather than
 # "no such event" — the difference between a roadmap entry and a typo.
 const DEFERRED_EVENTS = Dict(
-    :download => "Artifact is not wrapped yet",
     :dialog => "Dialog is not wrapped yet",
     :filechooser => "no file-chooser wrapper yet",
     :worker => "Worker is not wrapped yet",
@@ -571,10 +582,10 @@ Supported events, by owner:
 | `BrowserContext` | `:close` | the `BrowserContext` |
 | `BrowserContext` | `:console` | [`ConsoleMessage`](@ref) |
 | `BrowserContext` | `:pageerror` | [`PageError`](@ref) |
+| `Page` | `:download` | [`Download`](@ref) — or use [`expect_download`](@ref) |
 
-Anything else raises `ArgumentError`. Network events (`:request`, `:response`,
-…) and `:dialog`, `:download` and friends are deferred rather than designed
-away — their payload types have no accessors yet.
+Anything else raises `ArgumentError`. `:dialog`, `:filechooser` and friends are
+deferred rather than designed away — their payload types have no accessors yet.
 
 See also [`wait_for_event`](@ref) and [`with_events`](@ref).
 """

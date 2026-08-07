@@ -144,6 +144,13 @@
         # M4 T9: the with_page fixture
         :with_page,
         :report_diagnostics,
+        # M7 T12: downloads (D10, D11)
+        :Download,
+        :expect_download,
+        :suggested_filename,
+        :artifact,
+        :cancel!,
+        :failure,
         :screenshot,
         :screenshot_bytes,
         :text_content,
