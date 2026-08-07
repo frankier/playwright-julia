@@ -18,10 +18,20 @@ wrong. Fix the lifetime, not the test.
 
 ## Phase 1: Part A — the generator
 
-- [ ] T1: the no-shadow check in `test_codegen.jl` (S) — D2, SC 1, no deps
+- [x] T1: the no-shadow check in `test_codegen.jl` (S) — D2, SC 1, no deps
       - ⚠️ **write it first and run it red.** It must name
         `_api_request_context_fetch` and `_cdp_session_send`, not report a count
       - record the failure output — it is SC 1's only evidence
+      - **Red at `e29cf75`,** both halves, named not counted:
+        ```
+        Expression: sort(unique(bare_locals)) == Symbol[]
+         Evaluated: [:params, :result] == Symbol[]
+        Expression: sort(shadowed) == Symbol[]
+         Evaluated: [:_api_request_context_fetch, :_cdp_session_send] == Symbol[]
+        ```
+      - the bare-locals half names **`result` as well as `params`** — D1 spells
+        out only `params`, but D1's *rule* and D2's check both cover every
+        emitted local, so T2 renames both
 - [ ] T2: underscore every emitted local in `gen/generate.jl` (S) — D1, deps: T1
       - the rule is the deliverable: emitted locals lead with `_`, protocol
         parameters are spelled as the spec spells them

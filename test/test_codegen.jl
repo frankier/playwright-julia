@@ -32,6 +32,48 @@ function run_generator(args::Vector{String} = String[])
     return ok, String(take!(out))
 end
 
+"""
+The keyword arguments and the local bindings of every generated function, read
+out of the parsed source rather than by regex — the check sees what Julia sees,
+including which name actually wins when the two namespaces collide.
+
+Returns a vector of `(name, keywords, locals)`.
+"""
+function generated_bindings(path::AbstractString)
+    ast = Meta.parseall(read(path, String); filename = path)
+    out = Tuple{Symbol,Vector{Symbol},Vector{Symbol}}[]
+    for expr in ast.args
+        expr isa Expr && expr.head === :function || continue
+        sig, body = expr.args[1], expr.args[2]
+        sig isa Expr && sig.head === :call || continue
+        name = sig.args[1]
+        name isa Symbol || continue
+
+        keywords = Symbol[]
+        for arg in sig.args[2:end]
+            arg isa Expr && arg.head === :parameters || continue
+            for kw in arg.args
+                # `x::T` (required keyword) or `x::T = default`.
+                inner = kw isa Expr && kw.head === :kw ? kw.args[1] : kw
+                if inner isa Expr && inner.head === :(::)
+                    push!(keywords, inner.args[1])
+                elseif inner isa Symbol
+                    push!(keywords, inner)
+                end
+            end
+        end
+
+        locals = Symbol[]
+        for stmt in body.args
+            stmt isa Expr && stmt.head === :(=) || continue
+            stmt.args[1] isa Symbol && push!(locals, stmt.args[1])
+        end
+
+        push!(out, (name, keywords, unique(locals)))
+    end
+    return out
+end
+
 "The text of a generated function, from its signature to its closing `end`."
 function command_body(text::AbstractString, name::AbstractString)
     lines = split(text, '\n')
@@ -92,6 +134,32 @@ end
         @test Playwright.ElementHandle <: Playwright.JSHandleChannel
         @test Playwright.JSHandle <: Playwright.JSHandleChannel
         @test !(Playwright.Page <: Playwright.JSHandleChannel)
+    end
+
+    # D1/D2: an emitted local is spelled with a leading underscore; a protocol
+    # parameter is spelled exactly as the spec spells it. The two namespaces
+    # cannot intersect, because no protocol parameter leads with an underscore.
+    # Without that rule a parameter silently shadows the local — which is what
+    # made `_api_request_context_fetch` build its message out of itself.
+    @testset "no emitted local can be shadowed" begin
+        path = joinpath(REPO, "src", "generated", "channels.jl")
+        bindings = generated_bindings(path)
+        @test !isempty(bindings)
+
+        # Every local the emitter introduces leads with `_`.
+        bare_locals = Symbol[]
+        for (_, _, locals) in bindings
+            append!(bare_locals, filter(l -> !startswith(String(l), "_"), locals))
+        end
+        @test sort(unique(bare_locals)) == Symbol[]
+
+        # And separately: no keyword argument shadows a local of its own body.
+        # Named, not counted — the names are the whole diagnostic.
+        shadowed = [
+            name for (name, keywords, locals) in bindings if
+            !isempty(intersect(keywords, locals))
+        ]
+        @test sort(shadowed) == Symbol[]
     end
 
     if !gen_available()
