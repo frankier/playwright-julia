@@ -179,3 +179,103 @@ end
         end
     end
 end
+
+# --- T15: dialogs (SC 17-19) -----------------------------------------------
+
+@testset "dialogs, both engines (T15)" begin
+    on_both_engines("dialogs") do browser, base_url, _uploads, engine
+        page = new_page(new_context(browser))
+        goto!(page, "$base_url/m7.html")
+        result() = text_content(locator(page, "#dialog-result"))
+
+        @testset "SC 17: each type produces its own observable effect" begin
+            seen = Ref{Any}(nothing)
+            with_dialog(
+                page;
+                handler = d -> (seen[] = (dialog_type(d), message(d)); accept!(d)),
+            ) do
+                click!(locator(page, "#fire-alert"))
+            end
+            @test seen[] == ("alert", "alert text")
+            @test result() == "alert-done"
+
+            # An accepted confirm and a dismissed one must differ in the DOM,
+            # or the test would pass without the answer reaching the page.
+            with_dialog(page; handler = accept!) do
+                click!(locator(page, "#fire-confirm"))
+            end
+            @test result() == "confirmed"
+
+            with_dialog(page; handler = dismiss!) do
+                click!(locator(page, "#fire-confirm"))
+            end
+            @test result() == "dismissed"
+
+            # A prompt carries its default, and the submitted text lands.
+            got_default = Ref("")
+            with_dialog(page; handler = d -> (got_default[] = default_value(d);
+            accept!(d; prompt_text = "octarine"))) do
+                click!(locator(page, "#fire-prompt"))
+            end
+            @test got_default[] == "default value"
+            @test result() == "octarine"
+
+            # A dismissed prompt gives the page null, not the default.
+            with_dialog(page; handler = dismiss!) do
+                click!(locator(page, "#fire-prompt"))
+            end
+            @test result() == "null"
+        end
+
+        @testset "SC 18: with no handler, the dialog is auto-dismissed" begin
+            # The single most important assertion in Part C. With nothing
+            # registered the driver dismisses dialogs itself and the page
+            # proceeds -- which is what makes the registry design safe and the
+            # event-only design a footgun. If this ever fails, the package has
+            # started subscribing speculatively and every unhandled dialog is
+            # now a 30-second hang.
+            @test Playwright.dialog_registry_for(page) === nothing
+
+            click!(locator(page, "#fire-alert"))
+            # The page got past its alert() with nobody answering from Julia.
+            expect(locator(page, "#dialog-result"); to_have_text = "alert-done")
+
+            click!(locator(page, "#fire-confirm"))
+            # Auto-dismiss means the confirm returned false.
+            expect(locator(page, "#dialog-result"); to_have_text = "dismissed")
+
+            # ...and the page is still alive and interactive afterwards.
+            @test title(page) == "Playwright.jl · M7 files fixture"
+        end
+
+        @testset "SC 19: unsettled warns once, throwing surfaces, page proceeds" begin
+            # A handler that answers nothing: the dialog is dismissed for it,
+            # so the page proceeds rather than hanging.
+            reg = on_dialog!(_ -> nothing, page)
+            click!(locator(page, "#fire-confirm"))
+            expect(locator(page, "#dialog-result"); to_have_text = "dismissed")
+            @test reg.warned
+            off_dialog!(page, reg)
+
+            # A handler that throws: the exception surfaces out of with_dialog,
+            # and the page still proceeds because the dialog was dismissed.
+            err = try
+                with_dialog(page; handler = _ -> error("handler exploded")) do
+                    click!(locator(page, "#fire-confirm"))
+                    expect(locator(page, "#dialog-result"); to_have_text = "dismissed")
+                end
+                nothing
+            catch e
+                e
+            end
+            @test err !== nothing
+            @test occursin("handler exploded", sprint(showerror, err))
+
+            # And the registry is clean, so later dialogs are the driver's
+            # again rather than a leaked registration's.
+            @test Playwright.dialog_registry_for(page) === nothing
+            click!(locator(page, "#fire-alert"))
+            expect(locator(page, "#dialog-result"); to_have_text = "alert-done")
+        end
+    end
+end
