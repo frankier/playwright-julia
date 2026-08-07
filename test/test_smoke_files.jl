@@ -279,3 +279,98 @@ end
         end
     end
 end
+
+# --- T17: uploads, asserted server-side (SC 20-22) -------------------------
+
+@testset "uploads, both engines (T17)" begin
+    on_both_engines("uploads") do browser, base_url, uploads, engine
+        page = new_page(new_context(browser))
+        goto!(page, "$base_url/m7.html")
+        fixture = joinpath(@__DIR__, "fixtures", "upload.csv")
+        fixture_bytes = read(fixture)
+
+        "Submit the form and wait for the server to have recorded a POST."
+        function submit_and_wait()
+            uploads[] = []
+            click!(locator(page, "#upload-submit"))
+            @test timedwait(() -> !isempty(uploads[]), 15.0) === :ok
+            return uploads[]
+        end
+
+        @testset "SC 20: the server receives the filename and the bytes" begin
+            # Asserted from the server's side, not the page's. A client-side
+            # check that the input has a file attached says the browser did
+            # its job -- it does not say a byte was transferred.
+            set_input_files!(locator(page, "#file-single"), fixture)
+            got = submit_and_wait()
+            single = got[findfirst(p -> first(p) == "single", got)]
+            @test last(single)[1] == "upload.csv"
+            @test last(single)[2] == fixture_bytes
+        end
+
+        @testset "SC 20: several files arrive as several parts" begin
+            second = joinpath(mktempdir(), "second.csv")
+            write(second, "x,y\n9,9\n")
+            set_input_files!(locator(page, "#file-multi"), [fixture, second])
+            got = submit_and_wait()
+            multi = [p for p in got if first(p) == "multi"]
+            @test length(multi) == 2
+            @test sort([last(p)[1] for p in multi]) == ["second.csv", "upload.csv"]
+            @test last(multi[findfirst(p -> last(p)[1] == "upload.csv", multi)])[2] ==
+                  fixture_bytes
+        end
+
+        @testset "SC 20: an in-memory file needs no file on disk" begin
+            inline = Vector{UInt8}("inline,only\n1,2\n")
+            set_input_files!(
+                locator(page, "#file-single");
+                name = "inline.csv",
+                mime_type = "text/csv",
+                buffer = inline,
+            )
+            got = submit_and_wait()
+            single = got[findfirst(p -> first(p) == "single", got)]
+            @test last(single)[1] == "inline.csv"
+            @test last(single)[2] == inline
+        end
+
+        @testset "SC 21: the ArgumentError comes before the wire" begin
+            loc = locator(page, "#file-single")
+            @test_throws ArgumentError set_input_files!(
+                loc,
+                fixture;
+                name = "x.csv",
+                buffer = UInt8[1],
+            )
+            @test_throws ArgumentError set_input_files!(loc, "/no/such/file.csv")
+            # The page is untouched by a call that never happened.
+            @test title(page) == "Playwright.jl · M7 files fixture"
+        end
+
+        @testset "SC 22: is_multiple, including webkitdirectory" begin
+            # Probed identical on both engines. The webkitdirectory case
+            # asserts `false` ON PURPOSE -- a directory picker is one
+            # selection, not many -- so a test expecting `true` would be wrong
+            # on both rather than catching a divergence.
+            for (id, expected) in
+                (("#file-single", false), ("#file-multi", true), ("#file-dir", false))
+                fc = expect_file_chooser(page; timeout = 15_000) do
+                    click!(locator(page, id))
+                end
+                @test is_multiple(fc) == expected
+                @test element(fc) isa Playwright.ElementHandle
+            end
+        end
+
+        @testset "SC 22: set_files! through the chooser reaches the server" begin
+            fc = expect_file_chooser(page; timeout = 15_000) do
+                click!(locator(page, "#file-single"))
+            end
+            set_files!(fc, fixture)
+            got = submit_and_wait()
+            single = got[findfirst(p -> first(p) == "single", got)]
+            @test last(single)[1] == "upload.csv"
+            @test last(single)[2] == fixture_bytes
+        end
+    end
+end
