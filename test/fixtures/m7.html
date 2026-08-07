@@ -1,0 +1,69 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Playwright.jl · M7 files fixture</title>
+  </head>
+  <body>
+    <h1 id="heading">Files</h1>
+
+    <!-- Downloads (T13). The server sets Content-Disposition, so the
+         suggested filename comes from the header rather than the URL --
+         which is what makes suggested_filename worth asserting on. -->
+    <p>
+      <a id="download-report" href="/download/report.csv">report</a>
+      <a id="download-named" href="/download/anything">named by header</a>
+    </p>
+
+    <!-- Dialogs (T15). Each button records what the dialog returned into
+         #dialog-result, so an accepted confirm and a dismissed one are
+         distinguishable in the DOM rather than only in Julia. -->
+    <p>
+      <button id="fire-alert" onclick="alert('alert text'); show('alert-done')">
+        alert
+      </button>
+      <button id="fire-confirm" onclick="show(confirm('confirm text') ? 'confirmed' : 'dismissed')">
+        confirm
+      </button>
+      <button id="fire-prompt" onclick="show(String(prompt('prompt text', 'default value')))">
+        prompt
+      </button>
+      <button id="fire-beforeunload" onclick="armBeforeUnload()">arm beforeunload</button>
+    </p>
+    <p id="dialog-result">none</p>
+
+    <!-- Uploads (T17). Three inputs, because isMultiple is the thing under
+         test and webkitdirectory is the case the probe corrected. -->
+    <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
+      <input id="file-single" name="single" type="file" />
+      <input id="file-multi" name="multi" type="file" multiple />
+      <input id="file-dir" name="dir" type="file" webkitdirectory />
+      <button id="upload-submit" type="submit">upload</button>
+    </form>
+    <p id="upload-result">none</p>
+
+    <script>
+      function show(text) {
+        document.getElementById('dialog-result').textContent = text;
+      }
+      function armBeforeUnload() {
+        window.addEventListener('beforeunload', function (e) {
+          e.preventDefault();
+          e.returnValue = '';
+        });
+        show('armed');
+      }
+      // Submit via fetch so the assertion can read the server's echo without
+      // a navigation racing the test.
+      document.getElementById('upload-form').addEventListener('submit', function (e) {
+        e.preventDefault();
+        var data = new FormData(e.target);
+        fetch('/upload', { method: 'POST', body: data })
+          .then(function (r) { return r.text(); })
+          .then(function (t) {
+            document.getElementById('upload-result').textContent = t;
+          });
+      });
+    </script>
+  </body>
+</html>

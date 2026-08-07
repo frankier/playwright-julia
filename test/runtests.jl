@@ -37,6 +37,7 @@ using Playwright
         include("test_frames.jl")
         include("test_parity.jl")
         include("test_smoke_network.jl")
+        include("test_smoke_files.jl")
     else
         @info "Skipping smoke tests (set PLAYWRIGHT_JL_SMOKE=1 to enable)"
     end
