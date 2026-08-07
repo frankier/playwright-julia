@@ -289,24 +289,17 @@ function do_fetch(
         )
     end
 
-    # Hand-built rather than `_api_request_context_fetch`, which cannot be
-    # called at all: the generator names its local parameter dict `params`, and
-    # `APIRequestContext.fetch` has a protocol parameter *also* called `params`.
-    # The local shadows the keyword, so `params === nothing` is never true and
-    # the function unconditionally sends `params: {…}` — the dict into itself —
-    # which the driver rejects with "params: expected array, got object". The
-    # same shadowing breaks `_cdp_session_send`. Recorded in
-    # tasks/m6-api-gaps.md; not fixed here because SPEC-M6 assumption 5 says
-    # this milestone does not regenerate src/generated/channels.jl.
-    wire = Dict{String,Any}("url" => to_wire(url), "timeout" => to_wire(timeout))
-    method === nothing || (wire["method"] = to_wire(method))
-    header_dict === nothing || (wire["headers"] = to_wire(name_value_array(header_dict)))
-    post_bytes === nothing || (wire["postData"] = to_wire(post_bytes))
-    json_text === nothing || (wire["jsonData"] = to_wire(json_text))
-    max_redirects === nothing || (wire["maxRedirects"] = to_wire(max_redirects))
-    fail_on_status_code === nothing ||
-        (wire["failOnStatusCode"] = to_wire(fail_on_status_code))
-    raw_result = send_message(context.connection, context.guid, "fetch", wire)["response"]
+    raw_result = _api_request_context_fetch(
+        context;
+        url = url,
+        timeout = timeout,
+        method = method,
+        headers = header_dict === nothing ? nothing : name_value_array(header_dict),
+        postData = post_bytes,
+        jsonData = json_text,
+        maxRedirects = max_redirects,
+        failOnStatusCode = fail_on_status_code,
+    )
     response = APIResponse(context, raw_result)
     track_fetch!(response)
     return response

@@ -52,9 +52,16 @@ wrong. Fix the lifetime, not the test.
         is one character longer, so JuliaFormatter rewraps ~12 lines. A reflow
         is not a change in meaning, and a filter that flagged it would be a
         filter nobody trusted
-- [ ] T4: `apirequest.jl` stops hand-building its message (S) — D3, SC 2, 5, deps: T3
+- [x] T4: `apirequest.jl` stops hand-building its message (S) — D3, SC 2, 5, deps: T3
       - the exact call that produced `DriverError: params: expected array, got
         object` must now succeed
+      - it does. Against a local echo server, passing two real `params` entries:
+        ```
+        QUERY SEEN BY SERVER: colour=octarine&n=8
+        SC 2 PASS: params reached the wire as an array
+        ```
+      - `tasks/m6-api-gaps.md` gap 1 marked resolved in place with the three
+        commits that did it
 - [ ] T5: open `tasks/m7-api-gaps.md`, empty on purpose (S) — R4, SC 30, no deps
       - **before T6**, or it will not get written at all (M5's lesson, which M6
         confirmed by following it)
@@ -63,12 +70,16 @@ T5 ∥ everything — it is a file with a preamble and no dependencies.
 
 ### Checkpoint A — the generator is fixed and gated
 
-- [ ] T1's check demonstrably failed at the pre-D1 commit and passes now (SC 1)
-- [ ] `_api_request_context_fetch` accepts a real `params` argument (SC 2)
-- [ ] `gen/generate.jl --check` reports in sync (SC 3)
-- [ ] Scripted diff filter shows rename-only changes to `channels.jl` (SC 4)
-- [ ] No hand-built message dict in `src/api/apirequest.jl` (SC 5)
-- [ ] Hermetic and smoke green; `test_smoke_network.jl` SC 14 unchanged
+- [x] T1's check demonstrably failed at the pre-D1 commit and passes now (SC 1)
+      — red at `e29cf75` naming both functions, green from `6be2ea9`
+- [x] `_api_request_context_fetch` accepts a real `params` argument (SC 2)
+      — echo server saw `colour=octarine&n=8`
+- [x] `gen/generate.jl --check` reports in sync (SC 3)
+- [x] Scripted diff filter shows rename-only changes to `channels.jl` (SC 4)
+      — remainder empty modulo the renames and their formatter reflow
+- [x] No hand-built message dict in `src/api/apirequest.jl` (SC 5)
+- [x] Hermetic and smoke green; `test_smoke_network.jl` SC 14 unchanged
+      — hermetic 1648 passed; smoke 2387 passed, both engines, 0 failed
 
 ## Phase 2: Part B — the sweep
 

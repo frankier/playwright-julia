@@ -231,7 +231,10 @@ end
                 poke,
             )
             # A single channel-typed result resolves through from_channel.
-            @test occursin("return from_channel(_obj.connection, _result[\"gadget\"])", poke)
+            @test occursin(
+                "return from_channel(_obj.connection, _result[\"gadget\"])",
+                poke,
+            )
 
             @test occursin(
                 "return base64decode(_result[\"binary\"])",

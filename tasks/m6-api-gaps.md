@@ -27,6 +27,13 @@ Recorded 2026-08-06, at the start of Part B.
 
 ## 1. The code generator shadows any protocol parameter named `params`
 
+> **RESOLVED in M7 (D1–D3), commits `377834c`, `6be2ea9` and this one.** The
+> generator now underscores every local it emits, so the two namespaces cannot
+> intersect; `test/test_codegen.jl` gates it, having first been seen to fail
+> naming both functions below; and `src/api/apirequest.jl` calls
+> `_api_request_context_fetch` like everything else. The class was fixed, not
+> the instance — which is what the last paragraph here asked for.
+
 Found while wiring `Playwright.fetch` (T13). `gen/generate.jl` emits
 
 ```julia
