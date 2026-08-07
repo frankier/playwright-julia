@@ -345,15 +345,45 @@ const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
     ),
 )
 
-# Events the driver really does emit, whose wrapper types this milestone does
-# not ship. Named separately so the error can say "deferred" rather than
-# "no such event" — the difference between a roadmap entry and a typo.
+# Events the driver really does emit but that `expect_event` does not serve.
+# Named separately so the error can say "deferred" rather than "no such event"
+# — the difference between a roadmap entry and a typo.
+#
+# M7 D14 re-read every entry against the source rather than trusting it. The
+# table had drifted: `:download` said "Artifact is not wrapped yet" when
+# Artifact had been wrapped since M4, so the error told users something false
+# about why their event was unsupported. Three entries left in Part C; the
+# remaining four are re-checked here, and `deferred_table_is_honest` below is
+# the gate that stops the table drifting again.
+#
+# The messages distinguish "no API for this type" from "there is an API, but
+# not an event-shaped one", because those send a reader to different places.
 const DEFERRED_EVENTS = Dict(
-    :worker => "Worker is not wrapped yet",
-    :websocket => "WebSocket is not wrapped yet",
-    :route => "Route is not wrapped yet",
-    :bindingcall => "BindingCall is not wrapped yet",
+    # Generated ChannelOwners with no hand-written API: nothing useful could be
+    # handed to a caller yet.
+    :worker => "Worker has no accessors yet, so the event would yield nothing usable",
+    :websocket => "WebSocket has no accessors yet, so the event would yield nothing usable",
+    :bindingcall => "BindingCall has no accessors yet, so the event would yield nothing usable",
+    # The subtler kind of stale, and the reason this entry is rewritten rather
+    # than deleted: `Route` IS wrapped (M6) and fully usable. It is simply not
+    # offered as an event, because `route!` is the supported path — an event
+    # would hand you a route with no guarantee anyone settles it.
+    :route => "Route is wrapped, but interception is `route!`/`with_route`, not an event",
 )
+
+"""
+Whether `table` names only events that are genuinely absent from `owner`'s
+event table (D14).
+
+Written as a function over its inputs so the gate can be tested *both* ways:
+against the real table, which must pass, and against a table with a supported
+event added back, which must fail. A gate nobody has watched fail is a gate
+nobody knows works.
+
+Returns the offending event names, empty when the table is honest.
+"""
+deferred_table_is_honest(table, owner) =
+    sort([key for key in keys(table) if haskey(events_for(owner), key)])
 
 """
 The four network events as seen from a `Page`: subscribed on the page's

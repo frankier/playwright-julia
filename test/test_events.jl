@@ -549,6 +549,44 @@ end
         close(f.conn)
     end
 
+    # M7 T18 (D14). The table had drifted: :download claimed "Artifact is not
+    # wrapped yet" long after Artifact was wrapped, so the error told users
+    # something false about why their event was unsupported. The drift was the
+    # finding, not the entry -- a table that drifts once will drift again.
+    @testset "the deferred table names only unsupported events (SC 23, 24)" begin
+        f = event_fixture()
+
+        # The gate itself, on both owners.
+        for owner in (f.page, f.context)
+            @test Playwright.deferred_table_is_honest(Playwright.DEFERRED_EVENTS, owner) ==
+                  Symbol[]
+        end
+
+        # SC 24: prove the gate fails when it should. Re-adding a supported
+        # event to a *copy* of the table must be caught -- a gate nobody has
+        # watched fail is a gate nobody knows works.
+        tampered = merge(
+            Playwright.DEFERRED_EVENTS,
+            Dict(:download => "pretend this is still deferred"),
+        )
+        @test Playwright.deferred_table_is_honest(tampered, f.page) == [:download]
+
+        # Every surviving entry says something true. :route is the one that
+        # needed rewriting rather than deleting -- Route IS wrapped, it is
+        # simply not offered as an event.
+        @test occursin("route!", Playwright.DEFERRED_EVENTS[:route])
+        @test !occursin("not wrapped", Playwright.DEFERRED_EVENTS[:route])
+        for key in (:worker, :websocket, :bindingcall)
+            @test occursin("no accessors yet", Playwright.DEFERRED_EVENTS[key])
+        end
+
+        # And the three Part C events really are gone.
+        for gone in (:download, :dialog, :filechooser)
+            @test !haskey(Playwright.DEFERRED_EVENTS, gone)
+        end
+        close(f.conn)
+    end
+
     @testset "an event on the wrong owner type is rejected" begin
         f = event_fixture()
         # :console lives on the context, not the page
