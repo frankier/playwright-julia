@@ -492,7 +492,7 @@ end
         # :requestfailed from DEFERRED_EVENTS (SC 13) — they are supported now,
         # and are asserted as such below. What remains deferred is what still
         # has no wrapper type.
-        for bad in (:dialog, :websocket, :worker, :bindingcall)
+        for bad in (:websocket, :worker, :bindingcall)
             err = try
                 expect_event(f.context, bad) do
                 end
@@ -521,6 +521,10 @@ end
         # must no longer claim to be deferred.
         @test haskey(Playwright.events_for(f.page), :download)
         @test !haskey(Playwright.DEFERRED_EVENTS, :download)
+        # M7 T14 took :dialog out too. It is a *context* event, and it is
+        # reachable -- but on_dialog!/with_dialog is the documented path,
+        # because subscribing is what disarms the driver's auto-dismiss.
+        @test !haskey(Playwright.DEFERRED_EVENTS, :dialog)
         err = try
             expect_event(f.context, :download) do
             end

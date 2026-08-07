@@ -139,6 +139,20 @@ path
 delete_file!
 ```
 
+## Dialogs
+
+```@docs
+Dialog
+dialog_type
+message
+default_value
+accept!
+dismiss!
+on_dialog!
+off_dialog!
+with_dialog
+```
+
 ## Downloads
 
 ```@docs

@@ -144,6 +144,16 @@
         # M4 T9: the with_page fixture
         :with_page,
         :report_diagnostics,
+        # M7 T14: dialogs (D12)
+        :Dialog,
+        :dialog_type,
+        :message,
+        :default_value,
+        :accept!,
+        :dismiss!,
+        :on_dialog!,
+        :off_dialog!,
+        :with_dialog,
         # M7 T12: downloads (D10, D11)
         :Download,
         :expect_download,

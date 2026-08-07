@@ -90,6 +90,16 @@ export playwright,
     pdf,
     pdf_bytes,
     save_as!,
+    # M7 T14: dialogs (D12)
+    Dialog,
+    dialog_type,
+    message,
+    default_value,
+    accept!,
+    dismiss!,
+    on_dialog!,
+    off_dialog!,
+    with_dialog,
     # M7 T12: downloads (D10, D11)
     Download,
     expect_download,
@@ -185,6 +195,8 @@ include("api/downloads.jl")
 # after lifecycle.jl, whose name_value_array it mirrors.
 include("api/network.jl")
 include("api/routing.jl")
+# After routing.jl: reuses its raise_collected, and its dispatcher pattern.
+include("api/dialogs.jl")
 include("api/apirequest.jl")
 include("api/fixtures.jl")
 

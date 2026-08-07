@@ -342,7 +342,6 @@ const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
 # not ship. Named separately so the error can say "deferred" rather than
 # "no such event" — the difference between a roadmap entry and a typo.
 const DEFERRED_EVENTS = Dict(
-    :dialog => "Dialog is not wrapped yet",
     :filechooser => "no file-chooser wrapper yet",
     :worker => "Worker is not wrapped yet",
     :websocket => "WebSocket is not wrapped yet",
