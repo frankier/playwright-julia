@@ -30,11 +30,25 @@ Recorded 2026-08-07, at the start of Part B.
 
 ---
 
-## 1. Headless Firefox now has WebGL, and `wglmakie_jl.jl` asserts it does not
+## 1. Headless Firefox now has WebGL, and `wglmakie_jl.jl` asserted it did not
+
+> **RESOLVED, out of scope and on purpose.** Recorded first as a gap, then
+> fixed on the maintainer's explicit instruction rather than on this file's
+> own authority — which is the distinction the file exists to keep. The probe,
+> the numbers and the decision are below; the fix is the commit that follows
+> this edit. All 8 example runs pass, so Checkpoint B's "both examples pass on
+> both engines" **is** met after all.
+>
+> M7 re-probed Firefox and found `has_webgl == true`, **1625 distinct
+> colours** against Chromium's ~1690, crossing the 500 threshold **2.5s**
+> after the canvas appears. The fallback branch is deleted and the pixel
+> assertion runs on both engines. The 90-second budget is kept for both: it is
+> a ceiling for `retry_until`, not a sleep, so it costs nothing on Firefox's
+> 2.5s path and still covers the cold case it was calibrated for.
 
 Not an API gap — a **stale environmental assumption in an example**, recorded
-here because it is the thing M7 must not quietly fix, and because it blocks a
-Checkpoint B criterion that is otherwise met.
+here because it is the thing M7 must not quietly fix, and because it blocked a
+Checkpoint B criterion that was otherwise met.
 
 `examples/wglmakie_jl.jl:144` asserts:
 

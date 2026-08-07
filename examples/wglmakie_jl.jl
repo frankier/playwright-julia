@@ -7,26 +7,26 @@
 # API: a WebGL canvas is exactly the case where "the assertion failed" tells
 # you nothing and a screenshot tells you everything.
 #
-# ## Assertion level: Chromium-only for the rendered pixels
-#
-# This is **not** a limitation discovered by this script. It was fixed in
-# advance by a probe (`tasks/m5-probe.md`, five browser configurations, two
-# reproducing runs, with the display unset):
+# ## Assertion level: the rendered pixels, on both engines
 #
 #   * **Chromium renders the figure in full, with no launch flags at all.**
 #     Playwright's Chromium ships SwiftShader and selects it when there is no
 #     GPU, so `--use-gl=swiftshader` and the `--enable-unsafe-swiftshader`
 #     incantation that circulates for this problem both produce a
 #     byte-identical screenshot to passing nothing.
-#   * **Firefox has no WebGL context whatsoever.** Not a slow one, not a broken
-#     one — none. Prefs, a Mesa software-GL environment, and both together all
-#     changed nothing; the console says "Exhausted GL driver options".
+#   * **Firefox renders it too, as of the build this repo pins.**
 #
-# So the pixel assertion runs on Chromium only. Firefox is still run, and still
-# asserted on, at the structural level — the canvas is created at the requested
-# size and the page raises no errors — because WGLMakie's no-WebGL fallback is
-# a designed path rather than a crash, which makes "no page errors" a real
-# assertion on both engines rather than a tautology on one.
+# The second bullet used to say the opposite, and the change is worth keeping
+# rather than quietly overwriting. `tasks/m5-probe.md` found Firefox with *no*
+# WebGL context at all — not a slow one, not a broken one, none, with the
+# console reporting "Exhausted GL driver options" — so M4 asserted the absence
+# and ran a structural-only leg on Firefox. M7 re-probed and found
+# `has_webgl == true` and 1625 distinct colours, against Chromium's ~1690.
+#
+# So the pixel assertion now runs on both engines, and the no-WebGL fallback
+# branch is gone. An example whose Firefox leg asserts a browser limitation
+# that no longer exists is worse than no Firefox leg: it passes for the wrong
+# reason until the day it fails for the right one.
 
 using Bonito
 using WGLMakie
@@ -51,8 +51,8 @@ const OUTPUT = joinpath(@__DIR__, "output")
 # three states are an order of magnitude apart, measured:
 #
 #     Bonito still loading    123 distinct colours
-#     Firefox's fallback      241
-#     fully rendered        ~1690
+#     Firefox's old fallback  241   (no longer reachable — see the note above)
+#     fully rendered         1625 on Firefox, ~1690 on Chromium
 #
 const RENDERED_COLOURS = 500
 
@@ -109,41 +109,40 @@ try
                         @test size["w"] == 800
                         @test size["h"] == 600
 
-                        if engine_name == "chromium"
-                            # The pixel assertion. Budget 90 seconds: the probe
-                            # measured 57.9s for a cold first render — Bonito
-                            # serving its bundle, the browser compiling the
-                            # WGLMakie JS, and SwiftShader compiling shaders on
-                            # the CPU, all at once — against 1.8s warm. CI is
-                            # the cold case every time. A fixed sleep here is
-                            # either a flake or a minute thrown away.
-                            colours = 0
-                            rendered = retry_until(;
-                                timeout = 90_000,
-                                interval = 500,
-                                on_timeout = :false,
-                            ) do
-                                colours = distinct_colours(screenshot_bytes(page))
-                                colours > RENDERED_COLOURS
-                            end
-                            @test rendered
-                            @test colours > RENDERED_COLOURS
-                            @info "WGLMakie rendered" colours
-                        else
-                            # Level 2. Headless Firefox has no WebGL, so the
-                            # canvas is there and empty and WGLMakie draws its
-                            # own fallback. Assert that, rather than pretending
-                            # the plot rendered.
-                            has_webgl = evaluate(
-                                page,
-                                """() => {
-                                  const c = document.createElement('canvas');
-                                  return !!(c.getContext('webgl2') || c.getContext('webgl'));
-                                }""",
-                            )
-                            @test has_webgl == false
-                            @info "no WebGL on $engine_name; structural assertions only"
+                        # WebGL is now present on both engines, and asserting
+                        # it keeps the pixel assertion below honest: a blank
+                        # canvas with no context is a different failure from a
+                        # blank canvas with one, and only the second is a bug
+                        # in this example.
+                        has_webgl = evaluate(
+                            page,
+                            """() => {
+                              const c = document.createElement('canvas');
+                              return !!(c.getContext('webgl2') || c.getContext('webgl'));
+                            }""",
+                        )
+                        @test has_webgl == true
+
+                        # The pixel assertion. Budget 90 seconds: the probe
+                        # measured 57.9s for a cold first render on Chromium —
+                        # Bonito serving its bundle, the browser compiling the
+                        # WGLMakie JS, and SwiftShader compiling shaders on the
+                        # CPU, all at once — against 1.8s warm. Firefox warm is
+                        # 2.5s. The budget is an upper bound rather than a
+                        # sleep, so the generous number costs nothing on the
+                        # fast path and is what stops CI's cold case flaking.
+                        colours = 0
+                        rendered = retry_until(;
+                            timeout = 90_000,
+                            interval = 500,
+                            on_timeout = :false,
+                        ) do
+                            colours = distinct_colours(screenshot_bytes(page))
+                            colours > RENDERED_COLOURS
                         end
+                        @test rendered
+                        @test colours > RENDERED_COLOURS
+                        @info "WGLMakie rendered on $engine_name" colours
 
                         # True on both engines: the fallback is a designed
                         # path, so a page error here is a real failure.
