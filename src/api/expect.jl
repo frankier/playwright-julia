@@ -389,6 +389,11 @@ The escape hatch for conditions [`expect`](@ref) cannot express. Prefer
 `expect` where it fits — it retries *inside* the browser, so it neither
 round-trips per attempt nor misses a state that flickers between polls:
 
+`target` comes **second** here while every other function in the package takes
+it first. That is Julia's constraint rather than a choice: `f` has to be
+argument one for `retry_until(target) do … end` to parse as a do-block at all,
+and a do-block is how this function is meant to be called.
+
 ```julia
 retry_until(; timeout = 5_000) do
     length(console_messages(page)) >= 3

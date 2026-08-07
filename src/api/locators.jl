@@ -226,6 +226,15 @@ It answers about *now*, with no waiting, which makes it the wrong tool for
 is_visible(locator(page, "#banner"))                   # false, maybe not yet
 expect(locator(page, "#banner"); to_be_visible = true) # waits for it
 ```
+
+!!! note "No `timeout`, unlike its siblings"
+    [`is_checked`](@ref) and [`is_enabled`](@ref) take a `timeout`; this does
+    not, and the difference is deliberate rather than an oversight. **The
+    missing keyword is the signal.** Returning `false` for an element that is
+    not there is precisely what makes `is_visible` safe to ask about things
+    that may never exist, and a `timeout` would advertise a wait it does not
+    perform. A keyword that had to be ignored would be worse than one that is
+    absent.
 """
 is_visible(loc::Locator) =
     _frame_is_visible(loc.frame; selector = loc.selector, strict = loc.strict)
@@ -453,6 +462,15 @@ you are done with them.
 
 To wait for an element that is not there yet, use
 [`wait_for_selector`](@ref) instead — this does not wait.
+
+!!! note "Two calls, differing only in whether they wait"
+    That `element_handle` resolves now and `wait_for_selector` waits is the
+    one distinction between them, and it lives in the documentation rather
+    than in either name. The pair is kept because it mirrors Playwright's own
+    two calls: a reader arriving from `playwright-python` or the Node client
+    expects both to exist with exactly these meanings. Collapsing them into
+    one function with a `wait` keyword would read better in isolation and
+    surprise the people most likely to open this package.
 """
 element_handle(loc::Locator) =
     _frame_query_selector(loc.frame; selector = loc.selector, strict = loc.strict)

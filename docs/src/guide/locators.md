@@ -35,10 +35,19 @@ click!(locator(page, "li"))                    # raises if there are three <li>s
 click!(locator(page, "li"; strict = false))    # clicks the first
 ```
 
-Strictness is checked **on action**, not on construction, and it is a property
-of the locator rather than a setting on the page — so a suite that works with
-lists repeats `strict = false`. That is a known wart; see
-`tasks/m5-api-gaps.md` in the repository.
+Strictness is checked **on action**, but it is *resolved* on construction: the
+locator carries the answer, so a default changed afterwards does not reach back
+into locators that already exist.
+
+A suite that works with lists throughout no longer has to repeat the keyword.
+[`set_default_strict!`](@ref) cascades frame → page → context, exactly as
+[`set_default_timeout!`](@ref) does, and an explicit `strict =` still wins:
+
+```julia
+set_default_strict!(ctx, false)     # this suite works with lists
+rows = locator(page, "tr")          # ...so this needs no keyword
+one = locator(page, "#submit"; strict = true)   # and this overrides it
+```
 
 ## Several matches
 
@@ -67,6 +76,21 @@ to catch.
     deliver. Iteration samples the match set **once**, with a `count` round
     trip, when the loop starts — a page that adds or removes matching elements
     mid-loop can leave later iterations resolving elsewhere, or nowhere.
+
+!!! note "These names are public but invisible to `checkdocs`"
+    `count`, `length`, `first`, `last`, `iterate` and `getindex` extend their
+    `Base` counterparts rather than taking new names, so they work unqualified
+    and do **not** appear in `names(Playwright)`. The documentation gate is
+    `checkdocs = :exports`, so it cannot see them: they are public surface
+    standing outside the check that guarantees public surface is documented.
+
+    That hole is real and accepted rather than unnoticed. Extending `Base` is
+    the correct Julia design for the iteration and indexing protocol, and
+    exporting these names would shadow `Base` for the whole session — a
+    concretely worse trade, as the package found when `fill` became
+    [`set_value!`](@ref) rather than an exported `fill`. The
+    [API reference](@ref "Base extensions") lists them explicitly so that
+    being outside the gate does not also mean being undocumented.
 
 ## Reading
 

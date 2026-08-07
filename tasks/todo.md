@@ -110,29 +110,66 @@ T5 ∥ everything — it is a file with a preamble and no dependencies.
       - the Chromium check moved into `pdf_bytes` with `pdf` delegating, so a
         refused `pdf(page; path)` throws before creating an empty file
       - hermetic 1660, smoke 2401 both engines, docs + format clean
-- [ ] T8: `save_as!(a; path)` (S) — D6, SC 8, deps: T7
+- [x] T8: `save_as!(a; path)` (S) — D6, SC 8, deps: T7
       - its own task because Part C's `Download` extends this exact signature
-- [ ] T9: `sources` leaves `start_tracing!` (S) — D8, SC 9, deps: T8
+      - the new testset asserts the shared shape across **all four** members,
+        so the family cannot drift apart again silently
+- [x] T9: `sources` leaves `start_tracing!` (S) — D8, SC 9, deps: T8
       - invert the existing test, don't delete it; keep the guide note
-- [ ] T10: `set_default_strict!` cascade (M) — D7, SC 10, 11, deps: Checkpoint A
+      - landed in one commit with T8 — they interleave in the same three files,
+        and splitting after the fact would have meant reconstructing an
+        intermediate state that never existed. My sequencing error, not a
+        red-suite constraint like T2+T3
+- [x] T10: `set_default_strict!` cascade (M) — D7, SC 10, 11, deps: Checkpoint A
       - **an example must get shorter**, or the feature is unjustified (SC 11)
-- [ ] T11: close five gaps, delete `m5-api-gaps.md` (M) — D9, SC 12, deps: T6–T10
+      - `genie_jl.jl`: four `strict = false` gone, 86 → 83 code lines. Genie
+        rather than Oxygen because every remaining single-element locator there
+        targets an **ID**, unique by HTML spec, so none was leaning on
+        strictness. Oxygen and `http_jl.jl` genuinely mix — `http_jl.jl:85`
+        asserts on `li.greeting` expecting exactly one — and a page-wide
+        default there would have removed a real check to shorten a diff
+      - takes a **`Frame`**, unlike `set_default_timeout!`: D7's acceptance
+        names a frame level, and without a setter that level is unreachable
+      - shares `conn.timeouts` rather than a second table — same cascade, same
+        lock, same pruning; an unpruned guid-keyed table leaks for the life of
+        the connection
+      - `false` is a setting, not an absence, and there is a test named for it
+- [x] T11: close five gaps, delete `m5-api-gaps.md` (M) — D9, SC 12, deps: T6–T10
       - the grep walks **all** of `docs/`, not `docs/src` — M6 T17's lesson
       - a gap closed without its reason recorded is a gap re-discovered next
         milestone
+      - each rationale grep-able where the surface that owns it lives:
+
+        | Gap | Recorded in | Findable by |
+        |---|---|---|
+        | 1 | `guide/locators.md` | `invisible to .checkdocs` |
+        | 2 | `api/locators.jl` | `missing keyword is the signal` |
+        | 5 | `api/expect.jl` | `argument one for` |
+        | 6 | `api/locators.jl` | `differing only in whether they wait` |
+        | 8 | `api/evaluate.jl` | `arity depends on what you evaluate` |
+
+      - the guide had a **live pointer to the file being deleted**
+        (`guide/locators.md:41`, "see `tasks/m5-api-gaps.md`"); it now
+        documents `set_default_strict!` instead
+      - surviving `m5-api-gaps` mentions are in `SPEC-M5.md` / `SPEC-M7.md`,
+        which are historical records rather than live references
 
 T6 ∥ T10. T7 → T8 → T9 is sequential only because all three edit
 `src/api/artifacts.jl`.
 
 ### Checkpoint B — `m5-api-gaps.md` is gone
 
-- [ ] SC 6–12 all verified
-- [ ] `tasks/m5-api-gaps.md` deleted; all five rationales grep-able in `src/`
-      or `docs/`
-- [ ] Old-name grep across `src`, `test`, **all** of `docs`, `examples`,
-      `README.md` returns nothing
-- [ ] Docs build warning-free; both examples pass on both engines
-- [ ] At least one example lost a redundant `strict = false` (SC 11)
+- [x] SC 6–12 all verified
+- [x] `tasks/m5-api-gaps.md` deleted; all five rationales grep-able in `src/`
+      or `docs/` — table under T11
+- [x] Old-name grep across `src`, `test`, **all** of `docs`, `examples`,
+      `README.md` returns nothing — it runs in `test_exports.jl` on every
+      hermetic run, and gained `name` → `frame_name` in T6
+- [x] Docs build warning-free; **all 8 example runs** pass on both engines —
+      including `wglmakie_jl.jl` on Firefox, which was failing before M7 began
+      (`tasks/m7-api-gaps.md` gap 1, fixed on instruction)
+- [x] At least one example lost a redundant `strict = false` (SC 11) —
+      `genie_jl.jl`, four of them, 86 → 83 code lines
 
 ## Phase 3: Part C — the files
 

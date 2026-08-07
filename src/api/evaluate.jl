@@ -33,6 +33,18 @@ evaluate(page, "1 + 1")                      # 2.0
 evaluate(page, "x => x.a * 2", (a = 21,))    # 42.0
 evaluate(page, "document.title")             # "Example Domain"
 ```
+
+!!! warning "The expression's arity depends on what you evaluate *on*"
+    `evaluate(page, expr)` and `evaluate(frame, expr)` run `expr` with no
+    implicit argument. `evaluate(loc, expr)` and `evaluate(handle, expr)` pass
+    the matched element as the first one, so the same string goes from
+    `() => …` to `el => …` because of the type of a *different* argument.
+
+    This is Playwright's own design and every binding in every language
+    inherits it. Diverging would surprise anyone who already knows Playwright
+    more than the current behaviour surprises anyone who does not — but it is
+    the most likely source of a confusing `undefined`, so it is stated here
+    rather than left to be discovered.
 """
 evaluate(page::Page, expression::AbstractString, arg = missing; kwargs...) =
     evaluate(main_frame(page), expression, arg; kwargs...)
