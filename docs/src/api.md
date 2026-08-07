@@ -155,6 +155,7 @@ PageError
 
 ```@docs
 set_default_timeout!
+set_default_strict!
 set_default_navigation_timeout!
 ```
 

@@ -5,26 +5,33 @@
 # protocol call carrying the selector, the strictness flag and a timeout.
 
 """
-    locator(page::Page, selector; strict=true) -> Locator
-    locator(frame::Frame, selector; strict=true) -> Locator
+    locator(page::Page, selector; strict=nothing) -> Locator
+    locator(frame::Frame, selector; strict=nothing) -> Locator
 
 Lazy handle for `selector` (CSS, `text=`, `xpath=`, …). The selector is
 re-resolved in the browser on every action.
 
-With `strict=true` (the default, matching Playwright) acting on a selector that
-matches more than one element raises a [`PlaywrightError`](@ref) rather than
-silently picking one. Pass `strict=false` when you mean to work with several
-matches, and reach for [`count`](@ref), [`nth`](@ref) or iteration.
+Under strictness — `true` unless something says otherwise, matching Playwright
+— acting on a selector that matches more than one element raises a
+[`PlaywrightError`](@ref) rather than silently picking one. Pass
+`strict=false` when you mean to work with several matches, and reach for
+[`count`](@ref), [`nth`](@ref) or iteration.
 
 ```julia
 sliders = locator(page, "input[type=range]"; strict=false)
 count(sliders)      # 2
 ```
-"""
-locator(frame::Frame, selector::AbstractString; strict::Bool = true) =
-    Locator(frame, String(selector), strict)
 
-locator(page::Page, selector::AbstractString; strict::Bool = true) =
+Omitting `strict` resolves the cascade — frame, then page, then context, then
+`true` — so a suite that works with lists throughout can say it once with
+[`set_default_strict!`](@ref) instead of on every call. Strictness is resolved
+**here**, at construction: the `Locator` carries the answer, so changing a
+default afterwards does not reach back into locators that already exist.
+"""
+locator(frame::Frame, selector::AbstractString; strict::Union{Bool,Nothing} = nothing) =
+    Locator(frame, String(selector), resolve_strict(frame, strict))
+
+locator(page::Page, selector::AbstractString; strict::Union{Bool,Nothing} = nothing) =
     locator(main_frame(page), selector; strict)
 
 # --- Working with multiple matches ---------------------------------------

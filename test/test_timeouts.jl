@@ -302,3 +302,86 @@ end
         close(f.fake.connection)
     end
 end
+
+# --- D7: the strictness cascade --------------------------------------------
+#
+# Same machinery as the timeout cascade, pointed at the other keyword. The
+# resolution order is the whole feature, so it is tested by reaching each of
+# the five levels in turn, overriding exactly one thing at a time -- a test
+# that set them all at once would pass with the precedence backwards.
+
+@testset "strictness cascade (D7, SC 10)" begin
+    @testset "the package default is true" begin
+        f = timeout_fixture()
+        @test locator(f.page, "tr").strict == true
+        close(f.fake.connection)
+    end
+
+    @testset "a context default beats the package default" begin
+        f = timeout_fixture()
+        set_default_strict!(f.context, false)
+        @test locator(f.page, "tr").strict == false
+        close(f.fake.connection)
+    end
+
+    @testset "a page default beats the context default" begin
+        f = timeout_fixture()
+        set_default_strict!(f.context, false)
+        set_default_strict!(f.page, true)
+        @test locator(f.page, "tr").strict == true
+        close(f.fake.connection)
+    end
+
+    @testset "a frame default beats the page default" begin
+        f = timeout_fixture()
+        set_default_strict!(f.context, true)
+        set_default_strict!(f.page, true)
+        set_default_strict!(f.frame, false)
+        @test locator(f.frame, "tr").strict == false
+        close(f.fake.connection)
+    end
+
+    @testset "an explicit keyword beats every default" begin
+        f = timeout_fixture()
+        set_default_strict!(f.context, false)
+        set_default_strict!(f.page, false)
+        set_default_strict!(f.frame, false)
+        @test locator(f.frame, "tr"; strict = true).strict == true
+        @test locator(f.page, "tr"; strict = true).strict == true
+        close(f.fake.connection)
+    end
+
+    @testset "false is a setting, not an absence" begin
+        # The cascade stores `false`, and `false` must not read as "unset" and
+        # fall through to `true`. `something` on a Bool would do exactly that
+        # if the sentinel were `false` rather than `nothing`.
+        f = timeout_fixture()
+        set_default_strict!(f.context, false)
+        @test Playwright.resolve_strict(f.frame, nothing) == false
+        close(f.fake.connection)
+    end
+
+    @testset "strictness is resolved at construction, not at action time" begin
+        # The Locator carries its answer, so a default set afterwards cannot
+        # reach back into locators that already exist.
+        f = timeout_fixture()
+        loose = locator(f.page, "tr"; strict = false)
+        set_default_strict!(f.context, true)
+        @test loose.strict == false
+        close(f.fake.connection)
+    end
+
+    @testset "the setting is pruned with its owner" begin
+        f = timeout_fixture()
+        conn = f.fake.connection
+        set_default_strict!(f.context, false)
+        @test haskey(conn.timeouts, "context@1")
+        send_dispose(f.fake, "context@1")
+        @test timedwait(
+            () -> Playwright.lookup_object(conn, "context@1") === nothing,
+            5.0,
+        ) === :ok
+        @test !haskey(conn.timeouts, "context@1")
+        close(f.fake.connection)
+    end
+end

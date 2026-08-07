@@ -84,16 +84,23 @@ try
         browser = launch(engine(pw); headless = true)
         try
             page = new_page(browser)
+
+            # This example is about a list of articles, so nearly every locator
+            # in it matches several elements and used to carry `strict = false`
+            # four times over. Said once instead. The single-element locators
+            # below all target IDs, which HTML already requires to be unique,
+            # so none of them was relying on strictness to catch ambiguity.
+            set_default_strict!(page, false)
             goto!(page, url)
 
             @testset "Genie.jl example" begin
                 expect(page; to_have_title = "Playwright.jl · Genie.jl")
                 expect(locator(page, "#heading"); to_have_text = "Articles")
-                expect(locator(page, "li.article"; strict = false); to_have_count = 3)
+                expect(locator(page, "li.article"); to_have_count = 3)
 
                 # Genie's routing is the thing under test, so the example
                 # follows a link and checks it landed on the right route.
-                click!(locator(page, "li.article a"; strict = false))
+                click!(locator(page, "li.article a"))
                 expect(page; to_have_url = r"/articles/1$")
                 expect(locator(page, "#title"); to_have_text = "Waiting is not sleeping")
                 @test text_content(locator(page, "#tag")) == "testing"
@@ -101,16 +108,12 @@ try
                 # …and back, so the return route is covered too.
                 click!(locator(page, "#back"))
                 expect(page; to_have_title = "Playwright.jl · Genie.jl")
-                @test length(
-                    evaluate_all(
-                        locator(page, "li.article"; strict = false),
-                        "els => els.map(e => e.dataset.tag)",
-                    ),
-                ) == 3
-                @test evaluate_all(
-                    locator(page, "li.article"; strict = false),
+                tags = evaluate_all(
+                    locator(page, "li.article"),
                     "els => els.map(e => e.dataset.tag)",
-                ) == ["testing", "api", "artifacts"]
+                )
+                @test length(tags) == 3
+                @test tags == ["testing", "api", "artifacts"]
             end
         finally
             close!(browser)

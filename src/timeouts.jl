@@ -17,10 +17,19 @@ const DEFAULT_NAVIGATION_TIMEOUT = 30_000
 # playwright() session inherit the first one's settings; and it puts the
 # settings under the connection's own lock, so pruning them from dispose_locked
 # needs no second lock and cannot invert a lock order.
-const NO_TIMEOUTS = (action = nothing, navigation = nothing)
+# One non-timeout setting shares this table: `strict` (D7). It cascades the
+# same way, prunes the same way, and lives under the same lock, so giving it a
+# second table would be duplication rather than separation.
+const NO_SETTINGS = (action = nothing, navigation = nothing, strict = nothing)
 
 "Owners that can carry a timeout setting."
 const TimeoutOwner = Union{Page,BrowserContext}
+
+# Frames included, unlike TimeoutOwner: D7's cascade has a frame level, and a
+# frame is the one place a caller can say "everything inside this iframe works
+# with lists" without saying it about the whole page.
+"Owners that can carry a strictness setting."
+const StrictOwner = Union{Frame,Page,BrowserContext}
 
 # The type of every user-facing `timeout` keyword in src/api/. `nothing` is the
 # default and means "resolve the cascade"; an explicit number short-circuits it.
@@ -28,14 +37,18 @@ const TimeoutOwner = Union{Page,BrowserContext}
 # default, which is exactly the regression T2b exists to prevent.
 const MaybeTimeout = Union{Real,Nothing}
 
-function set_timeout_setting!(owner::TimeoutOwner, key::Symbol, ms::Integer)
-    ms < 0 && throw(ArgumentError("timeout must be non-negative, got $ms"))
+function set_setting!(owner::ChannelOwner, key::Symbol, value)
     conn = owner.connection
     lock(conn.lock) do
-        current = get(conn.timeouts, owner.guid, NO_TIMEOUTS)
-        conn.timeouts[owner.guid] = merge(current, NamedTuple{(key,)}((Int(ms),)))
+        current = get(conn.timeouts, owner.guid, NO_SETTINGS)
+        conn.timeouts[owner.guid] = merge(current, NamedTuple{(key,)}((value,)))
     end
     return nothing
+end
+
+function set_timeout_setting!(owner::TimeoutOwner, key::Symbol, ms::Integer)
+    ms < 0 && throw(ArgumentError("timeout must be non-negative, got $ms"))
+    return set_setting!(owner, key, Int(ms))
 end
 
 """
@@ -141,3 +154,51 @@ resolve_navigation_timeout(target::ChannelOwner, ::Nothing) = something(
 resolve_timeout(loc::Locator, kwarg) = resolve_timeout(loc.frame, kwarg)
 resolve_navigation_timeout(loc::Locator, kwarg) =
     resolve_navigation_timeout(loc.frame, kwarg)
+
+# --- strictness (D7) --------------------------------------------------------
+
+"""
+    set_default_strict!(target, strict::Bool)
+
+Set the default strictness for [`locator`](@ref)s created on a
+[`Frame`](@ref), [`Page`](@ref) or [`BrowserContext`](@ref).
+
+Strictness is otherwise a per-call keyword, so a suite that works with lists
+says `strict = false` on every single call. This is the same cascade
+[`set_default_timeout!`](@ref) already provides, pointed at the other keyword.
+
+```julia
+ctx = new_context(browser)
+set_default_strict!(ctx, false)          # this suite works with lists
+rows = locator(page, "tr")               # ...so this no longer needs the keyword
+one = locator(page, "#submit"; strict = true)   # and this still overrides it
+```
+
+Resolution order, from strongest to weakest — an explicit keyword beats a
+frame default beats a page default beats a context default beats `true`:
+
+| Level | Set by |
+|---|---|
+| the call | `locator(…; strict = …)` |
+| the frame | `set_default_strict!(frame, …)` |
+| the page | `set_default_strict!(page, …)` |
+| the context | `set_default_strict!(ctx, …)` |
+| the package | `true`, matching Playwright |
+
+Resolved when the locator is **constructed**, not when it acts: a `Locator`
+carries its strictness, so changing the default afterwards does not reach back
+into locators that already exist.
+"""
+set_default_strict!(target::StrictOwner, strict::Bool) =
+    set_setting!(target, :strict, strict)
+
+"""
+    resolve_strict(target, kwarg) -> Bool
+
+Resolve a locator's strictness: the call's own `strict` keyword if given, else
+the nearest [`set_default_strict!`](@ref) setting walking up from `target`
+(frame → page → context), else `true`.
+"""
+resolve_strict(target::ChannelOwner, kwarg::Bool) = kwarg
+resolve_strict(target::ChannelOwner, ::Nothing) =
+    something(inherited_setting(target, :strict), true)
