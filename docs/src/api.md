@@ -139,6 +139,17 @@ path
 delete_file!
 ```
 
+## Uploads
+
+```@docs
+set_input_files!
+FileChooser
+expect_file_chooser
+element
+is_multiple
+set_files!
+```
+
 ## Dialogs
 
 ```@docs

@@ -26,6 +26,7 @@ using Playwright
     # timeout_fixture (test_timeouts.jl) and send_event (test_events.jl).
     include("test_downloads.jl")
     include("test_dialogs.jl")
+    include("test_uploads.jl")
     include("test_locator_eval.jl")
     include("test_closed.jl")
     include("test_expect.jl")

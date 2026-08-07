@@ -144,6 +144,13 @@
         # M4 T9: the with_page fixture
         :with_page,
         :report_diagnostics,
+        # M7 T16: uploads (D13)
+        :set_input_files!,
+        :FileChooser,
+        :expect_file_chooser,
+        :element,
+        :is_multiple,
+        :set_files!,
         # M7 T14: dialogs (D12)
         :Dialog,
         :dialog_type,

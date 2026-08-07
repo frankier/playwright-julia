@@ -90,6 +90,13 @@ export playwright,
     pdf,
     pdf_bytes,
     save_as!,
+    # M7 T16: uploads (D13)
+    set_input_files!,
+    FileChooser,
+    expect_file_chooser,
+    element,
+    is_multiple,
+    set_files!,
     # M7 T14: dialogs (D12)
     Dialog,
     dialog_type,
@@ -197,6 +204,7 @@ include("api/network.jl")
 include("api/routing.jl")
 # After routing.jl: reuses its raise_collected, and its dispatcher pattern.
 include("api/dialogs.jl")
+include("api/uploads.jl")
 include("api/apirequest.jl")
 include("api/fixtures.jl")
 

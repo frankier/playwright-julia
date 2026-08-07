@@ -305,6 +305,13 @@ const PAGE_EVENTS = Dict{Symbol,EventSpec}(
     # call time, long after every include has run.
     :download =>
         EventSpec("download", (owner, params) -> download_payload(owner, params)),
+    # M7 D13. Opt-in, unlike :download -- `fileChooser` IS in page.yml's
+    # updateSubscription enum, so the driver stays silent until asked.
+    :filechooser => EventSpec(
+        "fileChooser",
+        (owner, params) -> file_chooser_payload(owner, params),
+        true,
+    ),
 )
 
 const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
@@ -342,7 +349,6 @@ const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
 # not ship. Named separately so the error can say "deferred" rather than
 # "no such event" — the difference between a roadmap entry and a typo.
 const DEFERRED_EVENTS = Dict(
-    :filechooser => "no file-chooser wrapper yet",
     :worker => "Worker is not wrapped yet",
     :websocket => "WebSocket is not wrapped yet",
     :route => "Route is not wrapped yet",
@@ -582,9 +588,10 @@ Supported events, by owner:
 | `BrowserContext` | `:console` | [`ConsoleMessage`](@ref) |
 | `BrowserContext` | `:pageerror` | [`PageError`](@ref) |
 | `Page` | `:download` | [`Download`](@ref) — or use [`expect_download`](@ref) |
+| `Page` | `:filechooser` | [`FileChooser`](@ref) — or [`expect_file_chooser`](@ref) |
 
-Anything else raises `ArgumentError`. `:dialog`, `:filechooser` and friends are
-deferred rather than designed away — their payload types have no accessors yet.
+Anything else raises `ArgumentError`. What remains in `DEFERRED_EVENTS` is
+deferred rather than designed away — those payload types have no accessors yet.
 
 See also [`wait_for_event`](@ref) and [`with_events`](@ref).
 """
