@@ -93,20 +93,20 @@ See [`expect`](@ref), and [`title`](@ref) for the document's title.
 url(frame::Frame) = get(frame.initializer, "url", "")::String
 
 """
-    name(frame::Frame) -> String
+    frame_name(frame::Frame) -> String
 
 The frame's `name` attribute, or `""` when it has none — an unnamed frame and a
 frame named `""` are indistinguishable here.
 
 ```julia
-findfirst(f -> name(f) == "checkout", frames(page))
+findfirst(f -> frame_name(f) == "checkout", frames(page))
 ```
 
 Names are a convenience for finding a known frame; [`frame_locator`](@ref) is
 the way to actually work inside one. Note this is unrelated to
 [`browser_name`](@ref).
 """
-name(frame::Frame) = get(frame.initializer, "name", "")::String
+frame_name(frame::Frame) = get(frame.initializer, "name", "")::String
 
 """
     frame_locator(page::Page, selector) -> FrameLocator

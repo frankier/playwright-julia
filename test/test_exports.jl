@@ -118,7 +118,7 @@
         :abort!,
         :continue!,
         :fulfill!,
-        :name,
+        :frame_name,
         :new_context,
         :new_page,
         :nth,
@@ -265,8 +265,12 @@ end
     # A leading `.` means a JavaScript method call inside an `evaluate` string
     # — `document.getElementById("x").click()` is not this package's `click`,
     # and rewriting it would break only inside the browser. A leading word
-    # character means a generated channel function.
-    old_call(name) = Regex("(?<![.\\w])" * name * "\\(")
+    # character means a generated channel function. A leading `$` means a
+    # variable interpolated into a string: `"function $name("` in
+    # test_codegen.jl builds the name of a *generated* function and has nothing
+    # to do with the export — the first version of this walk flagged it, which
+    # is a false positive rather than a survivor.
+    old_call(name) = Regex("(?<![.\\w\$])" * name * "\\(")
 
     renamed = [
         "goto" => "goto!",
@@ -280,6 +284,10 @@ end
         "clear_console_messages" => "clear_console_messages!",
         "clear_page_errors" => "clear_page_errors!",
         "dispatch_event" => "dispatch_event!",
+        # M7 D4: `name` was the package's single worst export -- a word so
+        # generic that `using Playwright` shadowed it in any script that had
+        # its own. `frame_name` says which name it means.
+        "name" => "frame_name",
     ]
 
     for (old, new) in renamed

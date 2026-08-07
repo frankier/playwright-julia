@@ -89,7 +89,7 @@ parent_frame
 owner_frame
 frame_locator
 content_frame
-name
+frame_name
 ```
 
 ## Evaluating JavaScript

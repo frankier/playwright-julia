@@ -22,7 +22,7 @@
                 # whatever the frame started as.
                 @test endswith(url(main), "/iframe.html")
                 @test occursin("iframe-child.html", url(fs[2]))
-                @test name(main) == ""
+                @test frame_name(main) == ""
             end
 
             @testset "parent_frame" begin

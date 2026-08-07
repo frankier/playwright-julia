@@ -134,7 +134,7 @@ between an element and a frame are [`content_frame`](@ref) — the frame an
 lives in.
 
 To inspect the frame tree rather than act inside it, use [`frames`](@ref),
-[`parent_frame`](@ref), [`url`](@ref) and [`name`](@ref).
+[`parent_frame`](@ref), [`url`](@ref) and [`frame_name`](@ref).
 
 ## Handles, and when to want one
 

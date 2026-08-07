@@ -83,7 +83,16 @@ T5 ∥ everything — it is a file with a preamble and no dependencies.
 
 ## Phase 2: Part B — the sweep
 
-- [ ] T6: `name` → `frame_name` (S) — D4, SC 6, deps: Checkpoint A
+- [x] T6: `name` → `frame_name` (S) — D4, SC 6, deps: Checkpoint A
+      - hermetic 1649, smoke 2388 both engines, docs build clean
+      - **the grep had a false positive:** `"function $name("` in
+        `test_codegen.jl` interpolates a local to build a *generated* function's
+        name. `$` joins `.` and `\w` in the negative lookbehind
+      - **the grep cannot see `@ref` links at all.** ``[`name`](@ref)`` in
+        `guide/locators.md` matches no `name(`-shaped pattern; the docs build
+        failed on it, which is the backstop actually doing the work
+      - `docs/src/guide/frames.md` in the plan's file list **does not exist** —
+        frame docs live in `guide/locators.md`
 - [ ] T7: `screenshot`/`pdf` split from `_bytes` (M) — D5, SC 7, deps: T6
       - seven in-repo call sites, enumerated in the spec; the grep is what
         proves the enumeration was complete (R3)
