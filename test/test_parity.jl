@@ -231,14 +231,11 @@ end
 
                         # A3 — Chromium only, by design (D7)
                         if engine == "chromium"
-                            bytes = pdf(
-                                page;
-                                path = joinpath(artifacts, "page.pdf"),
-                                format = "A4",
-                            )
-                            @test !isempty(bytes)
+                            dest = joinpath(artifacts, "page.pdf")
+                            @test pdf(page; path = dest, format = "A4") == dest
+                            @test filesize(dest) > 0
                         else
-                            @test_throws ArgumentError pdf(page)
+                            @test_throws ArgumentError pdf_bytes(page)
                         end
 
                         close!(page)

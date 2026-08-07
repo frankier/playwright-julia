@@ -46,7 +46,9 @@ goto!
 title
 url
 screenshot
+screenshot_bytes
 pdf
+pdf_bytes
 ```
 
 ## Locator construction

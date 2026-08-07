@@ -252,7 +252,7 @@ end
     @testset "page actions send the inherited timeout" begin
         f = timeout_fixture()
         set_default_timeout!(f.context, 2_000)
-        @test sent_params(f.fake, () -> screenshot(f.page))["timeout"] == 2_000
+        @test sent_params(f.fake, () -> screenshot_bytes(f.page))["timeout"] == 2_000
         close(f.fake.connection)
     end
 

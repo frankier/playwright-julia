@@ -98,18 +98,23 @@ goto!(page, url)
 
 ## Screenshots and PDFs
 
-[`screenshot`](@ref) returns the PNG bytes and writes them to `path` if you
-give one, so a screenshot can be attached to a report without touching the
-filesystem:
+The artifact family follows one rule: **if you name a destination you get the
+destination back; if you want bytes you call the function that says bytes.**
 
 ```julia
-screenshot(page; path = "artifacts/checkout.png")
-bytes = screenshot(page)
+screenshot(page; path = "artifacts/checkout.png")   # -> the path
+bytes = screenshot_bytes(page)                      # -> Vector{UInt8}
 ```
 
-[`pdf`](@ref) is the same shape, and is **Chromium only** — off Chromium it
-raises an `ArgumentError` naming the engine, decided client-side with no round
-trip.
+[`screenshot`](@ref) requires `path` and returns it;
+[`screenshot_bytes`](@ref) touches no filesystem, so a screenshot can still be
+attached to a report without writing one. Splitting them keeps both
+type-stable — the alternative, returning `Union{String,Vector{UInt8}}`
+depending on whether a keyword was passed, is not.
+
+[`pdf`](@ref) and [`pdf_bytes`](@ref) are the same shape, and both are
+**Chromium only** — off Chromium they raise an `ArgumentError` naming the
+engine, decided client-side with no round trip.
 
 ## Diagnostics
 

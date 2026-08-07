@@ -53,7 +53,7 @@ function report_diagnostics(page::Page, dir::AbstractString)
     # caught here rather than made silent there, which keeps the silence in
     # one place and out of the ordinary API.
     capture(written, joinpath(dir, "screenshot.png"), "screenshot") do
-        screenshot(page)
+        screenshot_bytes(page)
     end
 
     # These two are already no-throw on a dead target (T3), so what is being

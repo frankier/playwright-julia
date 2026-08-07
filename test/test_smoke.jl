@@ -196,7 +196,7 @@ tryrun(cmd) =
                     goto!(doomed, "$base_url/")
                     close!(doomed)
                     closed_err = try
-                        screenshot(doomed)
+                        screenshot_bytes(doomed)
                         nothing
                     catch e
                         e
@@ -449,10 +449,13 @@ tryrun(cmd) =
                     goto!(page, "$base_url/")
 
                     path = joinpath(mktempdir(), "example.png")
-                    bytes = screenshot(page; path)
+                    # D5: the write returns its destination, so the assertion
+                    # is on the returned path rather than on a length.
+                    @test screenshot(page; path) == path
                     @test isfile(path)
                     png_magic = UInt8[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
                     @test read(path, 8) == png_magic
+                    bytes = screenshot_bytes(page)
                     @test length(bytes) > 8 && bytes[1:8] == png_magic
 
                     close!(browser)

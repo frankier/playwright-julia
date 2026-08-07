@@ -59,18 +59,20 @@ See [`expect`](@ref); the URL equivalent is [`url`](@ref).
 title(page::Page) = _frame_title(main_frame(page))
 
 """
-    screenshot(page::Page; path=nothing, timeout=nothing) -> Vector{UInt8}
+    screenshot(page::Page; path, timeout=nothing) -> String
 
-Capture a PNG screenshot of `page`, returning its bytes and writing them to
-`path` when given. The bytes come back either way, so a screenshot can be
-attached to a report without ever touching the filesystem.
+Capture a PNG screenshot of `page`, write it to `path`, and return `path`.
 
 ```julia
-screenshot(page; path = "artifacts/checkout.png")
-
-bytes = screenshot(page)          # …or keep it in memory
-length(bytes)                     # a PNG, magic bytes and all
+screenshot(page; path = "artifacts/checkout.png")   # -> "artifacts/checkout.png"
 ```
+
+`path` is required. For a screenshot you want in memory rather than on disk,
+call [`screenshot_bytes`](@ref) — the name says which one you get, so neither
+function has to return `Union{String,Vector{UInt8}}` depending on whether a
+keyword was passed. That is the artifact family's rule: **if you named a
+destination you get the destination back; if you want bytes you call the
+function that says bytes.**
 
 The viewport only — this package does not expose full-page or element
 screenshots. `timeout` defaults to the action timeout in force for `page` — see
@@ -78,12 +80,23 @@ screenshots. `timeout` defaults to the action timeout in force for `page` — se
 captures one automatically, and [`pdf`](@ref) is the Chromium-only print
 equivalent.
 """
-function screenshot(
-    page::Page;
-    path::Union{AbstractString,Nothing} = nothing,
-    timeout::MaybeTimeout = nothing,
-)
-    bytes = _page_screenshot(page; timeout = resolve_timeout(page, timeout), type = "png")
-    path === nothing || write(path, bytes)
-    return bytes
+function screenshot(page::Page; path::AbstractString, timeout::MaybeTimeout = nothing)
+    write(path, screenshot_bytes(page; timeout))
+    return path
 end
+
+"""
+    screenshot_bytes(page::Page; timeout=nothing) -> Vector{UInt8}
+
+Capture a PNG screenshot of `page` and return its bytes, touching no
+filesystem — for attaching to a report, hashing, or inspecting in memory.
+
+```julia
+bytes = screenshot_bytes(page)
+bytes[1:8] == UInt8[0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]   # a PNG
+```
+
+See [`screenshot`](@ref) for the write-to-disk form, which returns the path.
+"""
+screenshot_bytes(page::Page; timeout::MaybeTimeout = nothing) =
+    _page_screenshot(page; timeout = resolve_timeout(page, timeout), type = "png")

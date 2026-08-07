@@ -129,6 +129,7 @@
         :playwright,
         # M4 T7/T4: artifact capture and the Artifact surface
         :pdf,
+        :pdf_bytes,
         :save_as!,
         :path,
         :delete_file!,
@@ -143,6 +144,7 @@
         :with_page,
         :report_diagnostics,
         :screenshot,
+        :screenshot_bytes,
         :text_content,
         :title,
         :url,

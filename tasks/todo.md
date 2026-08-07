@@ -93,11 +93,23 @@ T5 ∥ everything — it is a file with a preamble and no dependencies.
         failed on it, which is the backstop actually doing the work
       - `docs/src/guide/frames.md` in the plan's file list **does not exist** —
         frame docs live in `guide/locators.md`
-- [ ] T7: `screenshot`/`pdf` split from `_bytes` (M) — D5, SC 7, deps: T6
+- [x] T7: `screenshot`/`pdf` split from `_bytes` (M) — D5, SC 7, deps: T6
       - seven in-repo call sites, enumerated in the spec; the grep is what
         proves the enumeration was complete (R3)
       - over the ~5-file guideline deliberately: definition and call sites are
         one atomic change, or the suite is red mid-commit
+      - ⚠️ **D5's acceptance is unreachable as written.** It predicts
+        `screenshot(page)` is a `MethodError`; it is an `UndefKeywordError`,
+        and could not be otherwise — `path` is a *keyword*, which D5 also
+        requires, and Julia raises `UndefKeywordError` for a missing required
+        keyword. Asserted what actually happens, with the reasoning in the
+        test. The real error is the better one: it names the keyword
+      - two tests asserted bytes **and** path from one call
+        (`test_smoke.jl:452`, `test_artifacts.jl:676`) — exactly what D5 exists
+        to split, so each became two calls
+      - the Chromium check moved into `pdf_bytes` with `pdf` delegating, so a
+        refused `pdf(page; path)` throws before creating an empty file
+      - hermetic 1660, smoke 2401 both engines, docs + format clean
 - [ ] T8: `save_as!(a; path)` (S) — D6, SC 8, deps: T7
       - its own task because Part C's `Download` extends this exact signature
 - [ ] T9: `sources` leaves `start_tracing!` (S) — D8, SC 9, deps: T8

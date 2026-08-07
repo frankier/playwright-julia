@@ -123,7 +123,7 @@ try
                                 interval = 500,
                                 on_timeout = :false,
                             ) do
-                                colours = distinct_colours(screenshot(page))
+                                colours = distinct_colours(screenshot_bytes(page))
                                 colours > RENDERED_COLOURS
                             end
                             @test rendered

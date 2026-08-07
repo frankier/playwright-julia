@@ -295,14 +295,17 @@ end
 # --- PDF (A3) --------------------------------------------------------------
 
 """
-    pdf(page::Page; path=nothing, kwargs...) -> Vector{UInt8}
+    pdf(page::Page; path, kwargs...) -> String
 
-Render `page` to PDF, returning the bytes and writing them to `path` when
-given — the same shape as [`screenshot`](@ref).
+Render `page` to PDF, write it to `path`, and return `path` — the same shape as
+[`screenshot`](@ref).
 
 ```julia
-bytes = pdf(page; path = "artifacts/page.pdf", format = "A4")
+pdf(page; path = "artifacts/page.pdf", format = "A4")   # -> "artifacts/page.pdf"
 ```
+
+`path` is required; for the bytes in memory call [`pdf_bytes`](@ref). Both take
+the same options, listed below.
 
 | Option | Meaning |
 |---|---|
@@ -327,9 +330,24 @@ driver's own defaults apply.
     is actually wrong rather than surfacing a driver error about an unknown
     command.
 """
-function pdf(
+function pdf(page::Page; path::AbstractString, kwargs...)
+    write(path, pdf_bytes(page; kwargs...))
+    return path
+end
+
+"""
+    pdf_bytes(page::Page; kwargs...) -> Vector{UInt8}
+
+Render `page` to PDF and return its bytes, touching no filesystem. Takes every
+option [`pdf`](@ref) takes, and carries the same Chromium-only restriction.
+
+```julia
+bytes = pdf_bytes(page; format = "A4")
+bytes[1:4] == Vector{UInt8}("%PDF")
+```
+"""
+function pdf_bytes(
     page::Page;
-    path::Union{AbstractString,Nothing} = nothing,
     format::Union{AbstractString,Nothing} = nothing,
     width::Union{AbstractString,Nothing} = nothing,
     height::Union{AbstractString,Nothing} = nothing,
@@ -349,13 +367,14 @@ function pdf(
     engine = browser_name(page)
     engine == "chromium" || throw(
         ArgumentError(
-            "pdf() is supported on Chromium only, and this page is running on " *
+            "pdf() and pdf_bytes() are supported on Chromium only, and this " *
+            "page is running on " *
             "$engine. Upstream `page.pdf` has no implementation on $engine; " *
             "capture a screenshot instead, or run this assertion on Chromium.",
         ),
     )
 
-    bytes = _page_pdf(
+    return _page_pdf(
         page;
         format,
         width,
@@ -372,6 +391,4 @@ function pdf(
         outline,
         tagged,
     )
-    path === nothing || write(path, bytes)
-    return bytes
 end

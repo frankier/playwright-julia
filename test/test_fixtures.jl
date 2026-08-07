@@ -337,7 +337,7 @@ end
                     @test console_messages(page) == Playwright.ConsoleMessage[]
                     @test page_errors(page) == Playwright.PageError[]
                     # ...while a real action on the same dead page still says so.
-                    @test_throws Playwright.TargetClosedError screenshot(page)
+                    @test_throws Playwright.TargetClosedError screenshot_bytes(page)
 
                     close!(browser)
                 end

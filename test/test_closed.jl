@@ -259,7 +259,7 @@
         # natural empty answer, and it is a real action rather than a buffer
         # read. It keeps throwing; report_diagnostics (T9) catches for it.
         f = timeout_fixture()
-        task = @async screenshot(f.page)
+        task = @async screenshot_bytes(f.page)
         msg = take!(f.fake.client_messages)
         target_closed_reply(f.fake, msg["id"])
         err = try

@@ -455,7 +455,7 @@ end
         f = timeout_fixture()
         sent = waiting_request(
             f.fake,
-            () -> pdf(
+            () -> pdf_bytes(
                 f.page;
                 format = "A4",
                 landscape = true,
@@ -485,7 +485,7 @@ end
         f = timeout_fixture()
         sent = waiting_request(
             f.fake,
-            () -> pdf(f.page),
+            () -> pdf_bytes(f.page),
             result = Dict{String,Any}("pdf" => base64encode(UInt8[1])),
         )
         for key in ("format", "landscape", "margin", "scale", "pageRanges")
@@ -494,7 +494,7 @@ end
         close(f.fake.connection)
     end
 
-    @testset "the bytes come back, and are written when a path is given" begin
+    @testset "the write returns its destination, and writes it" begin
         f = timeout_fixture()
         bytes = Vector{UInt8}("%PDF-1.4 pretend")
         dest = joinpath(mktempdir(), "out.pdf")
@@ -502,9 +502,42 @@ end
         msg = take!(f.fake.client_messages)
         pdf_reply(f.fake, msg["id"], bytes)
         got = fetch(task)
-        @test got == bytes
+        @test got == dest          # D5: you named a destination, you get it back
         @test isfile(dest)
         @test read(dest) == bytes
+        close(f.fake.connection)
+    end
+
+    # D5. The split is the point: one convention for the return value, one for
+    # the argument, and every function type-stable. `screenshot(page)` used to
+    # be the in-memory form and is now nothing at all — a MethodError rather
+    # than a silent change of return type, which is the whole reason `path`
+    # became required instead of merely recommended.
+    @testset "capture and export are separate functions (SC 7)" begin
+        f = timeout_fixture()
+
+        # SPEC-M7 D5 predicts a MethodError here. It is an UndefKeywordError,
+        # and it could not have been anything else: `path` is a *keyword*,
+        # which D5 also requires, and Julia raises UndefKeywordError for a
+        # missing required keyword. The prediction was wrong about the type,
+        # not about the behaviour — and the error it actually raises is the
+        # better one, because it names the keyword you forgot.
+        @test_throws UndefKeywordError screenshot(f.page)
+        @test_throws UndefKeywordError pdf(f.page)
+
+        dest = joinpath(mktempdir(), "shot.png")
+        png = Vector{UInt8}("\x89PNG pretend")
+        task = @async screenshot(f.page; path = dest)
+        msg = take!(f.fake.client_messages)
+        reply_ok(f.fake, msg["id"], Dict{String,Any}("binary" => base64encode(png)))
+        @test fetch(task) == dest
+        @test read(dest) == png
+
+        task = @async screenshot_bytes(f.page)
+        msg = take!(f.fake.client_messages)
+        reply_ok(f.fake, msg["id"], Dict{String,Any}("binary" => base64encode(png)))
+        @test fetch(task) == png
+
         close(f.fake.connection)
     end
 
@@ -516,7 +549,7 @@ end
         firefox_page = firefox_fixture_page(f)
 
         err = try
-            pdf(firefox_page)
+            pdf_bytes(firefox_page)
             nothing
         catch e
             e
@@ -673,18 +706,17 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         if engine == "chromium"
                             dest = joinpath(ARTIFACT_DIR, "page.pdf")
                             isfile(dest) && rm(dest)
-                            bytes = pdf(page; path = dest, format = "A4")
-                            @test !isempty(bytes)
+                            @test pdf(page; path = dest, format = "A4") == dest
                             @test isfile(dest)
                             @test filesize(dest) > 0
-                            @test read(dest) == bytes
+                            bytes = read(dest)
                             # It really is a PDF.
                             @test bytes[1:4] == Vector{UInt8}("%PDF")
                         else
                             # The Firefox leg asserting a *clean* failure is a
                             # required test, not an omission (SC 5).
                             err = try
-                                pdf(page)
+                                pdf_bytes(page)
                                 nothing
                             catch e
                                 e
