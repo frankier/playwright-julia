@@ -20,13 +20,13 @@
 # initializer would hand back a path to a file that does not exist yet.
 
 """
-    save_as!(a::Artifact, path::AbstractString) -> path
+    save_as!(a::Artifact; path::AbstractString) -> path
 
 Copy a driver-side artifact — a trace zip, a video — to `path`, **blocking
 until it has finished being written**. Returns `path`, so it composes.
 
 ```julia
-save_as!(video(page), "artifacts/run.webm")
+save_as!(video(page); path = "artifacts/run.webm")
 ```
 
 Parent directories are created if they do not exist, because the caller
@@ -37,7 +37,7 @@ The blocking is the useful part: [`path`](@ref) tells you where the driver
 [`delete_file!`](@ref) for an artifact a passing test does not need to keep, and see
 [`Artifact`](@ref) for the three verbs together.
 """
-function save_as!(a::Artifact, path::AbstractString)
+function save_as!(a::Artifact; path::AbstractString)
     dir = dirname(path)
     isempty(dir) || mkpath(dir)
     _artifact_save_as(a; path)
@@ -84,7 +84,7 @@ close!(page)
 if test_passed
     delete_file!(recording)                       # nothing to look at
 else
-    save_as!(recording, "artifacts/run.webm")
+    save_as!(recording; path = "artifacts/run.webm")
 end
 ```
 
@@ -111,7 +111,7 @@ tracing_channel(ctx::BrowserContext) =
 
 """
     start_tracing!(ctx::BrowserContext; screenshots=true, snapshots=true,
-                  sources=false, name=nothing, title=nothing)
+                  name=nothing, title=nothing)
 
 Begin recording a Playwright trace on `ctx` — the full record of what the
 browser did, viewable afterwards in Playwright's own trace viewer. Pair with
@@ -138,31 +138,26 @@ Two protocol calls, not one: the recording is configured, then a *chunk* is
 opened. `stop_tracing!` closes the chunk, and a stop with no chunk open has
 nothing to archive.
 
-!!! note "`sources` is not available on this path"
-    Upstream clients embed calling source files by passing `includeSources` to
-    `localUtils.zip`, which they use because they assemble the zip themselves.
-    This package lets the driver assemble it (`tracingStopChunk(mode="archive")`
-    — see D1), and the 1.61.1 `tracingStart` protocol carries no `sources`
-    flag. Passing `sources = true` therefore raises an `ArgumentError` rather
-    than being silently dropped: a flag that quietly does nothing is worse than
-    one that is not offered.
+!!! note "`sources` is not accepted"
+    A reader coming from `playwright-python` will look for it, so its absence
+    is documented rather than left to be discovered. Upstream clients embed
+    calling source files by passing `includeSources` to `localUtils.zip`, which
+    they use because they assemble the zip themselves. This package lets the
+    driver assemble it (`tracingStopChunk(mode="archive")` — see D1), and the
+    1.61.1 `tracingStart` protocol carries no `sources` flag.
+
+    The keyword is therefore not in the signature at all. It used to be
+    accepted and rejected at runtime with an `ArgumentError`; not accepting it
+    is a `MethodError` from the same call, which is the same answer delivered
+    earlier and by the language rather than by a hand-written check.
 """
 function start_tracing!(
     ctx::BrowserContext;
     screenshots::Bool = true,
     snapshots::Bool = true,
-    sources::Bool = false,
     name::Union{AbstractString,Nothing} = nothing,
     title::Union{AbstractString,Nothing} = nothing,
 )
-    sources && throw(
-        ArgumentError(
-            "`sources = true` is not supported: Playwright 1.61.1's " *
-            "tracingStart has no sources flag, and this package lets the " *
-            "driver assemble the zip rather than calling localUtils.zip " *
-            "with includeSources. Omit it, or open the trace without sources.",
-        ),
-    )
     tracing = tracing_channel(ctx)
     _tracing_tracing_start(tracing; screenshots, snapshots, name)
     _tracing_tracing_start_chunk(tracing; name, title)
@@ -204,14 +199,14 @@ function stop_tracing!(ctx::BrowserContext; path::AbstractString)
             name = "Error",
         ),
     )
-    save_as!(artifact, path)
+    save_as!(artifact; path)
     _tracing_tracing_stop(tracing)
     return path
 end
 
 """
     with_tracing(f, ctx::BrowserContext; path, screenshots=true, snapshots=true,
-                 sources=false, name=nothing, title=nothing)
+                 name=nothing, title=nothing)
 
 Record a Playwright trace around `f()` and write it to `path`.
 

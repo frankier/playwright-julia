@@ -103,7 +103,7 @@ end
         art = fixture_artifact(f)
         dest = joinpath(mktempdir(), "saved.zip")
 
-        sent = waiting_request(f.fake, () -> save_as!(art, dest))
+        sent = waiting_request(f.fake, () -> save_as!(art; path = dest))
         @test sent["guid"] == "artifact@1"
         @test sent["method"] == "saveAs"
         @test sent["params"]["path"] == dest
@@ -114,10 +114,37 @@ end
         f = timeout_fixture()
         art = fixture_artifact(f)
         dest = joinpath(mktempdir(), "saved.zip")
-        task = @async save_as!(art, dest)
+        task = @async save_as!(art; path = dest)
         msg = take!(f.fake.client_messages)
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
         @test fetch(task) == dest
+        close(f.fake.connection)
+    end
+
+    # D6/SC 8. The last member of the family still taking `path` positionally.
+    # Called out on its own because M7's Download extends this exact signature,
+    # and a new name should be born with the right shape rather than renamed a
+    # week later.
+    @testset "the artifact family agrees on one calling convention (SC 8)" begin
+        f = timeout_fixture()
+        art = fixture_artifact(f)
+        dest = joinpath(mktempdir(), "chained.zip")
+
+        # Positional is gone, not merely discouraged.
+        @test_throws MethodError save_as!(art, dest)
+
+        task = @async save_as!(art; path = dest)
+        msg = take!(f.fake.client_messages)
+        @test msg["params"]["path"] == dest
+        reply_ok(f.fake, msg["id"], Dict{String,Any}())
+        @test fetch(task) == dest
+
+        # All four members now read the same way at the call site. `screenshot`
+        # and `pdf` are checked against a Page rather than an Artifact, so this
+        # asserts the shape they share: `path` is a keyword, and it comes back.
+        for fn in (save_as!, stop_tracing!, screenshot, pdf)
+            @test any(m -> :path in Base.kwarg_decl(m), methods(fn).ms)
+        end
         close(f.fake.connection)
     end
 
@@ -189,20 +216,15 @@ end
         close(f.fake.connection)
     end
 
-    @testset "sources = true is refused rather than silently dropped" begin
-        # 1.61.1's tracingStart has no sources flag, and the archive path does
-        # not go through localUtils.zip's includeSources. A keyword that
-        # quietly does nothing is worse than one that is not offered.
+    @testset "sources is not a keyword at all (D8, SC 9)" begin
+        # Inverted rather than deleted. It used to be accepted and refused at
+        # runtime with an ArgumentError; M7 removes it from the signature, so
+        # the same call is a MethodError. Same answer, delivered earlier and by
+        # the language instead of by a hand-written check -- and, as before,
+        # nothing reaches the driver.
         f = timeout_fixture()
         fixture_tracing(f)
-        err = try
-            start_tracing!(f.context; sources = true)
-            nothing
-        catch e
-            e
-        end
-        @test err isa ArgumentError
-        @test occursin("sources", err.msg)
+        @test_throws MethodError start_tracing!(f.context; sources = true)
         @test !isready(f.fake.client_messages)
         close(f.fake.connection)
     end
@@ -680,7 +702,9 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         # ...and save_as! puts a copy where the caller wants it.
                         dest = joinpath(ARTIFACT_DIR, "run-$engine.webm")
                         isfile(dest) && rm(dest)
-                        @test save_as!(v, dest) == dest
+                        # D6: `path` is a keyword and comes back, so the call
+                        # chains into anything that takes a path.
+                        @test save_as!(v; path = dest) |> isfile
                         @test filesize(dest) > 0
 
                         close!(browser)

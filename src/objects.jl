@@ -363,6 +363,6 @@ closes. `path` is what waits.
 
 ```julia
 artifact = stop_tracing!(ctx)
-save_as!(artifact, "artifacts/trace.zip")   # blocks until fully written
+save_as!(artifact; path = "artifacts/trace.zip")   # blocks until fully written
 ```
 """ Artifact

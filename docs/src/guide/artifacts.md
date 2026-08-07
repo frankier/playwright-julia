@@ -69,12 +69,16 @@ The unpaired form is [`start_tracing!`](@ref) and [`stop_tracing!`](@ref). Each
 stop consumes the chunk the start opened, so tracing a second run means
 starting again.
 
-!!! note "`sources = true` is not available"
-    Upstream clients embed calling source files by passing `includeSources`
-    when they assemble the zip themselves. This package lets the driver
-    assemble it, and the driver's `tracingStart` carries no `sources` flag.
-    Passing `sources = true` raises rather than being silently dropped — a flag
-    that quietly does nothing is worse than one that is not offered.
+!!! note "`sources` is not accepted"
+    A reader coming from `playwright-python` will look for it, so its absence
+    is documented rather than left to be discovered. Upstream clients embed
+    calling source files by passing `includeSources` when they assemble the zip
+    themselves. This package lets the driver assemble it, and the driver's
+    `tracingStart` carries no `sources` flag.
+
+    The keyword is not in the signature, so `sources = true` is a `MethodError`
+    — the same refusal the previous release gave as a runtime `ArgumentError`,
+    delivered earlier and by the language.
 
 ## Video
 
@@ -149,7 +153,7 @@ close!(page)
 if test_passed
     delete_file!(recording)                          # nothing to look at
 else
-    save_as!(recording, "artifacts/run.webm")   # your copy; delete_file! cannot touch it
+    save_as!(recording; path = "artifacts/run.webm")   # your copy; delete_file! cannot touch it
 end
 ```
 
