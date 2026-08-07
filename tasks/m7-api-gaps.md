@@ -30,4 +30,39 @@ Recorded 2026-08-07, at the start of Part B.
 
 ---
 
-*No gaps recorded yet.*
+## 1. Headless Firefox now has WebGL, and `wglmakie_jl.jl` asserts it does not
+
+Not an API gap — a **stale environmental assumption in an example**, recorded
+here because it is the thing M7 must not quietly fix, and because it blocks a
+Checkpoint B criterion that is otherwise met.
+
+`examples/wglmakie_jl.jl:144` asserts:
+
+```julia
+has_webgl = evaluate(page, "() => !!(c.getContext('webgl2') || c.getContext('webgl'))")
+@test has_webgl == false      # "Headless Firefox has no WebGL"
+```
+
+That is now false. The example fails on Firefox with `3 passed, 1 failed`,
+and passes on Chromium.
+
+**It is not caused by anything in M7.** Verified by `git stash`ing Part B and
+running the example at `f0186f0` — it fails identically, same line, same
+count. The Playwright Firefox build this repo pins has gained headless WebGL
+since M4 wrote the assertion; the comment above it ("Headless Firefox has no
+WebGL, so the canvas is there and empty and WGLMakie draws its own fallback")
+describes a browser that no longer exists.
+
+**Why M7 does not fix it.** The fix is not a one-liner: the `else` branch is a
+whole *alternative* assertion strategy, written because there was nothing to
+assert about pixels. With WebGL present, the honest change is to run the
+Chromium pixel path on both engines and delete the fallback branch — which
+means re-measuring the render budget on Firefox, since the 90-second timeout
+was calibrated against SwiftShader on Chromium. That is example work in a
+milestone about downloads, dialogs and uploads, and R4 is explicit that this is
+exactly when such work looks cheapest and is least in scope.
+
+**Consequence, stated rather than hidden:** SPEC-M7's Checkpoint B criterion
+"both examples pass on both engines" **cannot be met** in this environment, for
+a reason that predates the milestone. Everything else in Checkpoint B holds.
+
