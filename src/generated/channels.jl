@@ -227,9 +227,9 @@ function _api_request_context_dispose(
     _obj::APIRequestContextChannel;
     reason::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    reason === nothing || (params["reason"] = to_wire(reason))
-    send_message(_obj, "dispose", params)
+    _params = Dict{String,Any}()
+    reason === nothing || (_params["reason"] = to_wire(reason))
+    send_message(_obj, "dispose", _params)
     return nothing
 end
 
@@ -238,9 +238,9 @@ function _api_request_context_dispose_api_response(
     _obj::APIRequestContextChannel;
     fetchUid::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["fetchUid"] = to_wire(fetchUid)
-    send_message(_obj, "disposeAPIResponse", params)
+    _params = Dict{String,Any}()
+    _params["fetchUid"] = to_wire(fetchUid)
+    send_message(_obj, "disposeAPIResponse", _params)
     return nothing
 end
 
@@ -262,24 +262,25 @@ function _api_request_context_fetch(
     params::Union{AbstractVector,Nothing} = nothing,
     postData::Union{Vector{UInt8},Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    params["url"] = to_wire(url)
-    encodedParams === nothing || (params["encodedParams"] = to_wire(encodedParams))
-    failOnStatusCode === nothing || (params["failOnStatusCode"] = to_wire(failOnStatusCode))
-    formData === nothing || (params["formData"] = to_wire(formData))
-    headers === nothing || (params["headers"] = to_wire(headers))
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    _params["url"] = to_wire(url)
+    encodedParams === nothing || (_params["encodedParams"] = to_wire(encodedParams))
+    failOnStatusCode === nothing ||
+        (_params["failOnStatusCode"] = to_wire(failOnStatusCode))
+    formData === nothing || (_params["formData"] = to_wire(formData))
+    headers === nothing || (_params["headers"] = to_wire(headers))
     ignoreHTTPSErrors === nothing ||
-        (params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
-    jsonData === nothing || (params["jsonData"] = to_wire(jsonData))
-    maxRedirects === nothing || (params["maxRedirects"] = to_wire(maxRedirects))
-    maxRetries === nothing || (params["maxRetries"] = to_wire(maxRetries))
-    method === nothing || (params["method"] = to_wire(method))
-    multipartData === nothing || (params["multipartData"] = to_wire(multipartData))
-    params === nothing || (params["params"] = to_wire(params))
-    postData === nothing || (params["postData"] = to_wire(postData))
-    result = send_message(_obj, "fetch", params)
-    return result["response"]
+        (_params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
+    jsonData === nothing || (_params["jsonData"] = to_wire(jsonData))
+    maxRedirects === nothing || (_params["maxRedirects"] = to_wire(maxRedirects))
+    maxRetries === nothing || (_params["maxRetries"] = to_wire(maxRetries))
+    method === nothing || (_params["method"] = to_wire(method))
+    multipartData === nothing || (_params["multipartData"] = to_wire(multipartData))
+    params === nothing || (_params["params"] = to_wire(params))
+    postData === nothing || (_params["postData"] = to_wire(postData))
+    _result = send_message(_obj, "fetch", _params)
+    return _result["response"]
 end
 
 # api.yml: APIRequestContext.fetchLog
@@ -287,10 +288,10 @@ function _api_request_context_fetch_log(
     _obj::APIRequestContextChannel;
     fetchUid::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["fetchUid"] = to_wire(fetchUid)
-    result = send_message(_obj, "fetchLog", params)
-    return result["log"]
+    _params = Dict{String,Any}()
+    _params["fetchUid"] = to_wire(fetchUid)
+    _result = send_message(_obj, "fetchLog", _params)
+    return _result["log"]
 end
 
 # api.yml: APIRequestContext.fetchResponseBody
@@ -298,11 +299,11 @@ function _api_request_context_fetch_response_body(
     _obj::APIRequestContextChannel;
     fetchUid::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["fetchUid"] = to_wire(fetchUid)
-    result = send_message(_obj, "fetchResponseBody", params)
+    _params = Dict{String,Any}()
+    _params["fetchUid"] = to_wire(fetchUid)
+    _result = send_message(_obj, "fetchResponseBody", _params)
     return (
-        _v = get(result, "binary", nothing); _v === nothing ? nothing : base64decode(_v)
+        _v = get(_result, "binary", nothing); _v === nothing ? nothing : base64decode(_v)
     )
 end
 
@@ -311,10 +312,10 @@ function _api_request_context_storage_state(
     _obj::APIRequestContextChannel;
     indexedDB::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    indexedDB === nothing || (params["indexedDB"] = to_wire(indexedDB))
-    result = send_message(_obj, "storageState", params)
-    return (cookies = result["cookies"], origins = result["origins"])
+    _params = Dict{String,Any}()
+    indexedDB === nothing || (_params["indexedDB"] = to_wire(indexedDB))
+    _result = send_message(_obj, "storageState", _params)
+    return (cookies = _result["cookies"], origins = _result["origins"])
 end
 
 # android.yml: Android.devices
@@ -324,19 +325,19 @@ function _android_devices(
     omitDriverInstall::Union{Bool,Nothing} = nothing,
     port::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    host === nothing || (params["host"] = to_wire(host))
+    _params = Dict{String,Any}()
+    host === nothing || (_params["host"] = to_wire(host))
     omitDriverInstall === nothing ||
-        (params["omitDriverInstall"] = to_wire(omitDriverInstall))
-    port === nothing || (params["port"] = to_wire(port))
-    result = send_message(_obj, "devices", params)
-    return result["devices"]
+        (_params["omitDriverInstall"] = to_wire(omitDriverInstall))
+    port === nothing || (_params["port"] = to_wire(port))
+    _result = send_message(_obj, "devices", _params)
+    return _result["devices"]
 end
 
 # android.yml: AndroidDevice.close
 function _android_device_close(_obj::AndroidDeviceChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "close", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "close", _params)
     return nothing
 end
 
@@ -345,10 +346,10 @@ function _android_device_connect_to_web_view(
     _obj::AndroidDeviceChannel;
     socketName::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["socketName"] = to_wire(socketName)
-    result = send_message(_obj, "connectToWebView", params)
-    return from_channel(_obj.connection, result["context"])
+    _params = Dict{String,Any}()
+    _params["socketName"] = to_wire(socketName)
+    _result = send_message(_obj, "connectToWebView", _params)
+    return from_channel(_obj.connection, _result["context"])
 end
 
 # android.yml: AndroidDevice.drag
@@ -359,12 +360,12 @@ function _android_device_drag(
     timeout::Real,
     speed::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["dest"] = to_wire(dest)
-    params["timeout"] = to_wire(timeout)
-    speed === nothing || (params["speed"] = to_wire(speed))
-    send_message(_obj, "drag", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["dest"] = to_wire(dest)
+    _params["timeout"] = to_wire(timeout)
+    speed === nothing || (_params["speed"] = to_wire(speed))
+    send_message(_obj, "drag", _params)
     return nothing
 end
 
@@ -375,11 +376,11 @@ function _android_device_fill(
     text::AbstractString,
     timeout::Real,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["text"] = to_wire(text)
-    params["timeout"] = to_wire(timeout)
-    send_message(_obj, "fill", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["text"] = to_wire(text)
+    _params["timeout"] = to_wire(timeout)
+    send_message(_obj, "fill", _params)
     return nothing
 end
 
@@ -391,21 +392,21 @@ function _android_device_fling(
     timeout::Real,
     speed::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["direction"] = to_wire(direction)
-    params["timeout"] = to_wire(timeout)
-    speed === nothing || (params["speed"] = to_wire(speed))
-    send_message(_obj, "fling", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["direction"] = to_wire(direction)
+    _params["timeout"] = to_wire(timeout)
+    speed === nothing || (_params["speed"] = to_wire(speed))
+    send_message(_obj, "fling", _params)
     return nothing
 end
 
 # android.yml: AndroidDevice.info
 function _android_device_info(_obj::AndroidDeviceChannel; androidSelector::AbstractDict)
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    result = send_message(_obj, "info", params)
-    return result["info"]
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _result = send_message(_obj, "info", _params)
+    return _result["info"]
 end
 
 # android.yml: AndroidDevice.inputDrag
@@ -415,19 +416,19 @@ function _android_device_input_drag(
     steps::Real,
     to::AbstractDict,
 )
-    params = Dict{String,Any}()
-    params["from"] = to_wire(from)
-    params["steps"] = to_wire(steps)
-    params["to"] = to_wire(to)
-    send_message(_obj, "inputDrag", params)
+    _params = Dict{String,Any}()
+    _params["from"] = to_wire(from)
+    _params["steps"] = to_wire(steps)
+    _params["to"] = to_wire(to)
+    send_message(_obj, "inputDrag", _params)
     return nothing
 end
 
 # android.yml: AndroidDevice.inputPress
 function _android_device_input_press(_obj::AndroidDeviceChannel; key::AbstractString)
-    params = Dict{String,Any}()
-    params["key"] = to_wire(key)
-    send_message(_obj, "inputPress", params)
+    _params = Dict{String,Any}()
+    _params["key"] = to_wire(key)
+    send_message(_obj, "inputPress", _params)
     return nothing
 end
 
@@ -437,26 +438,26 @@ function _android_device_input_swipe(
     segments::AbstractVector,
     steps::Real,
 )
-    params = Dict{String,Any}()
-    params["segments"] = to_wire(segments)
-    params["steps"] = to_wire(steps)
-    send_message(_obj, "inputSwipe", params)
+    _params = Dict{String,Any}()
+    _params["segments"] = to_wire(segments)
+    _params["steps"] = to_wire(steps)
+    send_message(_obj, "inputSwipe", _params)
     return nothing
 end
 
 # android.yml: AndroidDevice.inputTap
 function _android_device_input_tap(_obj::AndroidDeviceChannel; point::AbstractDict)
-    params = Dict{String,Any}()
-    params["point"] = to_wire(point)
-    send_message(_obj, "inputTap", params)
+    _params = Dict{String,Any}()
+    _params["point"] = to_wire(point)
+    send_message(_obj, "inputTap", _params)
     return nothing
 end
 
 # android.yml: AndroidDevice.inputType
 function _android_device_input_type(_obj::AndroidDeviceChannel; text::AbstractString)
-    params = Dict{String,Any}()
-    params["text"] = to_wire(text)
-    send_message(_obj, "inputType", params)
+    _params = Dict{String,Any}()
+    _params["text"] = to_wire(text)
+    send_message(_obj, "inputType", _params)
     return nothing
 end
 
@@ -466,10 +467,10 @@ function _android_device_install_apk(
     file::Vector{UInt8},
     args::Union{AbstractVector,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["file"] = to_wire(file)
-    args === nothing || (params["args"] = to_wire(args))
-    send_message(_obj, "installApk", params)
+    _params = Dict{String,Any}()
+    _params["file"] = to_wire(file)
+    args === nothing || (_params["args"] = to_wire(args))
+    send_message(_obj, "installApk", _params)
     return nothing
 end
 
@@ -509,47 +510,48 @@ function _android_device_launch_browser(
     userAgent::Union{AbstractString,Nothing} = nothing,
     viewport::Union{AbstractDict,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    acceptDownloads === nothing || (params["acceptDownloads"] = to_wire(acceptDownloads))
-    args === nothing || (params["args"] = to_wire(args))
-    baseURL === nothing || (params["baseURL"] = to_wire(baseURL))
-    bypassCSP === nothing || (params["bypassCSP"] = to_wire(bypassCSP))
+    _params = Dict{String,Any}()
+    acceptDownloads === nothing || (_params["acceptDownloads"] = to_wire(acceptDownloads))
+    args === nothing || (_params["args"] = to_wire(args))
+    baseURL === nothing || (_params["baseURL"] = to_wire(baseURL))
+    bypassCSP === nothing || (_params["bypassCSP"] = to_wire(bypassCSP))
     clientCertificates === nothing ||
-        (params["clientCertificates"] = to_wire(clientCertificates))
-    colorScheme === nothing || (params["colorScheme"] = to_wire(colorScheme))
-    contrast === nothing || (params["contrast"] = to_wire(contrast))
+        (_params["clientCertificates"] = to_wire(clientCertificates))
+    colorScheme === nothing || (_params["colorScheme"] = to_wire(colorScheme))
+    contrast === nothing || (_params["contrast"] = to_wire(contrast))
     deviceScaleFactor === nothing ||
-        (params["deviceScaleFactor"] = to_wire(deviceScaleFactor))
-    extraHTTPHeaders === nothing || (params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
-    forcedColors === nothing || (params["forcedColors"] = to_wire(forcedColors))
-    geolocation === nothing || (params["geolocation"] = to_wire(geolocation))
-    hasTouch === nothing || (params["hasTouch"] = to_wire(hasTouch))
-    httpCredentials === nothing || (params["httpCredentials"] = to_wire(httpCredentials))
+        (_params["deviceScaleFactor"] = to_wire(deviceScaleFactor))
+    extraHTTPHeaders === nothing ||
+        (_params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
+    forcedColors === nothing || (_params["forcedColors"] = to_wire(forcedColors))
+    geolocation === nothing || (_params["geolocation"] = to_wire(geolocation))
+    hasTouch === nothing || (_params["hasTouch"] = to_wire(hasTouch))
+    httpCredentials === nothing || (_params["httpCredentials"] = to_wire(httpCredentials))
     ignoreHTTPSErrors === nothing ||
-        (params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
-    isMobile === nothing || (params["isMobile"] = to_wire(isMobile))
+        (_params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
+    isMobile === nothing || (_params["isMobile"] = to_wire(isMobile))
     javaScriptEnabled === nothing ||
-        (params["javaScriptEnabled"] = to_wire(javaScriptEnabled))
-    locale === nothing || (params["locale"] = to_wire(locale))
+        (_params["javaScriptEnabled"] = to_wire(javaScriptEnabled))
+    locale === nothing || (_params["locale"] = to_wire(locale))
     noDefaultViewport === nothing ||
-        (params["noDefaultViewport"] = to_wire(noDefaultViewport))
-    offline === nothing || (params["offline"] = to_wire(offline))
-    permissions === nothing || (params["permissions"] = to_wire(permissions))
-    pkg === nothing || (params["pkg"] = to_wire(pkg))
-    proxy === nothing || (params["proxy"] = to_wire(proxy))
-    recordVideo === nothing || (params["recordVideo"] = to_wire(recordVideo))
-    reducedMotion === nothing || (params["reducedMotion"] = to_wire(reducedMotion))
-    screen === nothing || (params["screen"] = to_wire(screen))
-    selectorEngines === nothing || (params["selectorEngines"] = to_wire(selectorEngines))
-    serviceWorkers === nothing || (params["serviceWorkers"] = to_wire(serviceWorkers))
-    strictSelectors === nothing || (params["strictSelectors"] = to_wire(strictSelectors))
+        (_params["noDefaultViewport"] = to_wire(noDefaultViewport))
+    offline === nothing || (_params["offline"] = to_wire(offline))
+    permissions === nothing || (_params["permissions"] = to_wire(permissions))
+    pkg === nothing || (_params["pkg"] = to_wire(pkg))
+    proxy === nothing || (_params["proxy"] = to_wire(proxy))
+    recordVideo === nothing || (_params["recordVideo"] = to_wire(recordVideo))
+    reducedMotion === nothing || (_params["reducedMotion"] = to_wire(reducedMotion))
+    screen === nothing || (_params["screen"] = to_wire(screen))
+    selectorEngines === nothing || (_params["selectorEngines"] = to_wire(selectorEngines))
+    serviceWorkers === nothing || (_params["serviceWorkers"] = to_wire(serviceWorkers))
+    strictSelectors === nothing || (_params["strictSelectors"] = to_wire(strictSelectors))
     testIdAttributeName === nothing ||
-        (params["testIdAttributeName"] = to_wire(testIdAttributeName))
-    timezoneId === nothing || (params["timezoneId"] = to_wire(timezoneId))
-    userAgent === nothing || (params["userAgent"] = to_wire(userAgent))
-    viewport === nothing || (params["viewport"] = to_wire(viewport))
-    result = send_message(_obj, "launchBrowser", params)
-    return from_channel(_obj.connection, result["context"])
+        (_params["testIdAttributeName"] = to_wire(testIdAttributeName))
+    timezoneId === nothing || (_params["timezoneId"] = to_wire(timezoneId))
+    userAgent === nothing || (_params["userAgent"] = to_wire(userAgent))
+    viewport === nothing || (_params["viewport"] = to_wire(viewport))
+    _result = send_message(_obj, "launchBrowser", _params)
+    return from_channel(_obj.connection, _result["context"])
 end
 
 # android.yml: AndroidDevice.longTap
@@ -558,19 +560,19 @@ function _android_device_long_tap(
     androidSelector::AbstractDict,
     timeout::Real,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["timeout"] = to_wire(timeout)
-    send_message(_obj, "longTap", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["timeout"] = to_wire(timeout)
+    send_message(_obj, "longTap", _params)
     return nothing
 end
 
 # android.yml: AndroidDevice.open
 function _android_device_open(_obj::AndroidDeviceChannel; command::AbstractString)
-    params = Dict{String,Any}()
-    params["command"] = to_wire(command)
-    result = send_message(_obj, "open", params)
-    return from_channel(_obj.connection, result["socket"])
+    _params = Dict{String,Any}()
+    _params["command"] = to_wire(command)
+    _result = send_message(_obj, "open", _params)
+    return from_channel(_obj.connection, _result["socket"])
 end
 
 # android.yml: AndroidDevice.pinchClose
@@ -581,12 +583,12 @@ function _android_device_pinch_close(
     timeout::Real,
     speed::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["percent"] = to_wire(percent)
-    params["timeout"] = to_wire(timeout)
-    speed === nothing || (params["speed"] = to_wire(speed))
-    send_message(_obj, "pinchClose", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["percent"] = to_wire(percent)
+    _params["timeout"] = to_wire(timeout)
+    speed === nothing || (_params["speed"] = to_wire(speed))
+    send_message(_obj, "pinchClose", _params)
     return nothing
 end
 
@@ -598,12 +600,12 @@ function _android_device_pinch_open(
     timeout::Real,
     speed::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["percent"] = to_wire(percent)
-    params["timeout"] = to_wire(timeout)
-    speed === nothing || (params["speed"] = to_wire(speed))
-    send_message(_obj, "pinchOpen", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["percent"] = to_wire(percent)
+    _params["timeout"] = to_wire(timeout)
+    speed === nothing || (_params["speed"] = to_wire(speed))
+    send_message(_obj, "pinchOpen", _params)
     return nothing
 end
 
@@ -614,19 +616,19 @@ function _android_device_push(
     path::AbstractString,
     mode::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["file"] = to_wire(file)
-    params["path"] = to_wire(path)
-    mode === nothing || (params["mode"] = to_wire(mode))
-    send_message(_obj, "push", params)
+    _params = Dict{String,Any}()
+    _params["file"] = to_wire(file)
+    _params["path"] = to_wire(path)
+    mode === nothing || (_params["mode"] = to_wire(mode))
+    send_message(_obj, "push", _params)
     return nothing
 end
 
 # android.yml: AndroidDevice.screenshot
 function _android_device_screenshot(_obj::AndroidDeviceChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "screenshot", params)
-    return base64decode(result["binary"])
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "screenshot", _params)
+    return base64decode(_result["binary"])
 end
 
 # android.yml: AndroidDevice.scroll
@@ -638,22 +640,22 @@ function _android_device_scroll(
     timeout::Real,
     speed::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["direction"] = to_wire(direction)
-    params["percent"] = to_wire(percent)
-    params["timeout"] = to_wire(timeout)
-    speed === nothing || (params["speed"] = to_wire(speed))
-    send_message(_obj, "scroll", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["direction"] = to_wire(direction)
+    _params["percent"] = to_wire(percent)
+    _params["timeout"] = to_wire(timeout)
+    speed === nothing || (_params["speed"] = to_wire(speed))
+    send_message(_obj, "scroll", _params)
     return nothing
 end
 
 # android.yml: AndroidDevice.shell
 function _android_device_shell(_obj::AndroidDeviceChannel; command::AbstractString)
-    params = Dict{String,Any}()
-    params["command"] = to_wire(command)
-    result = send_message(_obj, "shell", params)
-    return base64decode(result["result"])
+    _params = Dict{String,Any}()
+    _params["command"] = to_wire(command)
+    _result = send_message(_obj, "shell", _params)
+    return base64decode(_result["result"])
 end
 
 # android.yml: AndroidDevice.swipe
@@ -665,13 +667,13 @@ function _android_device_swipe(
     timeout::Real,
     speed::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["direction"] = to_wire(direction)
-    params["percent"] = to_wire(percent)
-    params["timeout"] = to_wire(timeout)
-    speed === nothing || (params["speed"] = to_wire(speed))
-    send_message(_obj, "swipe", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["direction"] = to_wire(direction)
+    _params["percent"] = to_wire(percent)
+    _params["timeout"] = to_wire(timeout)
+    speed === nothing || (_params["speed"] = to_wire(speed))
+    send_message(_obj, "swipe", _params)
     return nothing
 end
 
@@ -682,11 +684,11 @@ function _android_device_tap(
     timeout::Real,
     duration::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["timeout"] = to_wire(timeout)
-    duration === nothing || (params["duration"] = to_wire(duration))
-    send_message(_obj, "tap", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["timeout"] = to_wire(timeout)
+    duration === nothing || (_params["duration"] = to_wire(duration))
+    send_message(_obj, "tap", _params)
     return nothing
 end
 
@@ -697,92 +699,92 @@ function _android_device_wait(
     timeout::Real,
     state::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["androidSelector"] = to_wire(androidSelector)
-    params["timeout"] = to_wire(timeout)
-    state === nothing || (params["state"] = to_wire(state))
-    send_message(_obj, "wait", params)
+    _params = Dict{String,Any}()
+    _params["androidSelector"] = to_wire(androidSelector)
+    _params["timeout"] = to_wire(timeout)
+    state === nothing || (_params["state"] = to_wire(state))
+    send_message(_obj, "wait", _params)
     return nothing
 end
 
 # android.yml: AndroidSocket.close
 function _android_socket_close(_obj::AndroidSocketChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "close", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "close", _params)
     return nothing
 end
 
 # android.yml: AndroidSocket.write
 function _android_socket_write(_obj::AndroidSocketChannel; data::Vector{UInt8})
-    params = Dict{String,Any}()
-    params["data"] = to_wire(data)
-    send_message(_obj, "write", params)
+    _params = Dict{String,Any}()
+    _params["data"] = to_wire(data)
+    send_message(_obj, "write", _params)
     return nothing
 end
 
 # artifact.yml: Artifact.cancel
 function _artifact_cancel(_obj::ArtifactChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "cancel", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "cancel", _params)
     return nothing
 end
 
 # artifact.yml: Artifact.delete
 function _artifact_delete(_obj::ArtifactChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "delete", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "delete", _params)
     return nothing
 end
 
 # artifact.yml: Artifact.failure
 function _artifact_failure(_obj::ArtifactChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "failure", params)
-    return get(result, "error", nothing)
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "failure", _params)
+    return get(_result, "error", nothing)
 end
 
 # artifact.yml: Artifact.pathAfterFinished
 function _artifact_path_after_finished(_obj::ArtifactChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "pathAfterFinished", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "pathAfterFinished", _params)
+    return _result["value"]
 end
 
 # artifact.yml: Artifact.saveAs
 function _artifact_save_as(_obj::ArtifactChannel; path::AbstractString)
-    params = Dict{String,Any}()
-    params["path"] = to_wire(path)
-    send_message(_obj, "saveAs", params)
+    _params = Dict{String,Any}()
+    _params["path"] = to_wire(path)
+    send_message(_obj, "saveAs", _params)
     return nothing
 end
 
 # artifact.yml: Artifact.saveAsStream
 function _artifact_save_as_stream(_obj::ArtifactChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "saveAsStream", params)
-    return from_channel(_obj.connection, result["stream"])
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "saveAsStream", _params)
+    return from_channel(_obj.connection, _result["stream"])
 end
 
 # artifact.yml: Artifact.stream
 function _artifact_stream(_obj::ArtifactChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "stream", params)
-    return from_channel(_obj.connection, result["stream"])
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "stream", _params)
+    return from_channel(_obj.connection, _result["stream"])
 end
 
 # playwright.yml: BindingCall.reject
 function _binding_call_reject(_obj::BindingCallChannel; error::AbstractDict)
-    params = Dict{String,Any}()
-    params["error"] = to_wire(error)
-    send_message(_obj, "reject", params)
+    _params = Dict{String,Any}()
+    _params["error"] = to_wire(error)
+    send_message(_obj, "reject", _params)
     return nothing
 end
 
 # playwright.yml: BindingCall.resolve
 function _binding_call_resolve(_obj::BindingCallChannel; result::AbstractDict)
-    params = Dict{String,Any}()
-    params["result"] = to_wire(result)
-    send_message(_obj, "resolve", params)
+    _params = Dict{String,Any}()
+    _params["result"] = to_wire(result)
+    send_message(_obj, "resolve", _params)
     return nothing
 end
 
@@ -791,17 +793,17 @@ function _browser_close(
     _obj::BrowserChannel;
     reason::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    reason === nothing || (params["reason"] = to_wire(reason))
-    send_message(_obj, "close", params)
+    _params = Dict{String,Any}()
+    reason === nothing || (_params["reason"] = to_wire(reason))
+    send_message(_obj, "close", _params)
     return nothing
 end
 
 # browser.yml: Browser.defaultUserAgentForTest
 function _browser_default_user_agent_for_test(_obj::BrowserChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "defaultUserAgentForTest", params)
-    return result["userAgent"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "defaultUserAgentForTest", _params)
+    return _result["userAgent"]
 end
 
 # browser.yml: Browser.disconnectFromReusedContext
@@ -809,24 +811,24 @@ function _browser_disconnect_from_reused_context(
     _obj::BrowserChannel;
     reason::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["reason"] = to_wire(reason)
-    send_message(_obj, "disconnectFromReusedContext", params)
+    _params = Dict{String,Any}()
+    _params["reason"] = to_wire(reason)
+    send_message(_obj, "disconnectFromReusedContext", _params)
     return nothing
 end
 
 # browser.yml: Browser.killForTests
 function _browser_kill_for_tests(_obj::BrowserChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "killForTests", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "killForTests", _params)
     return nothing
 end
 
 # browser.yml: Browser.newBrowserCDPSession
 function _browser_new_browser_cdp_session(_obj::BrowserChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "newBrowserCDPSession", params)
-    return from_channel(_obj.connection, result["session"])
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "newBrowserCDPSession", _params)
+    return from_channel(_obj.connection, _result["session"])
 end
 
 # browser.yml: Browser.newContext
@@ -864,46 +866,47 @@ function _browser_new_context(
     userAgent::Union{AbstractString,Nothing} = nothing,
     viewport::Union{AbstractDict,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    acceptDownloads === nothing || (params["acceptDownloads"] = to_wire(acceptDownloads))
-    baseURL === nothing || (params["baseURL"] = to_wire(baseURL))
-    bypassCSP === nothing || (params["bypassCSP"] = to_wire(bypassCSP))
+    _params = Dict{String,Any}()
+    acceptDownloads === nothing || (_params["acceptDownloads"] = to_wire(acceptDownloads))
+    baseURL === nothing || (_params["baseURL"] = to_wire(baseURL))
+    bypassCSP === nothing || (_params["bypassCSP"] = to_wire(bypassCSP))
     clientCertificates === nothing ||
-        (params["clientCertificates"] = to_wire(clientCertificates))
-    colorScheme === nothing || (params["colorScheme"] = to_wire(colorScheme))
-    contrast === nothing || (params["contrast"] = to_wire(contrast))
+        (_params["clientCertificates"] = to_wire(clientCertificates))
+    colorScheme === nothing || (_params["colorScheme"] = to_wire(colorScheme))
+    contrast === nothing || (_params["contrast"] = to_wire(contrast))
     deviceScaleFactor === nothing ||
-        (params["deviceScaleFactor"] = to_wire(deviceScaleFactor))
-    extraHTTPHeaders === nothing || (params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
-    forcedColors === nothing || (params["forcedColors"] = to_wire(forcedColors))
-    geolocation === nothing || (params["geolocation"] = to_wire(geolocation))
-    hasTouch === nothing || (params["hasTouch"] = to_wire(hasTouch))
-    httpCredentials === nothing || (params["httpCredentials"] = to_wire(httpCredentials))
+        (_params["deviceScaleFactor"] = to_wire(deviceScaleFactor))
+    extraHTTPHeaders === nothing ||
+        (_params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
+    forcedColors === nothing || (_params["forcedColors"] = to_wire(forcedColors))
+    geolocation === nothing || (_params["geolocation"] = to_wire(geolocation))
+    hasTouch === nothing || (_params["hasTouch"] = to_wire(hasTouch))
+    httpCredentials === nothing || (_params["httpCredentials"] = to_wire(httpCredentials))
     ignoreHTTPSErrors === nothing ||
-        (params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
-    isMobile === nothing || (params["isMobile"] = to_wire(isMobile))
+        (_params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
+    isMobile === nothing || (_params["isMobile"] = to_wire(isMobile))
     javaScriptEnabled === nothing ||
-        (params["javaScriptEnabled"] = to_wire(javaScriptEnabled))
-    locale === nothing || (params["locale"] = to_wire(locale))
+        (_params["javaScriptEnabled"] = to_wire(javaScriptEnabled))
+    locale === nothing || (_params["locale"] = to_wire(locale))
     noDefaultViewport === nothing ||
-        (params["noDefaultViewport"] = to_wire(noDefaultViewport))
-    offline === nothing || (params["offline"] = to_wire(offline))
-    permissions === nothing || (params["permissions"] = to_wire(permissions))
-    proxy === nothing || (params["proxy"] = to_wire(proxy))
-    recordVideo === nothing || (params["recordVideo"] = to_wire(recordVideo))
-    reducedMotion === nothing || (params["reducedMotion"] = to_wire(reducedMotion))
-    screen === nothing || (params["screen"] = to_wire(screen))
-    selectorEngines === nothing || (params["selectorEngines"] = to_wire(selectorEngines))
-    serviceWorkers === nothing || (params["serviceWorkers"] = to_wire(serviceWorkers))
-    storageState === nothing || (params["storageState"] = to_wire(storageState))
-    strictSelectors === nothing || (params["strictSelectors"] = to_wire(strictSelectors))
+        (_params["noDefaultViewport"] = to_wire(noDefaultViewport))
+    offline === nothing || (_params["offline"] = to_wire(offline))
+    permissions === nothing || (_params["permissions"] = to_wire(permissions))
+    proxy === nothing || (_params["proxy"] = to_wire(proxy))
+    recordVideo === nothing || (_params["recordVideo"] = to_wire(recordVideo))
+    reducedMotion === nothing || (_params["reducedMotion"] = to_wire(reducedMotion))
+    screen === nothing || (_params["screen"] = to_wire(screen))
+    selectorEngines === nothing || (_params["selectorEngines"] = to_wire(selectorEngines))
+    serviceWorkers === nothing || (_params["serviceWorkers"] = to_wire(serviceWorkers))
+    storageState === nothing || (_params["storageState"] = to_wire(storageState))
+    strictSelectors === nothing || (_params["strictSelectors"] = to_wire(strictSelectors))
     testIdAttributeName === nothing ||
-        (params["testIdAttributeName"] = to_wire(testIdAttributeName))
-    timezoneId === nothing || (params["timezoneId"] = to_wire(timezoneId))
-    userAgent === nothing || (params["userAgent"] = to_wire(userAgent))
-    viewport === nothing || (params["viewport"] = to_wire(viewport))
-    result = send_message(_obj, "newContext", params)
-    return from_channel(_obj.connection, result["context"])
+        (_params["testIdAttributeName"] = to_wire(testIdAttributeName))
+    timezoneId === nothing || (_params["timezoneId"] = to_wire(timezoneId))
+    userAgent === nothing || (_params["userAgent"] = to_wire(userAgent))
+    viewport === nothing || (_params["viewport"] = to_wire(viewport))
+    _result = send_message(_obj, "newContext", _params)
+    return from_channel(_obj.connection, _result["context"])
 end
 
 # browser.yml: Browser.newContextForReuse
@@ -941,46 +944,47 @@ function _browser_new_context_for_reuse(
     userAgent::Union{AbstractString,Nothing} = nothing,
     viewport::Union{AbstractDict,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    acceptDownloads === nothing || (params["acceptDownloads"] = to_wire(acceptDownloads))
-    baseURL === nothing || (params["baseURL"] = to_wire(baseURL))
-    bypassCSP === nothing || (params["bypassCSP"] = to_wire(bypassCSP))
+    _params = Dict{String,Any}()
+    acceptDownloads === nothing || (_params["acceptDownloads"] = to_wire(acceptDownloads))
+    baseURL === nothing || (_params["baseURL"] = to_wire(baseURL))
+    bypassCSP === nothing || (_params["bypassCSP"] = to_wire(bypassCSP))
     clientCertificates === nothing ||
-        (params["clientCertificates"] = to_wire(clientCertificates))
-    colorScheme === nothing || (params["colorScheme"] = to_wire(colorScheme))
-    contrast === nothing || (params["contrast"] = to_wire(contrast))
+        (_params["clientCertificates"] = to_wire(clientCertificates))
+    colorScheme === nothing || (_params["colorScheme"] = to_wire(colorScheme))
+    contrast === nothing || (_params["contrast"] = to_wire(contrast))
     deviceScaleFactor === nothing ||
-        (params["deviceScaleFactor"] = to_wire(deviceScaleFactor))
-    extraHTTPHeaders === nothing || (params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
-    forcedColors === nothing || (params["forcedColors"] = to_wire(forcedColors))
-    geolocation === nothing || (params["geolocation"] = to_wire(geolocation))
-    hasTouch === nothing || (params["hasTouch"] = to_wire(hasTouch))
-    httpCredentials === nothing || (params["httpCredentials"] = to_wire(httpCredentials))
+        (_params["deviceScaleFactor"] = to_wire(deviceScaleFactor))
+    extraHTTPHeaders === nothing ||
+        (_params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
+    forcedColors === nothing || (_params["forcedColors"] = to_wire(forcedColors))
+    geolocation === nothing || (_params["geolocation"] = to_wire(geolocation))
+    hasTouch === nothing || (_params["hasTouch"] = to_wire(hasTouch))
+    httpCredentials === nothing || (_params["httpCredentials"] = to_wire(httpCredentials))
     ignoreHTTPSErrors === nothing ||
-        (params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
-    isMobile === nothing || (params["isMobile"] = to_wire(isMobile))
+        (_params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
+    isMobile === nothing || (_params["isMobile"] = to_wire(isMobile))
     javaScriptEnabled === nothing ||
-        (params["javaScriptEnabled"] = to_wire(javaScriptEnabled))
-    locale === nothing || (params["locale"] = to_wire(locale))
+        (_params["javaScriptEnabled"] = to_wire(javaScriptEnabled))
+    locale === nothing || (_params["locale"] = to_wire(locale))
     noDefaultViewport === nothing ||
-        (params["noDefaultViewport"] = to_wire(noDefaultViewport))
-    offline === nothing || (params["offline"] = to_wire(offline))
-    permissions === nothing || (params["permissions"] = to_wire(permissions))
-    proxy === nothing || (params["proxy"] = to_wire(proxy))
-    recordVideo === nothing || (params["recordVideo"] = to_wire(recordVideo))
-    reducedMotion === nothing || (params["reducedMotion"] = to_wire(reducedMotion))
-    screen === nothing || (params["screen"] = to_wire(screen))
-    selectorEngines === nothing || (params["selectorEngines"] = to_wire(selectorEngines))
-    serviceWorkers === nothing || (params["serviceWorkers"] = to_wire(serviceWorkers))
-    storageState === nothing || (params["storageState"] = to_wire(storageState))
-    strictSelectors === nothing || (params["strictSelectors"] = to_wire(strictSelectors))
+        (_params["noDefaultViewport"] = to_wire(noDefaultViewport))
+    offline === nothing || (_params["offline"] = to_wire(offline))
+    permissions === nothing || (_params["permissions"] = to_wire(permissions))
+    proxy === nothing || (_params["proxy"] = to_wire(proxy))
+    recordVideo === nothing || (_params["recordVideo"] = to_wire(recordVideo))
+    reducedMotion === nothing || (_params["reducedMotion"] = to_wire(reducedMotion))
+    screen === nothing || (_params["screen"] = to_wire(screen))
+    selectorEngines === nothing || (_params["selectorEngines"] = to_wire(selectorEngines))
+    serviceWorkers === nothing || (_params["serviceWorkers"] = to_wire(serviceWorkers))
+    storageState === nothing || (_params["storageState"] = to_wire(storageState))
+    strictSelectors === nothing || (_params["strictSelectors"] = to_wire(strictSelectors))
     testIdAttributeName === nothing ||
-        (params["testIdAttributeName"] = to_wire(testIdAttributeName))
-    timezoneId === nothing || (params["timezoneId"] = to_wire(timezoneId))
-    userAgent === nothing || (params["userAgent"] = to_wire(userAgent))
-    viewport === nothing || (params["viewport"] = to_wire(viewport))
-    result = send_message(_obj, "newContextForReuse", params)
-    return from_channel(_obj.connection, result["context"])
+        (_params["testIdAttributeName"] = to_wire(testIdAttributeName))
+    timezoneId === nothing || (_params["timezoneId"] = to_wire(timezoneId))
+    userAgent === nothing || (_params["userAgent"] = to_wire(userAgent))
+    viewport === nothing || (_params["viewport"] = to_wire(viewport))
+    _result = send_message(_obj, "newContextForReuse", _params)
+    return from_channel(_obj.connection, _result["context"])
 end
 
 # browser.yml: Browser.startServer
@@ -992,14 +996,14 @@ function _browser_start_server(
     port::Union{Real,Nothing} = nothing,
     workspaceDir::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["title"] = to_wire(title)
-    host === nothing || (params["host"] = to_wire(host))
-    metadata === nothing || (params["metadata"] = to_wire(metadata))
-    port === nothing || (params["port"] = to_wire(port))
-    workspaceDir === nothing || (params["workspaceDir"] = to_wire(workspaceDir))
-    result = send_message(_obj, "startServer", params)
-    return result["endpoint"]
+    _params = Dict{String,Any}()
+    _params["title"] = to_wire(title)
+    host === nothing || (_params["host"] = to_wire(host))
+    metadata === nothing || (_params["metadata"] = to_wire(metadata))
+    port === nothing || (_params["port"] = to_wire(port))
+    workspaceDir === nothing || (_params["workspaceDir"] = to_wire(workspaceDir))
+    _result = send_message(_obj, "startServer", _params)
+    return _result["endpoint"]
 end
 
 # browser.yml: Browser.startTracing
@@ -1009,33 +1013,33 @@ function _browser_start_tracing(
     page::Union{PageChannel,Nothing} = nothing,
     screenshots::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    categories === nothing || (params["categories"] = to_wire(categories))
-    page === nothing || (params["page"] = to_wire(page))
-    screenshots === nothing || (params["screenshots"] = to_wire(screenshots))
-    send_message(_obj, "startTracing", params)
+    _params = Dict{String,Any}()
+    categories === nothing || (_params["categories"] = to_wire(categories))
+    page === nothing || (_params["page"] = to_wire(page))
+    screenshots === nothing || (_params["screenshots"] = to_wire(screenshots))
+    send_message(_obj, "startTracing", _params)
     return nothing
 end
 
 # browser.yml: Browser.stopServer
 function _browser_stop_server(_obj::BrowserChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "stopServer", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "stopServer", _params)
     return nothing
 end
 
 # browser.yml: Browser.stopTracing
 function _browser_stop_tracing(_obj::BrowserChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "stopTracing", params)
-    return from_channel(_obj.connection, result["artifact"])
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "stopTracing", _params)
+    return from_channel(_obj.connection, _result["artifact"])
 end
 
 # browserContext.yml: BrowserContext.addCookies
 function _browser_context_add_cookies(_obj::BrowserContextChannel; cookies::AbstractVector)
-    params = Dict{String,Any}()
-    params["cookies"] = to_wire(cookies)
-    send_message(_obj, "addCookies", params)
+    _params = Dict{String,Any}()
+    _params["cookies"] = to_wire(cookies)
+    send_message(_obj, "addCookies", _params)
     return nothing
 end
 
@@ -1044,10 +1048,10 @@ function _browser_context_add_init_script(
     _obj::BrowserContextChannel;
     source::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["source"] = to_wire(source)
-    result = send_message(_obj, "addInitScript", params)
-    return from_channel(_obj.connection, result["disposable"])
+    _params = Dict{String,Any}()
+    _params["source"] = to_wire(source)
+    _result = send_message(_obj, "addInitScript", _params)
+    return from_channel(_obj.connection, _result["disposable"])
 end
 
 # browserContext.yml: BrowserContext.clearCookies
@@ -1063,25 +1067,26 @@ function _browser_context_clear_cookies(
     pathRegexFlags::Union{AbstractString,Nothing} = nothing,
     pathRegexSource::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    domain === nothing || (params["domain"] = to_wire(domain))
-    domainRegexFlags === nothing || (params["domainRegexFlags"] = to_wire(domainRegexFlags))
+    _params = Dict{String,Any}()
+    domain === nothing || (_params["domain"] = to_wire(domain))
+    domainRegexFlags === nothing ||
+        (_params["domainRegexFlags"] = to_wire(domainRegexFlags))
     domainRegexSource === nothing ||
-        (params["domainRegexSource"] = to_wire(domainRegexSource))
-    name === nothing || (params["name"] = to_wire(name))
-    nameRegexFlags === nothing || (params["nameRegexFlags"] = to_wire(nameRegexFlags))
-    nameRegexSource === nothing || (params["nameRegexSource"] = to_wire(nameRegexSource))
-    path === nothing || (params["path"] = to_wire(path))
-    pathRegexFlags === nothing || (params["pathRegexFlags"] = to_wire(pathRegexFlags))
-    pathRegexSource === nothing || (params["pathRegexSource"] = to_wire(pathRegexSource))
-    send_message(_obj, "clearCookies", params)
+        (_params["domainRegexSource"] = to_wire(domainRegexSource))
+    name === nothing || (_params["name"] = to_wire(name))
+    nameRegexFlags === nothing || (_params["nameRegexFlags"] = to_wire(nameRegexFlags))
+    nameRegexSource === nothing || (_params["nameRegexSource"] = to_wire(nameRegexSource))
+    path === nothing || (_params["path"] = to_wire(path))
+    pathRegexFlags === nothing || (_params["pathRegexFlags"] = to_wire(pathRegexFlags))
+    pathRegexSource === nothing || (_params["pathRegexSource"] = to_wire(pathRegexSource))
+    send_message(_obj, "clearCookies", _params)
     return nothing
 end
 
 # browserContext.yml: BrowserContext.clearPermissions
 function _browser_context_clear_permissions(_obj::BrowserContextChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "clearPermissions", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "clearPermissions", _params)
     return nothing
 end
 
@@ -1091,10 +1096,10 @@ function _browser_context_clock_fast_forward(
     ticksNumber::Union{Real,Nothing} = nothing,
     ticksString::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    ticksNumber === nothing || (params["ticksNumber"] = to_wire(ticksNumber))
-    ticksString === nothing || (params["ticksString"] = to_wire(ticksString))
-    send_message(_obj, "clockFastForward", params)
+    _params = Dict{String,Any}()
+    ticksNumber === nothing || (_params["ticksNumber"] = to_wire(ticksNumber))
+    ticksString === nothing || (_params["ticksString"] = to_wire(ticksString))
+    send_message(_obj, "clockFastForward", _params)
     return nothing
 end
 
@@ -1104,10 +1109,10 @@ function _browser_context_clock_install(
     timeNumber::Union{Real,Nothing} = nothing,
     timeString::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    timeNumber === nothing || (params["timeNumber"] = to_wire(timeNumber))
-    timeString === nothing || (params["timeString"] = to_wire(timeString))
-    send_message(_obj, "clockInstall", params)
+    _params = Dict{String,Any}()
+    timeNumber === nothing || (_params["timeNumber"] = to_wire(timeNumber))
+    timeString === nothing || (_params["timeString"] = to_wire(timeString))
+    send_message(_obj, "clockInstall", _params)
     return nothing
 end
 
@@ -1117,17 +1122,17 @@ function _browser_context_clock_pause_at(
     timeNumber::Union{Real,Nothing} = nothing,
     timeString::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    timeNumber === nothing || (params["timeNumber"] = to_wire(timeNumber))
-    timeString === nothing || (params["timeString"] = to_wire(timeString))
-    send_message(_obj, "clockPauseAt", params)
+    _params = Dict{String,Any}()
+    timeNumber === nothing || (_params["timeNumber"] = to_wire(timeNumber))
+    timeString === nothing || (_params["timeString"] = to_wire(timeString))
+    send_message(_obj, "clockPauseAt", _params)
     return nothing
 end
 
 # browserContext.yml: BrowserContext.clockResume
 function _browser_context_clock_resume(_obj::BrowserContextChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "clockResume", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "clockResume", _params)
     return nothing
 end
 
@@ -1137,10 +1142,10 @@ function _browser_context_clock_run_for(
     ticksNumber::Union{Real,Nothing} = nothing,
     ticksString::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    ticksNumber === nothing || (params["ticksNumber"] = to_wire(ticksNumber))
-    ticksString === nothing || (params["ticksString"] = to_wire(ticksString))
-    send_message(_obj, "clockRunFor", params)
+    _params = Dict{String,Any}()
+    ticksNumber === nothing || (_params["ticksNumber"] = to_wire(ticksNumber))
+    ticksString === nothing || (_params["ticksString"] = to_wire(ticksString))
+    send_message(_obj, "clockRunFor", _params)
     return nothing
 end
 
@@ -1150,10 +1155,10 @@ function _browser_context_clock_set_fixed_time(
     timeNumber::Union{Real,Nothing} = nothing,
     timeString::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    timeNumber === nothing || (params["timeNumber"] = to_wire(timeNumber))
-    timeString === nothing || (params["timeString"] = to_wire(timeString))
-    send_message(_obj, "clockSetFixedTime", params)
+    _params = Dict{String,Any}()
+    timeNumber === nothing || (_params["timeNumber"] = to_wire(timeNumber))
+    timeString === nothing || (_params["timeString"] = to_wire(timeString))
+    send_message(_obj, "clockSetFixedTime", _params)
     return nothing
 end
 
@@ -1163,10 +1168,10 @@ function _browser_context_clock_set_system_time(
     timeNumber::Union{Real,Nothing} = nothing,
     timeString::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    timeNumber === nothing || (params["timeNumber"] = to_wire(timeNumber))
-    timeString === nothing || (params["timeString"] = to_wire(timeString))
-    send_message(_obj, "clockSetSystemTime", params)
+    _params = Dict{String,Any}()
+    timeNumber === nothing || (_params["timeNumber"] = to_wire(timeNumber))
+    timeString === nothing || (_params["timeString"] = to_wire(timeString))
+    send_message(_obj, "clockSetSystemTime", _params)
     return nothing
 end
 
@@ -1175,18 +1180,18 @@ function _browser_context_close(
     _obj::BrowserContextChannel;
     reason::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    reason === nothing || (params["reason"] = to_wire(reason))
-    send_message(_obj, "close", params)
+    _params = Dict{String,Any}()
+    reason === nothing || (_params["reason"] = to_wire(reason))
+    send_message(_obj, "close", _params)
     return nothing
 end
 
 # browserContext.yml: BrowserContext.cookies
 function _browser_context_cookies(_obj::BrowserContextChannel; urls::AbstractVector)
-    params = Dict{String,Any}()
-    params["urls"] = to_wire(urls)
-    result = send_message(_obj, "cookies", params)
-    return result["cookies"]
+    _params = Dict{String,Any}()
+    _params["urls"] = to_wire(urls)
+    _result = send_message(_obj, "cookies", _params)
+    return _result["cookies"]
 end
 
 # browserContext.yml: BrowserContext.createTempFiles
@@ -1195,13 +1200,13 @@ function _browser_context_create_temp_files(
     items::AbstractVector,
     rootDirName::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["items"] = to_wire(items)
-    rootDirName === nothing || (params["rootDirName"] = to_wire(rootDirName))
-    result = send_message(_obj, "createTempFiles", params)
+    _params = Dict{String,Any}()
+    _params["items"] = to_wire(items)
+    rootDirName === nothing || (_params["rootDirName"] = to_wire(rootDirName))
+    _result = send_message(_obj, "createTempFiles", _params)
     return (
-        rootDir = from_channel(_obj.connection, get(result, "rootDir", nothing)),
-        writableStreams = result["writableStreams"],
+        rootDir = from_channel(_obj.connection, get(_result, "rootDir", nothing)),
+        writableStreams = _result["writableStreams"],
     )
 end
 
@@ -1214,14 +1219,14 @@ function _browser_context_credentials_create(
     publicKey::Union{AbstractString,Nothing} = nothing,
     userHandle::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["rpId"] = to_wire(rpId)
-    id === nothing || (params["id"] = to_wire(id))
-    privateKey === nothing || (params["privateKey"] = to_wire(privateKey))
-    publicKey === nothing || (params["publicKey"] = to_wire(publicKey))
-    userHandle === nothing || (params["userHandle"] = to_wire(userHandle))
-    result = send_message(_obj, "credentialsCreate", params)
-    return result["credential"]
+    _params = Dict{String,Any}()
+    _params["rpId"] = to_wire(rpId)
+    id === nothing || (_params["id"] = to_wire(id))
+    privateKey === nothing || (_params["privateKey"] = to_wire(privateKey))
+    publicKey === nothing || (_params["publicKey"] = to_wire(publicKey))
+    userHandle === nothing || (_params["userHandle"] = to_wire(userHandle))
+    _result = send_message(_obj, "credentialsCreate", _params)
+    return _result["credential"]
 end
 
 # browserContext.yml: BrowserContext.credentialsDelete
@@ -1229,9 +1234,9 @@ function _browser_context_credentials_delete(
     _obj::BrowserContextChannel;
     id::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["id"] = to_wire(id)
-    send_message(_obj, "credentialsDelete", params)
+    _params = Dict{String,Any}()
+    _params["id"] = to_wire(id)
+    send_message(_obj, "credentialsDelete", _params)
     return nothing
 end
 
@@ -1241,24 +1246,24 @@ function _browser_context_credentials_get(
     id::Union{AbstractString,Nothing} = nothing,
     rpId::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    id === nothing || (params["id"] = to_wire(id))
-    rpId === nothing || (params["rpId"] = to_wire(rpId))
-    result = send_message(_obj, "credentialsGet", params)
-    return result["credentials"]
+    _params = Dict{String,Any}()
+    id === nothing || (_params["id"] = to_wire(id))
+    rpId === nothing || (_params["rpId"] = to_wire(rpId))
+    _result = send_message(_obj, "credentialsGet", _params)
+    return _result["credentials"]
 end
 
 # browserContext.yml: BrowserContext.credentialsInstall
 function _browser_context_credentials_install(_obj::BrowserContextChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "credentialsInstall", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "credentialsInstall", _params)
     return nothing
 end
 
 # browserContext.yml: BrowserContext.disableRecorder
 function _browser_context_disable_recorder(_obj::BrowserContextChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "disableRecorder", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "disableRecorder", _params)
     return nothing
 end
 
@@ -1278,37 +1283,38 @@ function _browser_context_enable_recorder(
     saveStorage::Union{AbstractString,Nothing} = nothing,
     testIdAttributeName::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    contextOptions === nothing || (params["contextOptions"] = to_wire(contextOptions))
-    device === nothing || (params["device"] = to_wire(device))
-    handleSIGINT === nothing || (params["handleSIGINT"] = to_wire(handleSIGINT))
-    language === nothing || (params["language"] = to_wire(language))
-    launchOptions === nothing || (params["launchOptions"] = to_wire(launchOptions))
-    mode === nothing || (params["mode"] = to_wire(mode))
-    omitCallTracking === nothing || (params["omitCallTracking"] = to_wire(omitCallTracking))
-    outputFile === nothing || (params["outputFile"] = to_wire(outputFile))
+    _params = Dict{String,Any}()
+    contextOptions === nothing || (_params["contextOptions"] = to_wire(contextOptions))
+    device === nothing || (_params["device"] = to_wire(device))
+    handleSIGINT === nothing || (_params["handleSIGINT"] = to_wire(handleSIGINT))
+    language === nothing || (_params["language"] = to_wire(language))
+    launchOptions === nothing || (_params["launchOptions"] = to_wire(launchOptions))
+    mode === nothing || (_params["mode"] = to_wire(mode))
+    omitCallTracking === nothing ||
+        (_params["omitCallTracking"] = to_wire(omitCallTracking))
+    outputFile === nothing || (_params["outputFile"] = to_wire(outputFile))
     pauseOnNextStatement === nothing ||
-        (params["pauseOnNextStatement"] = to_wire(pauseOnNextStatement))
-    recorderMode === nothing || (params["recorderMode"] = to_wire(recorderMode))
-    saveStorage === nothing || (params["saveStorage"] = to_wire(saveStorage))
+        (_params["pauseOnNextStatement"] = to_wire(pauseOnNextStatement))
+    recorderMode === nothing || (_params["recorderMode"] = to_wire(recorderMode))
+    saveStorage === nothing || (_params["saveStorage"] = to_wire(saveStorage))
     testIdAttributeName === nothing ||
-        (params["testIdAttributeName"] = to_wire(testIdAttributeName))
-    send_message(_obj, "enableRecorder", params)
+        (_params["testIdAttributeName"] = to_wire(testIdAttributeName))
+    send_message(_obj, "enableRecorder", _params)
     return nothing
 end
 
 # browserContext.yml: BrowserContext.exposeBinding
 function _browser_context_expose_binding(_obj::BrowserContextChannel; name::AbstractString)
-    params = Dict{String,Any}()
-    params["name"] = to_wire(name)
-    result = send_message(_obj, "exposeBinding", params)
-    return from_channel(_obj.connection, result["disposable"])
+    _params = Dict{String,Any}()
+    _params["name"] = to_wire(name)
+    _result = send_message(_obj, "exposeBinding", _params)
+    return from_channel(_obj.connection, _result["disposable"])
 end
 
 # browserContext.yml: BrowserContext.exposeConsoleApi
 function _browser_context_expose_console_api(_obj::BrowserContextChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "exposeConsoleApi", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "exposeConsoleApi", _params)
     return nothing
 end
 
@@ -1318,10 +1324,10 @@ function _browser_context_grant_permissions(
     permissions::AbstractVector,
     origin::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["permissions"] = to_wire(permissions)
-    origin === nothing || (params["origin"] = to_wire(origin))
-    send_message(_obj, "grantPermissions", params)
+    _params = Dict{String,Any}()
+    _params["permissions"] = to_wire(permissions)
+    origin === nothing || (_params["origin"] = to_wire(origin))
+    send_message(_obj, "grantPermissions", _params)
     return nothing
 end
 
@@ -1331,24 +1337,24 @@ function _browser_context_new_cdp_session(
     frame::Union{FrameChannel,Nothing} = nothing,
     page::Union{PageChannel,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    frame === nothing || (params["frame"] = to_wire(frame))
-    page === nothing || (params["page"] = to_wire(page))
-    result = send_message(_obj, "newCDPSession", params)
-    return from_channel(_obj.connection, result["session"])
+    _params = Dict{String,Any}()
+    frame === nothing || (_params["frame"] = to_wire(frame))
+    page === nothing || (_params["page"] = to_wire(page))
+    _result = send_message(_obj, "newCDPSession", _params)
+    return from_channel(_obj.connection, _result["session"])
 end
 
 # browserContext.yml: BrowserContext.newPage
 function _browser_context_new_page(_obj::BrowserContextChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "newPage", params)
-    return from_channel(_obj.connection, result["page"])
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "newPage", _params)
+    return from_channel(_obj.connection, _result["page"])
 end
 
 # browserContext.yml: BrowserContext.pause
 function _browser_context_pause(_obj::BrowserContextChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "pause", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "pause", _params)
     return nothing
 end
 
@@ -1357,9 +1363,9 @@ function _browser_context_register_selector_engine(
     _obj::BrowserContextChannel;
     selectorEngine::AbstractDict,
 )
-    params = Dict{String,Any}()
-    params["selectorEngine"] = to_wire(selectorEngine)
-    send_message(_obj, "registerSelectorEngine", params)
+    _params = Dict{String,Any}()
+    _params["selectorEngine"] = to_wire(selectorEngine)
+    send_message(_obj, "registerSelectorEngine", _params)
     return nothing
 end
 
@@ -1368,9 +1374,9 @@ function _browser_context_set_extra_http_headers(
     _obj::BrowserContextChannel;
     headers::AbstractVector,
 )
-    params = Dict{String,Any}()
-    params["headers"] = to_wire(headers)
-    send_message(_obj, "setExtraHTTPHeaders", params)
+    _params = Dict{String,Any}()
+    _params["headers"] = to_wire(headers)
+    send_message(_obj, "setExtraHTTPHeaders", _params)
     return nothing
 end
 
@@ -1379,9 +1385,9 @@ function _browser_context_set_geolocation(
     _obj::BrowserContextChannel;
     geolocation::Union{AbstractDict,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    geolocation === nothing || (params["geolocation"] = to_wire(geolocation))
-    send_message(_obj, "setGeolocation", params)
+    _params = Dict{String,Any}()
+    geolocation === nothing || (_params["geolocation"] = to_wire(geolocation))
+    send_message(_obj, "setGeolocation", _params)
     return nothing
 end
 
@@ -1390,9 +1396,9 @@ function _browser_context_set_http_credentials(
     _obj::BrowserContextChannel;
     httpCredentials::Union{AbstractDict,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    httpCredentials === nothing || (params["httpCredentials"] = to_wire(httpCredentials))
-    send_message(_obj, "setHTTPCredentials", params)
+    _params = Dict{String,Any}()
+    httpCredentials === nothing || (_params["httpCredentials"] = to_wire(httpCredentials))
+    send_message(_obj, "setHTTPCredentials", _params)
     return nothing
 end
 
@@ -1401,17 +1407,17 @@ function _browser_context_set_network_interception_patterns(
     _obj::BrowserContextChannel;
     patterns::AbstractVector,
 )
-    params = Dict{String,Any}()
-    params["patterns"] = to_wire(patterns)
-    send_message(_obj, "setNetworkInterceptionPatterns", params)
+    _params = Dict{String,Any}()
+    _params["patterns"] = to_wire(patterns)
+    send_message(_obj, "setNetworkInterceptionPatterns", _params)
     return nothing
 end
 
 # browserContext.yml: BrowserContext.setOffline
 function _browser_context_set_offline(_obj::BrowserContextChannel; offline::Bool)
-    params = Dict{String,Any}()
-    params["offline"] = to_wire(offline)
-    send_message(_obj, "setOffline", params)
+    _params = Dict{String,Any}()
+    _params["offline"] = to_wire(offline)
+    send_message(_obj, "setOffline", _params)
     return nothing
 end
 
@@ -1420,9 +1426,9 @@ function _browser_context_set_storage_state(
     _obj::BrowserContextChannel;
     storageState::Union{AbstractDict,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    storageState === nothing || (params["storageState"] = to_wire(storageState))
-    send_message(_obj, "setStorageState", params)
+    _params = Dict{String,Any}()
+    storageState === nothing || (_params["storageState"] = to_wire(storageState))
+    send_message(_obj, "setStorageState", _params)
     return nothing
 end
 
@@ -1431,9 +1437,9 @@ function _browser_context_set_test_id_attribute_name(
     _obj::BrowserContextChannel;
     testIdAttributeName::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["testIdAttributeName"] = to_wire(testIdAttributeName)
-    send_message(_obj, "setTestIdAttributeName", params)
+    _params = Dict{String,Any}()
+    _params["testIdAttributeName"] = to_wire(testIdAttributeName)
+    send_message(_obj, "setTestIdAttributeName", _params)
     return nothing
 end
 
@@ -1442,9 +1448,9 @@ function _browser_context_set_web_socket_interception_patterns(
     _obj::BrowserContextChannel;
     patterns::AbstractVector,
 )
-    params = Dict{String,Any}()
-    params["patterns"] = to_wire(patterns)
-    send_message(_obj, "setWebSocketInterceptionPatterns", params)
+    _params = Dict{String,Any}()
+    _params["patterns"] = to_wire(patterns)
+    send_message(_obj, "setWebSocketInterceptionPatterns", _params)
     return nothing
 end
 
@@ -1453,10 +1459,10 @@ function _browser_context_storage_state(
     _obj::BrowserContextChannel;
     indexedDB::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    indexedDB === nothing || (params["indexedDB"] = to_wire(indexedDB))
-    result = send_message(_obj, "storageState", params)
-    return (cookies = result["cookies"], origins = result["origins"])
+    _params = Dict{String,Any}()
+    indexedDB === nothing || (_params["indexedDB"] = to_wire(indexedDB))
+    _result = send_message(_obj, "storageState", _params)
+    return (cookies = _result["cookies"], origins = _result["origins"])
 end
 
 # browserContext.yml: BrowserContext.updateSubscription
@@ -1465,10 +1471,10 @@ function _browser_context_update_subscription(
     enabled::Bool,
     event::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["enabled"] = to_wire(enabled)
-    params["event"] = to_wire(event)
-    send_message(_obj, "updateSubscription", params)
+    _params = Dict{String,Any}()
+    _params["enabled"] = to_wire(enabled)
+    _params["event"] = to_wire(event)
+    send_message(_obj, "updateSubscription", _params)
     return nothing
 end
 
@@ -1484,21 +1490,21 @@ function _browser_type_connect_over_cdp(
     slowMo::Union{Real,Nothing} = nothing,
     transport::Union{Vector{UInt8},Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    artifactsDir === nothing || (params["artifactsDir"] = to_wire(artifactsDir))
-    endpointURL === nothing || (params["endpointURL"] = to_wire(endpointURL))
-    headers === nothing || (params["headers"] = to_wire(headers))
-    isLocal === nothing || (params["isLocal"] = to_wire(isLocal))
-    noDefaults === nothing || (params["noDefaults"] = to_wire(noDefaults))
-    slowMo === nothing || (params["slowMo"] = to_wire(slowMo))
-    transport === nothing || (params["transport"] = to_wire(transport))
-    result = send_message(_obj, "connectOverCDP", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    artifactsDir === nothing || (_params["artifactsDir"] = to_wire(artifactsDir))
+    endpointURL === nothing || (_params["endpointURL"] = to_wire(endpointURL))
+    headers === nothing || (_params["headers"] = to_wire(headers))
+    isLocal === nothing || (_params["isLocal"] = to_wire(isLocal))
+    noDefaults === nothing || (_params["noDefaults"] = to_wire(noDefaults))
+    slowMo === nothing || (_params["slowMo"] = to_wire(slowMo))
+    transport === nothing || (_params["transport"] = to_wire(transport))
+    _result = send_message(_obj, "connectOverCDP", _params)
     return (
-        browser = from_channel(_obj.connection, result["browser"]),
+        browser = from_channel(_obj.connection, _result["browser"]),
         defaultContext = from_channel(
             _obj.connection,
-            get(result, "defaultContext", nothing),
+            get(_result, "defaultContext", nothing),
         ),
     )
 end
@@ -1509,11 +1515,11 @@ function _browser_type_connect_to_worker(
     endpoint::AbstractString,
     timeout::Real,
 )
-    params = Dict{String,Any}()
-    params["endpoint"] = to_wire(endpoint)
-    params["timeout"] = to_wire(timeout)
-    result = send_message(_obj, "connectToWorker", params)
-    return from_channel(_obj.connection, result["worker"])
+    _params = Dict{String,Any}()
+    _params["endpoint"] = to_wire(endpoint)
+    _params["timeout"] = to_wire(timeout)
+    _result = send_message(_obj, "connectToWorker", _params)
+    return from_channel(_obj.connection, _result["worker"])
 end
 
 # browserType.yml: BrowserType.launch
@@ -1539,30 +1545,31 @@ function _browser_type_launch(
     slowMo::Union{Real,Nothing} = nothing,
     tracesDir::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    args === nothing || (params["args"] = to_wire(args))
-    artifactsDir === nothing || (params["artifactsDir"] = to_wire(artifactsDir))
-    cdpPort === nothing || (params["cdpPort"] = to_wire(cdpPort))
-    channel === nothing || (params["channel"] = to_wire(channel))
-    chromiumSandbox === nothing || (params["chromiumSandbox"] = to_wire(chromiumSandbox))
-    downloadsPath === nothing || (params["downloadsPath"] = to_wire(downloadsPath))
-    env === nothing || (params["env"] = to_wire(env))
-    executablePath === nothing || (params["executablePath"] = to_wire(executablePath))
-    firefoxUserPrefs === nothing || (params["firefoxUserPrefs"] = to_wire(firefoxUserPrefs))
-    handleSIGHUP === nothing || (params["handleSIGHUP"] = to_wire(handleSIGHUP))
-    handleSIGINT === nothing || (params["handleSIGINT"] = to_wire(handleSIGINT))
-    handleSIGTERM === nothing || (params["handleSIGTERM"] = to_wire(handleSIGTERM))
-    headless === nothing || (params["headless"] = to_wire(headless))
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    args === nothing || (_params["args"] = to_wire(args))
+    artifactsDir === nothing || (_params["artifactsDir"] = to_wire(artifactsDir))
+    cdpPort === nothing || (_params["cdpPort"] = to_wire(cdpPort))
+    channel === nothing || (_params["channel"] = to_wire(channel))
+    chromiumSandbox === nothing || (_params["chromiumSandbox"] = to_wire(chromiumSandbox))
+    downloadsPath === nothing || (_params["downloadsPath"] = to_wire(downloadsPath))
+    env === nothing || (_params["env"] = to_wire(env))
+    executablePath === nothing || (_params["executablePath"] = to_wire(executablePath))
+    firefoxUserPrefs === nothing ||
+        (_params["firefoxUserPrefs"] = to_wire(firefoxUserPrefs))
+    handleSIGHUP === nothing || (_params["handleSIGHUP"] = to_wire(handleSIGHUP))
+    handleSIGINT === nothing || (_params["handleSIGINT"] = to_wire(handleSIGINT))
+    handleSIGTERM === nothing || (_params["handleSIGTERM"] = to_wire(handleSIGTERM))
+    headless === nothing || (_params["headless"] = to_wire(headless))
     ignoreAllDefaultArgs === nothing ||
-        (params["ignoreAllDefaultArgs"] = to_wire(ignoreAllDefaultArgs))
+        (_params["ignoreAllDefaultArgs"] = to_wire(ignoreAllDefaultArgs))
     ignoreDefaultArgs === nothing ||
-        (params["ignoreDefaultArgs"] = to_wire(ignoreDefaultArgs))
-    proxy === nothing || (params["proxy"] = to_wire(proxy))
-    slowMo === nothing || (params["slowMo"] = to_wire(slowMo))
-    tracesDir === nothing || (params["tracesDir"] = to_wire(tracesDir))
-    result = send_message(_obj, "launch", params)
-    return from_channel(_obj.connection, result["browser"])
+        (_params["ignoreDefaultArgs"] = to_wire(ignoreDefaultArgs))
+    proxy === nothing || (_params["proxy"] = to_wire(proxy))
+    slowMo === nothing || (_params["slowMo"] = to_wire(slowMo))
+    tracesDir === nothing || (_params["tracesDir"] = to_wire(tracesDir))
+    _result = send_message(_obj, "launch", _params)
+    return from_channel(_obj.connection, _result["browser"])
 end
 
 # browserType.yml: BrowserType.launchPersistentContext
@@ -1618,75 +1625,77 @@ function _browser_type_launch_persistent_context(
     userAgent::Union{AbstractString,Nothing} = nothing,
     viewport::Union{AbstractDict,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    params["userDataDir"] = to_wire(userDataDir)
-    acceptDownloads === nothing || (params["acceptDownloads"] = to_wire(acceptDownloads))
-    args === nothing || (params["args"] = to_wire(args))
-    artifactsDir === nothing || (params["artifactsDir"] = to_wire(artifactsDir))
-    baseURL === nothing || (params["baseURL"] = to_wire(baseURL))
-    bypassCSP === nothing || (params["bypassCSP"] = to_wire(bypassCSP))
-    cdpPort === nothing || (params["cdpPort"] = to_wire(cdpPort))
-    channel === nothing || (params["channel"] = to_wire(channel))
-    chromiumSandbox === nothing || (params["chromiumSandbox"] = to_wire(chromiumSandbox))
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    _params["userDataDir"] = to_wire(userDataDir)
+    acceptDownloads === nothing || (_params["acceptDownloads"] = to_wire(acceptDownloads))
+    args === nothing || (_params["args"] = to_wire(args))
+    artifactsDir === nothing || (_params["artifactsDir"] = to_wire(artifactsDir))
+    baseURL === nothing || (_params["baseURL"] = to_wire(baseURL))
+    bypassCSP === nothing || (_params["bypassCSP"] = to_wire(bypassCSP))
+    cdpPort === nothing || (_params["cdpPort"] = to_wire(cdpPort))
+    channel === nothing || (_params["channel"] = to_wire(channel))
+    chromiumSandbox === nothing || (_params["chromiumSandbox"] = to_wire(chromiumSandbox))
     clientCertificates === nothing ||
-        (params["clientCertificates"] = to_wire(clientCertificates))
-    colorScheme === nothing || (params["colorScheme"] = to_wire(colorScheme))
-    contrast === nothing || (params["contrast"] = to_wire(contrast))
+        (_params["clientCertificates"] = to_wire(clientCertificates))
+    colorScheme === nothing || (_params["colorScheme"] = to_wire(colorScheme))
+    contrast === nothing || (_params["contrast"] = to_wire(contrast))
     deviceScaleFactor === nothing ||
-        (params["deviceScaleFactor"] = to_wire(deviceScaleFactor))
-    downloadsPath === nothing || (params["downloadsPath"] = to_wire(downloadsPath))
-    env === nothing || (params["env"] = to_wire(env))
-    executablePath === nothing || (params["executablePath"] = to_wire(executablePath))
-    extraHTTPHeaders === nothing || (params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
-    firefoxUserPrefs === nothing || (params["firefoxUserPrefs"] = to_wire(firefoxUserPrefs))
-    forcedColors === nothing || (params["forcedColors"] = to_wire(forcedColors))
-    geolocation === nothing || (params["geolocation"] = to_wire(geolocation))
-    handleSIGHUP === nothing || (params["handleSIGHUP"] = to_wire(handleSIGHUP))
-    handleSIGINT === nothing || (params["handleSIGINT"] = to_wire(handleSIGINT))
-    handleSIGTERM === nothing || (params["handleSIGTERM"] = to_wire(handleSIGTERM))
-    hasTouch === nothing || (params["hasTouch"] = to_wire(hasTouch))
-    headless === nothing || (params["headless"] = to_wire(headless))
-    httpCredentials === nothing || (params["httpCredentials"] = to_wire(httpCredentials))
+        (_params["deviceScaleFactor"] = to_wire(deviceScaleFactor))
+    downloadsPath === nothing || (_params["downloadsPath"] = to_wire(downloadsPath))
+    env === nothing || (_params["env"] = to_wire(env))
+    executablePath === nothing || (_params["executablePath"] = to_wire(executablePath))
+    extraHTTPHeaders === nothing ||
+        (_params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
+    firefoxUserPrefs === nothing ||
+        (_params["firefoxUserPrefs"] = to_wire(firefoxUserPrefs))
+    forcedColors === nothing || (_params["forcedColors"] = to_wire(forcedColors))
+    geolocation === nothing || (_params["geolocation"] = to_wire(geolocation))
+    handleSIGHUP === nothing || (_params["handleSIGHUP"] = to_wire(handleSIGHUP))
+    handleSIGINT === nothing || (_params["handleSIGINT"] = to_wire(handleSIGINT))
+    handleSIGTERM === nothing || (_params["handleSIGTERM"] = to_wire(handleSIGTERM))
+    hasTouch === nothing || (_params["hasTouch"] = to_wire(hasTouch))
+    headless === nothing || (_params["headless"] = to_wire(headless))
+    httpCredentials === nothing || (_params["httpCredentials"] = to_wire(httpCredentials))
     ignoreAllDefaultArgs === nothing ||
-        (params["ignoreAllDefaultArgs"] = to_wire(ignoreAllDefaultArgs))
+        (_params["ignoreAllDefaultArgs"] = to_wire(ignoreAllDefaultArgs))
     ignoreDefaultArgs === nothing ||
-        (params["ignoreDefaultArgs"] = to_wire(ignoreDefaultArgs))
+        (_params["ignoreDefaultArgs"] = to_wire(ignoreDefaultArgs))
     ignoreHTTPSErrors === nothing ||
-        (params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
-    isMobile === nothing || (params["isMobile"] = to_wire(isMobile))
+        (_params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
+    isMobile === nothing || (_params["isMobile"] = to_wire(isMobile))
     javaScriptEnabled === nothing ||
-        (params["javaScriptEnabled"] = to_wire(javaScriptEnabled))
-    locale === nothing || (params["locale"] = to_wire(locale))
+        (_params["javaScriptEnabled"] = to_wire(javaScriptEnabled))
+    locale === nothing || (_params["locale"] = to_wire(locale))
     noDefaultViewport === nothing ||
-        (params["noDefaultViewport"] = to_wire(noDefaultViewport))
-    offline === nothing || (params["offline"] = to_wire(offline))
-    permissions === nothing || (params["permissions"] = to_wire(permissions))
-    proxy === nothing || (params["proxy"] = to_wire(proxy))
-    recordVideo === nothing || (params["recordVideo"] = to_wire(recordVideo))
-    reducedMotion === nothing || (params["reducedMotion"] = to_wire(reducedMotion))
-    screen === nothing || (params["screen"] = to_wire(screen))
-    selectorEngines === nothing || (params["selectorEngines"] = to_wire(selectorEngines))
-    serviceWorkers === nothing || (params["serviceWorkers"] = to_wire(serviceWorkers))
-    slowMo === nothing || (params["slowMo"] = to_wire(slowMo))
-    strictSelectors === nothing || (params["strictSelectors"] = to_wire(strictSelectors))
+        (_params["noDefaultViewport"] = to_wire(noDefaultViewport))
+    offline === nothing || (_params["offline"] = to_wire(offline))
+    permissions === nothing || (_params["permissions"] = to_wire(permissions))
+    proxy === nothing || (_params["proxy"] = to_wire(proxy))
+    recordVideo === nothing || (_params["recordVideo"] = to_wire(recordVideo))
+    reducedMotion === nothing || (_params["reducedMotion"] = to_wire(reducedMotion))
+    screen === nothing || (_params["screen"] = to_wire(screen))
+    selectorEngines === nothing || (_params["selectorEngines"] = to_wire(selectorEngines))
+    serviceWorkers === nothing || (_params["serviceWorkers"] = to_wire(serviceWorkers))
+    slowMo === nothing || (_params["slowMo"] = to_wire(slowMo))
+    strictSelectors === nothing || (_params["strictSelectors"] = to_wire(strictSelectors))
     testIdAttributeName === nothing ||
-        (params["testIdAttributeName"] = to_wire(testIdAttributeName))
-    timezoneId === nothing || (params["timezoneId"] = to_wire(timezoneId))
-    tracesDir === nothing || (params["tracesDir"] = to_wire(tracesDir))
-    userAgent === nothing || (params["userAgent"] = to_wire(userAgent))
-    viewport === nothing || (params["viewport"] = to_wire(viewport))
-    result = send_message(_obj, "launchPersistentContext", params)
+        (_params["testIdAttributeName"] = to_wire(testIdAttributeName))
+    timezoneId === nothing || (_params["timezoneId"] = to_wire(timezoneId))
+    tracesDir === nothing || (_params["tracesDir"] = to_wire(tracesDir))
+    userAgent === nothing || (_params["userAgent"] = to_wire(userAgent))
+    viewport === nothing || (_params["viewport"] = to_wire(viewport))
+    _result = send_message(_obj, "launchPersistentContext", _params)
     return (
-        browser = from_channel(_obj.connection, result["browser"]),
-        context = from_channel(_obj.connection, result["context"]),
+        browser = from_channel(_obj.connection, _result["browser"]),
+        context = from_channel(_obj.connection, _result["context"]),
     )
 end
 
 # playwright.yml: CDPSession.detach
 function _cdp_session_detach(_obj::CDPSessionChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "detach", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "detach", _params)
     return nothing
 end
 
@@ -1696,17 +1705,17 @@ function _cdp_session_send(
     method::AbstractString,
     params = nothing,
 )
-    params = Dict{String,Any}()
-    params["method"] = to_wire(method)
-    params === nothing || (params["params"] = to_wire(params))
-    result = send_message(_obj, "send", params)
-    return result["result"]
+    _params = Dict{String,Any}()
+    _params["method"] = to_wire(method)
+    params === nothing || (_params["params"] = to_wire(params))
+    _result = send_message(_obj, "send", _params)
+    return _result["result"]
 end
 
 # playwright.yml: DebugController.hideHighlight
 function _debug_controller_hide_highlight(_obj::DebugControllerChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "hideHighlight", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "hideHighlight", _params)
     return nothing
 end
 
@@ -1716,10 +1725,10 @@ function _debug_controller_highlight(
     ariaTemplate::Union{AbstractString,Nothing} = nothing,
     selector::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    ariaTemplate === nothing || (params["ariaTemplate"] = to_wire(ariaTemplate))
-    selector === nothing || (params["selector"] = to_wire(selector))
-    send_message(_obj, "highlight", params)
+    _params = Dict{String,Any}()
+    ariaTemplate === nothing || (_params["ariaTemplate"] = to_wire(ariaTemplate))
+    selector === nothing || (_params["selector"] = to_wire(selector))
+    send_message(_obj, "highlight", _params)
     return nothing
 end
 
@@ -1729,24 +1738,24 @@ function _debug_controller_initialize(
     codegenId::AbstractString,
     sdkLanguage::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["codegenId"] = to_wire(codegenId)
-    params["sdkLanguage"] = to_wire(sdkLanguage)
-    send_message(_obj, "initialize", params)
+    _params = Dict{String,Any}()
+    _params["codegenId"] = to_wire(codegenId)
+    _params["sdkLanguage"] = to_wire(sdkLanguage)
+    send_message(_obj, "initialize", _params)
     return nothing
 end
 
 # playwright.yml: DebugController.kill
 function _debug_controller_kill(_obj::DebugControllerChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "kill", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "kill", _params)
     return nothing
 end
 
 # playwright.yml: DebugController.resume
 function _debug_controller_resume(_obj::DebugControllerChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "resume", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "resume", _params)
     return nothing
 end
 
@@ -1757,13 +1766,13 @@ function _debug_controller_set_recorder_mode(
     generateAutoExpect::Union{Bool,Nothing} = nothing,
     testIdAttributeName::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["mode"] = to_wire(mode)
+    _params = Dict{String,Any}()
+    _params["mode"] = to_wire(mode)
     generateAutoExpect === nothing ||
-        (params["generateAutoExpect"] = to_wire(generateAutoExpect))
+        (_params["generateAutoExpect"] = to_wire(generateAutoExpect))
     testIdAttributeName === nothing ||
-        (params["testIdAttributeName"] = to_wire(testIdAttributeName))
-    send_message(_obj, "setRecorderMode", params)
+        (_params["testIdAttributeName"] = to_wire(testIdAttributeName))
+    send_message(_obj, "setRecorderMode", _params)
     return nothing
 end
 
@@ -1772,38 +1781,38 @@ function _debug_controller_set_report_state_changed(
     _obj::DebugControllerChannel;
     enabled::Bool,
 )
-    params = Dict{String,Any}()
-    params["enabled"] = to_wire(enabled)
-    send_message(_obj, "setReportStateChanged", params)
+    _params = Dict{String,Any}()
+    _params["enabled"] = to_wire(enabled)
+    send_message(_obj, "setReportStateChanged", _params)
     return nothing
 end
 
 # playwright.yml: Debugger.next
 function _debugger_next(_obj::DebuggerChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "next", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "next", _params)
     return nothing
 end
 
 # playwright.yml: Debugger.requestPause
 function _debugger_request_pause(_obj::DebuggerChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "requestPause", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "requestPause", _params)
     return nothing
 end
 
 # playwright.yml: Debugger.resume
 function _debugger_resume(_obj::DebuggerChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "resume", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "resume", _params)
     return nothing
 end
 
 # playwright.yml: Debugger.runTo
 function _debugger_run_to(_obj::DebuggerChannel; location::AbstractDict)
-    params = Dict{String,Any}()
-    params["location"] = to_wire(location)
-    send_message(_obj, "runTo", params)
+    _params = Dict{String,Any}()
+    _params["location"] = to_wire(location)
+    send_message(_obj, "runTo", _params)
     return nothing
 end
 
@@ -1812,23 +1821,23 @@ function _dialog_accept(
     _obj::DialogChannel;
     promptText::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    promptText === nothing || (params["promptText"] = to_wire(promptText))
-    send_message(_obj, "accept", params)
+    _params = Dict{String,Any}()
+    promptText === nothing || (_params["promptText"] = to_wire(promptText))
+    send_message(_obj, "accept", _params)
     return nothing
 end
 
 # playwright.yml: Dialog.dismiss
 function _dialog_dismiss(_obj::DialogChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "dismiss", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "dismiss", _params)
     return nothing
 end
 
 # core.yml: Disposable.dispose
 function _disposable_dispose(_obj::DisposableChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "dispose", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "dispose", _params)
     return nothing
 end
 
@@ -1858,33 +1867,34 @@ function _electron_launch(
     timezoneId::Union{AbstractString,Nothing} = nothing,
     tracesDir::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    acceptDownloads === nothing || (params["acceptDownloads"] = to_wire(acceptDownloads))
-    args === nothing || (params["args"] = to_wire(args))
-    artifactsDir === nothing || (params["artifactsDir"] = to_wire(artifactsDir))
-    bypassCSP === nothing || (params["bypassCSP"] = to_wire(bypassCSP))
-    chromiumSandbox === nothing || (params["chromiumSandbox"] = to_wire(chromiumSandbox))
-    colorScheme === nothing || (params["colorScheme"] = to_wire(colorScheme))
-    cwd === nothing || (params["cwd"] = to_wire(cwd))
-    env === nothing || (params["env"] = to_wire(env))
-    executablePath === nothing || (params["executablePath"] = to_wire(executablePath))
-    extraHTTPHeaders === nothing || (params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
-    geolocation === nothing || (params["geolocation"] = to_wire(geolocation))
-    httpCredentials === nothing || (params["httpCredentials"] = to_wire(httpCredentials))
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    acceptDownloads === nothing || (_params["acceptDownloads"] = to_wire(acceptDownloads))
+    args === nothing || (_params["args"] = to_wire(args))
+    artifactsDir === nothing || (_params["artifactsDir"] = to_wire(artifactsDir))
+    bypassCSP === nothing || (_params["bypassCSP"] = to_wire(bypassCSP))
+    chromiumSandbox === nothing || (_params["chromiumSandbox"] = to_wire(chromiumSandbox))
+    colorScheme === nothing || (_params["colorScheme"] = to_wire(colorScheme))
+    cwd === nothing || (_params["cwd"] = to_wire(cwd))
+    env === nothing || (_params["env"] = to_wire(env))
+    executablePath === nothing || (_params["executablePath"] = to_wire(executablePath))
+    extraHTTPHeaders === nothing ||
+        (_params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
+    geolocation === nothing || (_params["geolocation"] = to_wire(geolocation))
+    httpCredentials === nothing || (_params["httpCredentials"] = to_wire(httpCredentials))
     ignoreHTTPSErrors === nothing ||
-        (params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
-    locale === nothing || (params["locale"] = to_wire(locale))
-    offline === nothing || (params["offline"] = to_wire(offline))
-    recordVideo === nothing || (params["recordVideo"] = to_wire(recordVideo))
-    selectorEngines === nothing || (params["selectorEngines"] = to_wire(selectorEngines))
-    strictSelectors === nothing || (params["strictSelectors"] = to_wire(strictSelectors))
+        (_params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
+    locale === nothing || (_params["locale"] = to_wire(locale))
+    offline === nothing || (_params["offline"] = to_wire(offline))
+    recordVideo === nothing || (_params["recordVideo"] = to_wire(recordVideo))
+    selectorEngines === nothing || (_params["selectorEngines"] = to_wire(selectorEngines))
+    strictSelectors === nothing || (_params["strictSelectors"] = to_wire(strictSelectors))
     testIdAttributeName === nothing ||
-        (params["testIdAttributeName"] = to_wire(testIdAttributeName))
-    timezoneId === nothing || (params["timezoneId"] = to_wire(timezoneId))
-    tracesDir === nothing || (params["tracesDir"] = to_wire(tracesDir))
-    result = send_message(_obj, "launch", params)
-    return from_channel(_obj.connection, result["electronApplication"])
+        (_params["testIdAttributeName"] = to_wire(testIdAttributeName))
+    timezoneId === nothing || (_params["timezoneId"] = to_wire(timezoneId))
+    tracesDir === nothing || (_params["tracesDir"] = to_wire(tracesDir))
+    _result = send_message(_obj, "launch", _params)
+    return from_channel(_obj.connection, _result["electronApplication"])
 end
 
 # electron.yml: ElectronApplication.browserWindow
@@ -1892,10 +1902,10 @@ function _electron_application_browser_window(
     _obj::ElectronApplicationChannel;
     page::PageChannel,
 )
-    params = Dict{String,Any}()
-    params["page"] = to_wire(page)
-    result = send_message(_obj, "browserWindow", params)
-    return from_channel(_obj.connection, result["handle"])
+    _params = Dict{String,Any}()
+    _params["page"] = to_wire(page)
+    _result = send_message(_obj, "browserWindow", _params)
+    return from_channel(_obj.connection, _result["handle"])
 end
 
 # electron.yml: ElectronApplication.evaluateExpression
@@ -1905,12 +1915,12 @@ function _electron_application_evaluate_expression(
     expression::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evaluateExpression", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evaluateExpression", _params)
+    return _result["value"]
 end
 
 # electron.yml: ElectronApplication.evaluateExpressionHandle
@@ -1920,12 +1930,12 @@ function _electron_application_evaluate_expression_handle(
     expression::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evaluateExpressionHandle", params)
-    return from_channel(_obj.connection, result["handle"])
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evaluateExpressionHandle", _params)
+    return from_channel(_obj.connection, _result["handle"])
 end
 
 # electron.yml: ElectronApplication.updateSubscription
@@ -1934,18 +1944,18 @@ function _electron_application_update_subscription(
     enabled::Bool,
     event::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["enabled"] = to_wire(enabled)
-    params["event"] = to_wire(event)
-    send_message(_obj, "updateSubscription", params)
+    _params = Dict{String,Any}()
+    _params["enabled"] = to_wire(enabled)
+    _params["event"] = to_wire(event)
+    send_message(_obj, "updateSubscription", _params)
     return nothing
 end
 
 # handles.yml: ElementHandle.boundingBox
 function _element_handle_bounding_box(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "boundingBox", params)
-    return get(result, "value", nothing)
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "boundingBox", _params)
+    return get(_result, "value", nothing)
 end
 
 # handles.yml: ElementHandle.check
@@ -1956,12 +1966,12 @@ function _element_handle_check(
     position::Union{AbstractDict,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    position === nothing || (params["position"] = to_wire(position))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "check", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    position === nothing || (_params["position"] = to_wire(position))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "check", _params)
     return nothing
 end
 
@@ -1979,26 +1989,26 @@ function _element_handle_click(
     steps::Union{Real,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    button === nothing || (params["button"] = to_wire(button))
-    clickCount === nothing || (params["clickCount"] = to_wire(clickCount))
-    delay === nothing || (params["delay"] = to_wire(delay))
-    force === nothing || (params["force"] = to_wire(force))
-    modifiers === nothing || (params["modifiers"] = to_wire(modifiers))
-    noWaitAfter === nothing || (params["noWaitAfter"] = to_wire(noWaitAfter))
-    position === nothing || (params["position"] = to_wire(position))
-    steps === nothing || (params["steps"] = to_wire(steps))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "click", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    button === nothing || (_params["button"] = to_wire(button))
+    clickCount === nothing || (_params["clickCount"] = to_wire(clickCount))
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    force === nothing || (_params["force"] = to_wire(force))
+    modifiers === nothing || (_params["modifiers"] = to_wire(modifiers))
+    noWaitAfter === nothing || (_params["noWaitAfter"] = to_wire(noWaitAfter))
+    position === nothing || (_params["position"] = to_wire(position))
+    steps === nothing || (_params["steps"] = to_wire(steps))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "click", _params)
     return nothing
 end
 
 # handles.yml: ElementHandle.contentFrame
 function _element_handle_content_frame(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "contentFrame", params)
-    return from_channel(_obj.connection, get(result, "frame", nothing))
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "contentFrame", _params)
+    return from_channel(_obj.connection, get(_result, "frame", nothing))
 end
 
 # handles.yml: ElementHandle.dblclick
@@ -2013,16 +2023,16 @@ function _element_handle_dblclick(
     steps::Union{Real,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    button === nothing || (params["button"] = to_wire(button))
-    delay === nothing || (params["delay"] = to_wire(delay))
-    force === nothing || (params["force"] = to_wire(force))
-    modifiers === nothing || (params["modifiers"] = to_wire(modifiers))
-    position === nothing || (params["position"] = to_wire(position))
-    steps === nothing || (params["steps"] = to_wire(steps))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "dblclick", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    button === nothing || (_params["button"] = to_wire(button))
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    force === nothing || (_params["force"] = to_wire(force))
+    modifiers === nothing || (_params["modifiers"] = to_wire(modifiers))
+    position === nothing || (_params["position"] = to_wire(position))
+    steps === nothing || (_params["steps"] = to_wire(steps))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "dblclick", _params)
     return nothing
 end
 
@@ -2032,10 +2042,10 @@ function _element_handle_dispatch_event(
     eventInit::AbstractDict,
     type::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["eventInit"] = to_wire(eventInit)
-    params["type"] = to_wire(type)
-    send_message(_obj, "dispatchEvent", params)
+    _params = Dict{String,Any}()
+    _params["eventInit"] = to_wire(eventInit)
+    _params["type"] = to_wire(type)
+    send_message(_obj, "dispatchEvent", _params)
     return nothing
 end
 
@@ -2048,14 +2058,14 @@ function _element_handle_eval_on_selector(
     isFunction::Union{Bool,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    params["selector"] = to_wire(selector)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "evalOnSelector", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    _params["selector"] = to_wire(selector)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "evalOnSelector", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.evalOnSelectorAll
@@ -2066,13 +2076,13 @@ function _element_handle_eval_on_selector_all(
     selector::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    params["selector"] = to_wire(selector)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evalOnSelectorAll", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    _params["selector"] = to_wire(selector)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evalOnSelectorAll", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.fill
@@ -2082,27 +2092,27 @@ function _element_handle_fill(
     value::AbstractString,
     force::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    params["value"] = to_wire(value)
-    force === nothing || (params["force"] = to_wire(force))
-    send_message(_obj, "fill", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    _params["value"] = to_wire(value)
+    force === nothing || (_params["force"] = to_wire(force))
+    send_message(_obj, "fill", _params)
     return nothing
 end
 
 # handles.yml: ElementHandle.focus
 function _element_handle_focus(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "focus", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "focus", _params)
     return nothing
 end
 
 # handles.yml: ElementHandle.getAttribute
 function _element_handle_get_attribute(_obj::ElementHandleChannel; name::AbstractString)
-    params = Dict{String,Any}()
-    params["name"] = to_wire(name)
-    result = send_message(_obj, "getAttribute", params)
-    return get(result, "value", nothing)
+    _params = Dict{String,Any}()
+    _params["name"] = to_wire(name)
+    _result = send_message(_obj, "getAttribute", _params)
+    return get(_result, "value", nothing)
 end
 
 # handles.yml: ElementHandle.hover
@@ -2114,84 +2124,84 @@ function _element_handle_hover(
     position::Union{AbstractDict,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    modifiers === nothing || (params["modifiers"] = to_wire(modifiers))
-    position === nothing || (params["position"] = to_wire(position))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "hover", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    modifiers === nothing || (_params["modifiers"] = to_wire(modifiers))
+    position === nothing || (_params["position"] = to_wire(position))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "hover", _params)
     return nothing
 end
 
 # handles.yml: ElementHandle.innerHTML
 function _element_handle_inner_html(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "innerHTML", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "innerHTML", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.innerText
 function _element_handle_inner_text(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "innerText", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "innerText", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.inputValue
 function _element_handle_input_value(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "inputValue", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "inputValue", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.isChecked
 function _element_handle_is_checked(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "isChecked", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "isChecked", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.isDisabled
 function _element_handle_is_disabled(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "isDisabled", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "isDisabled", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.isEditable
 function _element_handle_is_editable(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "isEditable", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "isEditable", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.isEnabled
 function _element_handle_is_enabled(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "isEnabled", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "isEnabled", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.isHidden
 function _element_handle_is_hidden(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "isHidden", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "isHidden", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.isVisible
 function _element_handle_is_visible(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "isVisible", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "isVisible", _params)
+    return _result["value"]
 end
 
 # handles.yml: ElementHandle.ownerFrame
 function _element_handle_owner_frame(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "ownerFrame", params)
-    return from_channel(_obj.connection, get(result, "frame", nothing))
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "ownerFrame", _params)
+    return from_channel(_obj.connection, get(_result, "frame", nothing))
 end
 
 # handles.yml: ElementHandle.press
@@ -2202,12 +2212,12 @@ function _element_handle_press(
     delay::Union{Real,Nothing} = nothing,
     noWaitAfter::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["key"] = to_wire(key)
-    params["timeout"] = to_wire(timeout)
-    delay === nothing || (params["delay"] = to_wire(delay))
-    noWaitAfter === nothing || (params["noWaitAfter"] = to_wire(noWaitAfter))
-    send_message(_obj, "press", params)
+    _params = Dict{String,Any}()
+    _params["key"] = to_wire(key)
+    _params["timeout"] = to_wire(timeout)
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    noWaitAfter === nothing || (_params["noWaitAfter"] = to_wire(noWaitAfter))
+    send_message(_obj, "press", _params)
     return nothing
 end
 
@@ -2217,11 +2227,11 @@ function _element_handle_query_selector(
     selector::AbstractString,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "querySelector", params)
-    return from_channel(_obj.connection, get(result, "element", nothing))
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "querySelector", _params)
+    return from_channel(_obj.connection, get(_result, "element", nothing))
 end
 
 # handles.yml: ElementHandle.querySelectorAll
@@ -2229,10 +2239,10 @@ function _element_handle_query_selector_all(
     _obj::ElementHandleChannel;
     selector::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    result = send_message(_obj, "querySelectorAll", params)
-    return result["elements"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _result = send_message(_obj, "querySelectorAll", _params)
+    return _result["elements"]
 end
 
 # handles.yml: ElementHandle.screenshot
@@ -2249,19 +2259,19 @@ function _element_handle_screenshot(
     style::Union{AbstractString,Nothing} = nothing,
     type::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    animations === nothing || (params["animations"] = to_wire(animations))
-    caret === nothing || (params["caret"] = to_wire(caret))
-    mask === nothing || (params["mask"] = to_wire(mask))
-    maskColor === nothing || (params["maskColor"] = to_wire(maskColor))
-    omitBackground === nothing || (params["omitBackground"] = to_wire(omitBackground))
-    quality === nothing || (params["quality"] = to_wire(quality))
-    scale === nothing || (params["scale"] = to_wire(scale))
-    style === nothing || (params["style"] = to_wire(style))
-    type === nothing || (params["type"] = to_wire(type))
-    result = send_message(_obj, "screenshot", params)
-    return base64decode(result["binary"])
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    animations === nothing || (_params["animations"] = to_wire(animations))
+    caret === nothing || (_params["caret"] = to_wire(caret))
+    mask === nothing || (_params["mask"] = to_wire(mask))
+    maskColor === nothing || (_params["maskColor"] = to_wire(maskColor))
+    omitBackground === nothing || (_params["omitBackground"] = to_wire(omitBackground))
+    quality === nothing || (_params["quality"] = to_wire(quality))
+    scale === nothing || (_params["scale"] = to_wire(scale))
+    style === nothing || (_params["style"] = to_wire(style))
+    type === nothing || (_params["type"] = to_wire(type))
+    _result = send_message(_obj, "screenshot", _params)
+    return base64decode(_result["binary"])
 end
 
 # handles.yml: ElementHandle.scrollIntoViewIfNeeded
@@ -2269,9 +2279,9 @@ function _element_handle_scroll_into_view_if_needed(
     _obj::ElementHandleChannel;
     timeout::Real,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    send_message(_obj, "scrollIntoViewIfNeeded", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    send_message(_obj, "scrollIntoViewIfNeeded", _params)
     return nothing
 end
 
@@ -2283,13 +2293,13 @@ function _element_handle_select_option(
     force::Union{Bool,Nothing} = nothing,
     options::Union{AbstractVector,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    elements === nothing || (params["elements"] = to_wire(elements))
-    force === nothing || (params["force"] = to_wire(force))
-    options === nothing || (params["options"] = to_wire(options))
-    result = send_message(_obj, "selectOption", params)
-    return result["values"]
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    elements === nothing || (_params["elements"] = to_wire(elements))
+    force === nothing || (_params["force"] = to_wire(force))
+    options === nothing || (_params["options"] = to_wire(options))
+    _result = send_message(_obj, "selectOption", _params)
+    return _result["values"]
 end
 
 # handles.yml: ElementHandle.selectText
@@ -2298,10 +2308,10 @@ function _element_handle_select_text(
     timeout::Real,
     force::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    send_message(_obj, "selectText", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    send_message(_obj, "selectText", _params)
     return nothing
 end
 
@@ -2315,14 +2325,14 @@ function _element_handle_set_input_files(
     payloads::Union{AbstractVector,Nothing} = nothing,
     streams::Union{AbstractVector,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    directoryStream === nothing || (params["directoryStream"] = to_wire(directoryStream))
-    localDirectory === nothing || (params["localDirectory"] = to_wire(localDirectory))
-    localPaths === nothing || (params["localPaths"] = to_wire(localPaths))
-    payloads === nothing || (params["payloads"] = to_wire(payloads))
-    streams === nothing || (params["streams"] = to_wire(streams))
-    send_message(_obj, "setInputFiles", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    directoryStream === nothing || (_params["directoryStream"] = to_wire(directoryStream))
+    localDirectory === nothing || (_params["localDirectory"] = to_wire(localDirectory))
+    localPaths === nothing || (_params["localPaths"] = to_wire(localPaths))
+    payloads === nothing || (_params["payloads"] = to_wire(payloads))
+    streams === nothing || (_params["streams"] = to_wire(streams))
+    send_message(_obj, "setInputFiles", _params)
     return nothing
 end
 
@@ -2335,21 +2345,21 @@ function _element_handle_tap(
     position::Union{AbstractDict,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    modifiers === nothing || (params["modifiers"] = to_wire(modifiers))
-    position === nothing || (params["position"] = to_wire(position))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "tap", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    modifiers === nothing || (_params["modifiers"] = to_wire(modifiers))
+    position === nothing || (_params["position"] = to_wire(position))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "tap", _params)
     return nothing
 end
 
 # handles.yml: ElementHandle.textContent
 function _element_handle_text_content(_obj::ElementHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "textContent", params)
-    return get(result, "value", nothing)
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "textContent", _params)
+    return get(_result, "value", nothing)
 end
 
 # handles.yml: ElementHandle.type
@@ -2359,11 +2369,11 @@ function _element_handle_type(
     timeout::Real,
     delay::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["text"] = to_wire(text)
-    params["timeout"] = to_wire(timeout)
-    delay === nothing || (params["delay"] = to_wire(delay))
-    send_message(_obj, "type", params)
+    _params = Dict{String,Any}()
+    _params["text"] = to_wire(text)
+    _params["timeout"] = to_wire(timeout)
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    send_message(_obj, "type", _params)
     return nothing
 end
 
@@ -2375,12 +2385,12 @@ function _element_handle_uncheck(
     position::Union{AbstractDict,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    position === nothing || (params["position"] = to_wire(position))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "uncheck", params)
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    position === nothing || (_params["position"] = to_wire(position))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "uncheck", _params)
     return nothing
 end
 
@@ -2390,10 +2400,10 @@ function _element_handle_wait_for_element_state(
     state::AbstractString,
     timeout::Real,
 )
-    params = Dict{String,Any}()
-    params["state"] = to_wire(state)
-    params["timeout"] = to_wire(timeout)
-    send_message(_obj, "waitForElementState", params)
+    _params = Dict{String,Any}()
+    _params["state"] = to_wire(state)
+    _params["timeout"] = to_wire(timeout)
+    send_message(_obj, "waitForElementState", _params)
     return nothing
 end
 
@@ -2405,13 +2415,13 @@ function _element_handle_wait_for_selector(
     state::Union{AbstractString,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    state === nothing || (params["state"] = to_wire(state))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "waitForSelector", params)
-    return from_channel(_obj.connection, get(result, "element", nothing))
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    state === nothing || (_params["state"] = to_wire(state))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "waitForSelector", _params)
+    return from_channel(_obj.connection, get(_result, "element", nothing))
 end
 
 # frame.yml: Frame.addScriptTag
@@ -2421,12 +2431,12 @@ function _frame_add_script_tag(
     type::Union{AbstractString,Nothing} = nothing,
     url::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    content === nothing || (params["content"] = to_wire(content))
-    type === nothing || (params["type"] = to_wire(type))
-    url === nothing || (params["url"] = to_wire(url))
-    result = send_message(_obj, "addScriptTag", params)
-    return from_channel(_obj.connection, result["element"])
+    _params = Dict{String,Any}()
+    content === nothing || (_params["content"] = to_wire(content))
+    type === nothing || (_params["type"] = to_wire(type))
+    url === nothing || (_params["url"] = to_wire(url))
+    _result = send_message(_obj, "addScriptTag", _params)
+    return from_channel(_obj.connection, _result["element"])
 end
 
 # frame.yml: Frame.addStyleTag
@@ -2435,11 +2445,11 @@ function _frame_add_style_tag(
     content::Union{AbstractString,Nothing} = nothing,
     url::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    content === nothing || (params["content"] = to_wire(content))
-    url === nothing || (params["url"] = to_wire(url))
-    result = send_message(_obj, "addStyleTag", params)
-    return from_channel(_obj.connection, result["element"])
+    _params = Dict{String,Any}()
+    content === nothing || (_params["content"] = to_wire(content))
+    url === nothing || (_params["url"] = to_wire(url))
+    _result = send_message(_obj, "addStyleTag", _params)
+    return from_channel(_obj.connection, _result["element"])
 end
 
 # frame.yml: Frame.ariaSnapshot
@@ -2452,15 +2462,15 @@ function _frame_aria_snapshot(
     selector::Union{AbstractString,Nothing} = nothing,
     track::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    boxes === nothing || (params["boxes"] = to_wire(boxes))
-    depth === nothing || (params["depth"] = to_wire(depth))
-    mode === nothing || (params["mode"] = to_wire(mode))
-    selector === nothing || (params["selector"] = to_wire(selector))
-    track === nothing || (params["track"] = to_wire(track))
-    result = send_message(_obj, "ariaSnapshot", params)
-    return result["snapshot"]
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    boxes === nothing || (_params["boxes"] = to_wire(boxes))
+    depth === nothing || (_params["depth"] = to_wire(depth))
+    mode === nothing || (_params["mode"] = to_wire(mode))
+    selector === nothing || (_params["selector"] = to_wire(selector))
+    track === nothing || (_params["track"] = to_wire(track))
+    _result = send_message(_obj, "ariaSnapshot", _params)
+    return _result["snapshot"]
 end
 
 # frame.yml: Frame.blur
@@ -2470,11 +2480,11 @@ function _frame_blur(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    send_message(_obj, "blur", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    send_message(_obj, "blur", _params)
     return nothing
 end
 
@@ -2488,14 +2498,14 @@ function _frame_check(
     strict::Union{Bool,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    position === nothing || (params["position"] = to_wire(position))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "check", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    position === nothing || (_params["position"] = to_wire(position))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "check", _params)
     return nothing
 end
 
@@ -2515,28 +2525,28 @@ function _frame_click(
     strict::Union{Bool,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    button === nothing || (params["button"] = to_wire(button))
-    clickCount === nothing || (params["clickCount"] = to_wire(clickCount))
-    delay === nothing || (params["delay"] = to_wire(delay))
-    force === nothing || (params["force"] = to_wire(force))
-    modifiers === nothing || (params["modifiers"] = to_wire(modifiers))
-    noWaitAfter === nothing || (params["noWaitAfter"] = to_wire(noWaitAfter))
-    position === nothing || (params["position"] = to_wire(position))
-    steps === nothing || (params["steps"] = to_wire(steps))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "click", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    button === nothing || (_params["button"] = to_wire(button))
+    clickCount === nothing || (_params["clickCount"] = to_wire(clickCount))
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    force === nothing || (_params["force"] = to_wire(force))
+    modifiers === nothing || (_params["modifiers"] = to_wire(modifiers))
+    noWaitAfter === nothing || (_params["noWaitAfter"] = to_wire(noWaitAfter))
+    position === nothing || (_params["position"] = to_wire(position))
+    steps === nothing || (_params["steps"] = to_wire(steps))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "click", _params)
     return nothing
 end
 
 # frame.yml: Frame.content
 function _frame_content(_obj::FrameChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "content", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "content", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.dblclick
@@ -2553,18 +2563,18 @@ function _frame_dblclick(
     strict::Union{Bool,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    button === nothing || (params["button"] = to_wire(button))
-    delay === nothing || (params["delay"] = to_wire(delay))
-    force === nothing || (params["force"] = to_wire(force))
-    modifiers === nothing || (params["modifiers"] = to_wire(modifiers))
-    position === nothing || (params["position"] = to_wire(position))
-    steps === nothing || (params["steps"] = to_wire(steps))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "dblclick", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    button === nothing || (_params["button"] = to_wire(button))
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    force === nothing || (_params["force"] = to_wire(force))
+    modifiers === nothing || (_params["modifiers"] = to_wire(modifiers))
+    position === nothing || (_params["position"] = to_wire(position))
+    steps === nothing || (_params["steps"] = to_wire(steps))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "dblclick", _params)
     return nothing
 end
 
@@ -2577,13 +2587,13 @@ function _frame_dispatch_event(
     type::AbstractString,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["eventInit"] = to_wire(eventInit)
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    params["type"] = to_wire(type)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    send_message(_obj, "dispatchEvent", params)
+    _params = Dict{String,Any}()
+    _params["eventInit"] = to_wire(eventInit)
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    _params["type"] = to_wire(type)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    send_message(_obj, "dispatchEvent", _params)
     return nothing
 end
 
@@ -2600,17 +2610,17 @@ function _frame_drag_and_drop(
     targetPosition::Union{AbstractDict,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["source"] = to_wire(source)
-    params["target"] = to_wire(target)
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    sourcePosition === nothing || (params["sourcePosition"] = to_wire(sourcePosition))
-    steps === nothing || (params["steps"] = to_wire(steps))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    targetPosition === nothing || (params["targetPosition"] = to_wire(targetPosition))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "dragAndDrop", params)
+    _params = Dict{String,Any}()
+    _params["source"] = to_wire(source)
+    _params["target"] = to_wire(target)
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    sourcePosition === nothing || (_params["sourcePosition"] = to_wire(sourcePosition))
+    steps === nothing || (_params["steps"] = to_wire(steps))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    targetPosition === nothing || (_params["targetPosition"] = to_wire(targetPosition))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "dragAndDrop", _params)
     return nothing
 end
 
@@ -2626,16 +2636,16 @@ function _frame_drop(
     streams::Union{AbstractVector,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    data === nothing || (params["data"] = to_wire(data))
-    localPaths === nothing || (params["localPaths"] = to_wire(localPaths))
-    payloads === nothing || (params["payloads"] = to_wire(payloads))
-    position === nothing || (params["position"] = to_wire(position))
-    streams === nothing || (params["streams"] = to_wire(streams))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    send_message(_obj, "drop", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    data === nothing || (_params["data"] = to_wire(data))
+    localPaths === nothing || (_params["localPaths"] = to_wire(localPaths))
+    payloads === nothing || (_params["payloads"] = to_wire(payloads))
+    position === nothing || (_params["position"] = to_wire(position))
+    streams === nothing || (_params["streams"] = to_wire(streams))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    send_message(_obj, "drop", _params)
     return nothing
 end
 
@@ -2648,14 +2658,14 @@ function _frame_eval_on_selector(
     isFunction::Union{Bool,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    params["selector"] = to_wire(selector)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "evalOnSelector", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    _params["selector"] = to_wire(selector)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "evalOnSelector", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.evalOnSelectorAll
@@ -2666,13 +2676,13 @@ function _frame_eval_on_selector_all(
     selector::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    params["selector"] = to_wire(selector)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evalOnSelectorAll", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    _params["selector"] = to_wire(selector)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evalOnSelectorAll", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.evaluateExpression
@@ -2682,12 +2692,12 @@ function _frame_evaluate_expression(
     expression::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evaluateExpression", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evaluateExpression", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.evaluateExpressionHandle
@@ -2697,12 +2707,12 @@ function _frame_evaluate_expression_handle(
     expression::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evaluateExpressionHandle", params)
-    return from_channel(_obj.connection, result["handle"])
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evaluateExpressionHandle", _params)
+    return from_channel(_obj.connection, _result["handle"])
 end
 
 # frame.yml: Frame.expect
@@ -2719,18 +2729,18 @@ function _frame_expect(
     selector::Union{AbstractString,Nothing} = nothing,
     useInnerText::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["expression"] = to_wire(expression)
-    params["isNot"] = to_wire(isNot)
-    params["timeout"] = to_wire(timeout)
-    expectedNumber === nothing || (params["expectedNumber"] = to_wire(expectedNumber))
-    expectedText === nothing || (params["expectedText"] = to_wire(expectedText))
-    expectedValue === nothing || (params["expectedValue"] = to_wire(expectedValue))
-    expressionArg === nothing || (params["expressionArg"] = to_wire(expressionArg))
-    pseudo === nothing || (params["pseudo"] = to_wire(pseudo))
-    selector === nothing || (params["selector"] = to_wire(selector))
-    useInnerText === nothing || (params["useInnerText"] = to_wire(useInnerText))
-    send_message(_obj, "expect", params)
+    _params = Dict{String,Any}()
+    _params["expression"] = to_wire(expression)
+    _params["isNot"] = to_wire(isNot)
+    _params["timeout"] = to_wire(timeout)
+    expectedNumber === nothing || (_params["expectedNumber"] = to_wire(expectedNumber))
+    expectedText === nothing || (_params["expectedText"] = to_wire(expectedText))
+    expectedValue === nothing || (_params["expectedValue"] = to_wire(expectedValue))
+    expressionArg === nothing || (_params["expressionArg"] = to_wire(expressionArg))
+    pseudo === nothing || (_params["pseudo"] = to_wire(pseudo))
+    selector === nothing || (_params["selector"] = to_wire(selector))
+    useInnerText === nothing || (_params["useInnerText"] = to_wire(useInnerText))
+    send_message(_obj, "expect", _params)
     return nothing
 end
 
@@ -2743,13 +2753,13 @@ function _frame_fill(
     force::Union{Bool,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    params["value"] = to_wire(value)
-    force === nothing || (params["force"] = to_wire(force))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    send_message(_obj, "fill", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    _params["value"] = to_wire(value)
+    force === nothing || (_params["force"] = to_wire(force))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    send_message(_obj, "fill", _params)
     return nothing
 end
 
@@ -2760,19 +2770,19 @@ function _frame_focus(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    send_message(_obj, "focus", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    send_message(_obj, "focus", _params)
     return nothing
 end
 
 # frame.yml: Frame.frameElement
 function _frame_frame_element(_obj::FrameChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "frameElement", params)
-    return from_channel(_obj.connection, result["element"])
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "frameElement", _params)
+    return from_channel(_obj.connection, _result["element"])
 end
 
 # frame.yml: Frame.getAttribute
@@ -2783,13 +2793,13 @@ function _frame_get_attribute(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["name"] = to_wire(name)
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "getAttribute", params)
-    return get(result, "value", nothing)
+    _params = Dict{String,Any}()
+    _params["name"] = to_wire(name)
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "getAttribute", _params)
+    return get(_result, "value", nothing)
 end
 
 # frame.yml: Frame.goto
@@ -2800,20 +2810,20 @@ function _frame_goto(
     referer::Union{AbstractString,Nothing} = nothing,
     waitUntil::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    params["url"] = to_wire(url)
-    referer === nothing || (params["referer"] = to_wire(referer))
-    waitUntil === nothing || (params["waitUntil"] = to_wire(waitUntil))
-    result = send_message(_obj, "goto", params)
-    return from_channel(_obj.connection, get(result, "response", nothing))
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    _params["url"] = to_wire(url)
+    referer === nothing || (_params["referer"] = to_wire(referer))
+    waitUntil === nothing || (_params["waitUntil"] = to_wire(waitUntil))
+    _result = send_message(_obj, "goto", _params)
+    return from_channel(_obj.connection, get(_result, "response", nothing))
 end
 
 # frame.yml: Frame.hideHighlight
 function _frame_hide_highlight(_obj::FrameChannel; selector::AbstractString)
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    send_message(_obj, "hideHighlight", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    send_message(_obj, "hideHighlight", _params)
     return nothing
 end
 
@@ -2823,10 +2833,10 @@ function _frame_highlight(
     selector::AbstractString,
     style::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    style === nothing || (params["style"] = to_wire(style))
-    send_message(_obj, "highlight", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    style === nothing || (_params["style"] = to_wire(style))
+    send_message(_obj, "highlight", _params)
     return nothing
 end
 
@@ -2841,15 +2851,15 @@ function _frame_hover(
     strict::Union{Bool,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    modifiers === nothing || (params["modifiers"] = to_wire(modifiers))
-    position === nothing || (params["position"] = to_wire(position))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "hover", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    modifiers === nothing || (_params["modifiers"] = to_wire(modifiers))
+    position === nothing || (_params["position"] = to_wire(position))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "hover", _params)
     return nothing
 end
 
@@ -2860,12 +2870,12 @@ function _frame_inner_html(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "innerHTML", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "innerHTML", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.innerText
@@ -2875,12 +2885,12 @@ function _frame_inner_text(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "innerText", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "innerText", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.inputValue
@@ -2890,12 +2900,12 @@ function _frame_input_value(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "inputValue", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "inputValue", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.isChecked
@@ -2905,12 +2915,12 @@ function _frame_is_checked(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "isChecked", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "isChecked", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.isDisabled
@@ -2920,12 +2930,12 @@ function _frame_is_disabled(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "isDisabled", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "isDisabled", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.isEditable
@@ -2935,12 +2945,12 @@ function _frame_is_editable(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "isEditable", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "isEditable", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.isEnabled
@@ -2950,12 +2960,12 @@ function _frame_is_enabled(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "isEnabled", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "isEnabled", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.isHidden
@@ -2964,11 +2974,11 @@ function _frame_is_hidden(
     selector::AbstractString,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "isHidden", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "isHidden", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.isVisible
@@ -2977,11 +2987,11 @@ function _frame_is_visible(
     selector::AbstractString,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "isVisible", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "isVisible", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.press
@@ -2994,23 +3004,23 @@ function _frame_press(
     noWaitAfter::Union{Bool,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["key"] = to_wire(key)
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    delay === nothing || (params["delay"] = to_wire(delay))
-    noWaitAfter === nothing || (params["noWaitAfter"] = to_wire(noWaitAfter))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    send_message(_obj, "press", params)
+    _params = Dict{String,Any}()
+    _params["key"] = to_wire(key)
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    noWaitAfter === nothing || (_params["noWaitAfter"] = to_wire(noWaitAfter))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    send_message(_obj, "press", _params)
     return nothing
 end
 
 # frame.yml: Frame.queryCount
 function _frame_query_count(_obj::FrameChannel; selector::AbstractString)
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    result = send_message(_obj, "queryCount", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _result = send_message(_obj, "queryCount", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.querySelector
@@ -3019,27 +3029,27 @@ function _frame_query_selector(
     selector::AbstractString,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "querySelector", params)
-    return from_channel(_obj.connection, get(result, "element", nothing))
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "querySelector", _params)
+    return from_channel(_obj.connection, get(_result, "element", nothing))
 end
 
 # frame.yml: Frame.querySelectorAll
 function _frame_query_selector_all(_obj::FrameChannel; selector::AbstractString)
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    result = send_message(_obj, "querySelectorAll", params)
-    return result["elements"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _result = send_message(_obj, "querySelectorAll", _params)
+    return _result["elements"]
 end
 
 # frame.yml: Frame.resolveSelector
 function _frame_resolve_selector(_obj::FrameChannel; selector::AbstractString)
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    result = send_message(_obj, "resolveSelector", params)
-    return result["resolvedSelector"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _result = send_message(_obj, "resolveSelector", _params)
+    return _result["resolvedSelector"]
 end
 
 # frame.yml: Frame.selectOption
@@ -3052,15 +3062,15 @@ function _frame_select_option(
     options::Union{AbstractVector,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    elements === nothing || (params["elements"] = to_wire(elements))
-    force === nothing || (params["force"] = to_wire(force))
-    options === nothing || (params["options"] = to_wire(options))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "selectOption", params)
-    return result["values"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    elements === nothing || (_params["elements"] = to_wire(elements))
+    force === nothing || (_params["force"] = to_wire(force))
+    options === nothing || (_params["options"] = to_wire(options))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "selectOption", _params)
+    return _result["values"]
 end
 
 # frame.yml: Frame.setContent
@@ -3070,11 +3080,11 @@ function _frame_set_content(
     timeout::Real,
     waitUntil::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["html"] = to_wire(html)
-    params["timeout"] = to_wire(timeout)
-    waitUntil === nothing || (params["waitUntil"] = to_wire(waitUntil))
-    send_message(_obj, "setContent", params)
+    _params = Dict{String,Any}()
+    _params["html"] = to_wire(html)
+    _params["timeout"] = to_wire(timeout)
+    waitUntil === nothing || (_params["waitUntil"] = to_wire(waitUntil))
+    send_message(_obj, "setContent", _params)
     return nothing
 end
 
@@ -3090,16 +3100,16 @@ function _frame_set_input_files(
     streams::Union{AbstractVector,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    directoryStream === nothing || (params["directoryStream"] = to_wire(directoryStream))
-    localDirectory === nothing || (params["localDirectory"] = to_wire(localDirectory))
-    localPaths === nothing || (params["localPaths"] = to_wire(localPaths))
-    payloads === nothing || (params["payloads"] = to_wire(payloads))
-    streams === nothing || (params["streams"] = to_wire(streams))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    send_message(_obj, "setInputFiles", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    directoryStream === nothing || (_params["directoryStream"] = to_wire(directoryStream))
+    localDirectory === nothing || (_params["localDirectory"] = to_wire(localDirectory))
+    localPaths === nothing || (_params["localPaths"] = to_wire(localPaths))
+    payloads === nothing || (_params["payloads"] = to_wire(payloads))
+    streams === nothing || (_params["streams"] = to_wire(streams))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    send_message(_obj, "setInputFiles", _params)
     return nothing
 end
 
@@ -3114,15 +3124,15 @@ function _frame_tap(
     strict::Union{Bool,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    modifiers === nothing || (params["modifiers"] = to_wire(modifiers))
-    position === nothing || (params["position"] = to_wire(position))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "tap", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    modifiers === nothing || (_params["modifiers"] = to_wire(modifiers))
+    position === nothing || (_params["position"] = to_wire(position))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "tap", _params)
     return nothing
 end
 
@@ -3133,19 +3143,19 @@ function _frame_text_content(
     timeout::Real,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "textContent", params)
-    return get(result, "value", nothing)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "textContent", _params)
+    return get(_result, "value", nothing)
 end
 
 # frame.yml: Frame.title
 function _frame_title(_obj::FrameChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "title", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "title", _params)
+    return _result["value"]
 end
 
 # frame.yml: Frame.type
@@ -3157,13 +3167,13 @@ function _frame_type(
     delay::Union{Real,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["text"] = to_wire(text)
-    params["timeout"] = to_wire(timeout)
-    delay === nothing || (params["delay"] = to_wire(delay))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    send_message(_obj, "type", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["text"] = to_wire(text)
+    _params["timeout"] = to_wire(timeout)
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    send_message(_obj, "type", _params)
     return nothing
 end
 
@@ -3177,14 +3187,14 @@ function _frame_uncheck(
     strict::Union{Bool,Nothing} = nothing,
     trial::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    force === nothing || (params["force"] = to_wire(force))
-    position === nothing || (params["position"] = to_wire(position))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    trial === nothing || (params["trial"] = to_wire(trial))
-    send_message(_obj, "uncheck", params)
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    force === nothing || (_params["force"] = to_wire(force))
+    position === nothing || (_params["position"] = to_wire(position))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    trial === nothing || (_params["trial"] = to_wire(trial))
+    send_message(_obj, "uncheck", _params)
     return nothing
 end
 
@@ -3197,14 +3207,14 @@ function _frame_wait_for_function(
     isFunction::Union{Bool,Nothing} = nothing,
     pollingInterval::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    params["timeout"] = to_wire(timeout)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    pollingInterval === nothing || (params["pollingInterval"] = to_wire(pollingInterval))
-    result = send_message(_obj, "waitForFunction", params)
-    return from_channel(_obj.connection, result["handle"])
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    _params["timeout"] = to_wire(timeout)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    pollingInterval === nothing || (_params["pollingInterval"] = to_wire(pollingInterval))
+    _result = send_message(_obj, "waitForFunction", _params)
+    return from_channel(_obj.connection, _result["handle"])
 end
 
 # frame.yml: Frame.waitForSelector
@@ -3216,28 +3226,28 @@ function _frame_wait_for_selector(
     state::Union{AbstractString,Nothing} = nothing,
     strict::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    params["timeout"] = to_wire(timeout)
-    omitReturnValue === nothing || (params["omitReturnValue"] = to_wire(omitReturnValue))
-    state === nothing || (params["state"] = to_wire(state))
-    strict === nothing || (params["strict"] = to_wire(strict))
-    result = send_message(_obj, "waitForSelector", params)
-    return from_channel(_obj.connection, get(result, "element", nothing))
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    _params["timeout"] = to_wire(timeout)
+    omitReturnValue === nothing || (_params["omitReturnValue"] = to_wire(omitReturnValue))
+    state === nothing || (_params["state"] = to_wire(state))
+    strict === nothing || (_params["strict"] = to_wire(strict))
+    _result = send_message(_obj, "waitForSelector", _params)
+    return from_channel(_obj.connection, get(_result, "element", nothing))
 end
 
 # frame.yml: Frame.waitForTimeout
 function _frame_wait_for_timeout(_obj::FrameChannel; waitTimeout::Real)
-    params = Dict{String,Any}()
-    params["waitTimeout"] = to_wire(waitTimeout)
-    send_message(_obj, "waitForTimeout", params)
+    _params = Dict{String,Any}()
+    _params["waitTimeout"] = to_wire(waitTimeout)
+    send_message(_obj, "waitForTimeout", _params)
     return nothing
 end
 
 # handles.yml: JSHandle.dispose
 function _js_handle_dispose(_obj::JSHandleChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "dispose", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "dispose", _params)
     return nothing
 end
 
@@ -3248,12 +3258,12 @@ function _js_handle_evaluate_expression(
     expression::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evaluateExpression", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evaluateExpression", _params)
+    return _result["value"]
 end
 
 # handles.yml: JSHandle.evaluateExpressionHandle
@@ -3263,48 +3273,48 @@ function _js_handle_evaluate_expression_handle(
     expression::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evaluateExpressionHandle", params)
-    return from_channel(_obj.connection, result["handle"])
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evaluateExpressionHandle", _params)
+    return from_channel(_obj.connection, _result["handle"])
 end
 
 # handles.yml: JSHandle.getProperty
 function _js_handle_get_property(_obj::JSHandleChannel; name::AbstractString)
-    params = Dict{String,Any}()
-    params["name"] = to_wire(name)
-    result = send_message(_obj, "getProperty", params)
-    return from_channel(_obj.connection, result["handle"])
+    _params = Dict{String,Any}()
+    _params["name"] = to_wire(name)
+    _result = send_message(_obj, "getProperty", _params)
+    return from_channel(_obj.connection, _result["handle"])
 end
 
 # handles.yml: JSHandle.getPropertyList
 function _js_handle_get_property_list(_obj::JSHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "getPropertyList", params)
-    return result["properties"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "getPropertyList", _params)
+    return _result["properties"]
 end
 
 # handles.yml: JSHandle.jsonValue
 function _js_handle_json_value(_obj::JSHandleChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "jsonValue", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "jsonValue", _params)
+    return _result["value"]
 end
 
 # playwright.yml: JsonPipe.close
 function _json_pipe_close(_obj::JsonPipeChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "close", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "close", _params)
     return nothing
 end
 
 # playwright.yml: JsonPipe.send
 function _json_pipe_send(_obj::JsonPipeChannel; message::Any)
-    params = Dict{String,Any}()
-    params["message"] = to_wire(message)
-    send_message(_obj, "send", params)
+    _params = Dict{String,Any}()
+    _params["message"] = to_wire(message)
+    send_message(_obj, "send", _params)
     return nothing
 end
 
@@ -3313,9 +3323,9 @@ function _local_utils_add_stack_to_tracing_no_reply(
     _obj::LocalUtilsChannel;
     callData::AbstractDict,
 )
-    params = Dict{String,Any}()
-    params["callData"] = to_wire(callData)
-    send_message(_obj, "addStackToTracingNoReply", params)
+    _params = Dict{String,Any}()
+    _params["callData"] = to_wire(callData)
+    send_message(_obj, "addStackToTracingNoReply", _params)
     return nothing
 end
 
@@ -3329,18 +3339,18 @@ function _local_utils_connect(
     slowMo::Union{Real,Nothing} = nothing,
     socksProxyRedirectPortForTest::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["endpoint"] = to_wire(endpoint)
-    params["timeout"] = to_wire(timeout)
-    exposeNetwork === nothing || (params["exposeNetwork"] = to_wire(exposeNetwork))
-    headers === nothing || (params["headers"] = to_wire(headers))
-    slowMo === nothing || (params["slowMo"] = to_wire(slowMo))
+    _params = Dict{String,Any}()
+    _params["endpoint"] = to_wire(endpoint)
+    _params["timeout"] = to_wire(timeout)
+    exposeNetwork === nothing || (_params["exposeNetwork"] = to_wire(exposeNetwork))
+    headers === nothing || (_params["headers"] = to_wire(headers))
+    slowMo === nothing || (_params["slowMo"] = to_wire(slowMo))
     socksProxyRedirectPortForTest === nothing ||
-        (params["socksProxyRedirectPortForTest"] = to_wire(socksProxyRedirectPortForTest))
-    result = send_message(_obj, "connect", params)
+        (_params["socksProxyRedirectPortForTest"] = to_wire(socksProxyRedirectPortForTest))
+    _result = send_message(_obj, "connect", _params)
     return (
-        headers = result["headers"],
-        pipe = from_channel(_obj.connection, result["pipe"]),
+        headers = _result["headers"],
+        pipe = from_channel(_obj.connection, _result["pipe"]),
     )
 end
 
@@ -3351,19 +3361,19 @@ function _local_utils_glob_to_regex(
     baseURL::Union{AbstractString,Nothing} = nothing,
     webSocketUrl::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["glob"] = to_wire(glob)
-    baseURL === nothing || (params["baseURL"] = to_wire(baseURL))
-    webSocketUrl === nothing || (params["webSocketUrl"] = to_wire(webSocketUrl))
-    result = send_message(_obj, "globToRegex", params)
-    return result["regex"]
+    _params = Dict{String,Any}()
+    _params["glob"] = to_wire(glob)
+    baseURL === nothing || (_params["baseURL"] = to_wire(baseURL))
+    webSocketUrl === nothing || (_params["webSocketUrl"] = to_wire(webSocketUrl))
+    _result = send_message(_obj, "globToRegex", _params)
+    return _result["regex"]
 end
 
 # localUtils.yml: LocalUtils.harClose
 function _local_utils_har_close(_obj::LocalUtilsChannel; harId::AbstractString)
-    params = Dict{String,Any}()
-    params["harId"] = to_wire(harId)
-    send_message(_obj, "harClose", params)
+    _params = Dict{String,Any}()
+    _params["harId"] = to_wire(harId)
+    send_message(_obj, "harClose", _params)
     return nothing
 end
 
@@ -3377,32 +3387,32 @@ function _local_utils_har_lookup(
     url::AbstractString,
     postData::Union{Vector{UInt8},Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["harId"] = to_wire(harId)
-    params["headers"] = to_wire(headers)
-    params["isNavigationRequest"] = to_wire(isNavigationRequest)
-    params["method"] = to_wire(method)
-    params["url"] = to_wire(url)
-    postData === nothing || (params["postData"] = to_wire(postData))
-    result = send_message(_obj, "harLookup", params)
+    _params = Dict{String,Any}()
+    _params["harId"] = to_wire(harId)
+    _params["headers"] = to_wire(headers)
+    _params["isNavigationRequest"] = to_wire(isNavigationRequest)
+    _params["method"] = to_wire(method)
+    _params["url"] = to_wire(url)
+    postData === nothing || (_params["postData"] = to_wire(postData))
+    _result = send_message(_obj, "harLookup", _params)
     return (
-        action = result["action"],
+        action = _result["action"],
         body = (
-            _v = get(result, "body", nothing); _v === nothing ? nothing : base64decode(_v)
+            _v = get(_result, "body", nothing); _v === nothing ? nothing : base64decode(_v)
         ),
-        headers = get(result, "headers", nothing),
-        message = get(result, "message", nothing),
-        redirectURL = get(result, "redirectURL", nothing),
-        status = get(result, "status", nothing),
+        headers = get(_result, "headers", nothing),
+        message = get(_result, "message", nothing),
+        redirectURL = get(_result, "redirectURL", nothing),
+        status = get(_result, "status", nothing),
     )
 end
 
 # localUtils.yml: LocalUtils.harOpen
 function _local_utils_har_open(_obj::LocalUtilsChannel; file::AbstractString)
-    params = Dict{String,Any}()
-    params["file"] = to_wire(file)
-    result = send_message(_obj, "harOpen", params)
-    return (error = get(result, "error", nothing), harId = get(result, "harId", nothing))
+    _params = Dict{String,Any}()
+    _params["file"] = to_wire(file)
+    _result = send_message(_obj, "harOpen", _params)
+    return (error = get(_result, "error", nothing), harId = get(_result, "harId", nothing))
 end
 
 # localUtils.yml: LocalUtils.harUnzip
@@ -3412,19 +3422,19 @@ function _local_utils_har_unzip(
     zipFile::AbstractString,
     resourcesDir::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["harFile"] = to_wire(harFile)
-    params["zipFile"] = to_wire(zipFile)
-    resourcesDir === nothing || (params["resourcesDir"] = to_wire(resourcesDir))
-    send_message(_obj, "harUnzip", params)
+    _params = Dict{String,Any}()
+    _params["harFile"] = to_wire(harFile)
+    _params["zipFile"] = to_wire(zipFile)
+    resourcesDir === nothing || (_params["resourcesDir"] = to_wire(resourcesDir))
+    send_message(_obj, "harUnzip", _params)
     return nothing
 end
 
 # localUtils.yml: LocalUtils.traceDiscarded
 function _local_utils_trace_discarded(_obj::LocalUtilsChannel; stacksId::AbstractString)
-    params = Dict{String,Any}()
-    params["stacksId"] = to_wire(stacksId)
-    send_message(_obj, "traceDiscarded", params)
+    _params = Dict{String,Any}()
+    _params["stacksId"] = to_wire(stacksId)
+    send_message(_obj, "traceDiscarded", _params)
     return nothing
 end
 
@@ -3435,12 +3445,12 @@ function _local_utils_tracing_started(
     live::Union{Bool,Nothing} = nothing,
     tracesDir::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["traceName"] = to_wire(traceName)
-    live === nothing || (params["live"] = to_wire(live))
-    tracesDir === nothing || (params["tracesDir"] = to_wire(tracesDir))
-    result = send_message(_obj, "tracingStarted", params)
-    return result["stacksId"]
+    _params = Dict{String,Any}()
+    _params["traceName"] = to_wire(traceName)
+    live === nothing || (_params["live"] = to_wire(live))
+    tracesDir === nothing || (_params["tracesDir"] = to_wire(tracesDir))
+    _result = send_message(_obj, "tracingStarted", _params)
+    return _result["stacksId"]
 end
 
 # localUtils.yml: LocalUtils.zip
@@ -3453,59 +3463,59 @@ function _local_utils_zip(
     additionalSources::Union{AbstractVector,Nothing} = nothing,
     stacksId::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["entries"] = to_wire(entries)
-    params["includeSources"] = to_wire(includeSources)
-    params["mode"] = to_wire(mode)
-    params["zipFile"] = to_wire(zipFile)
+    _params = Dict{String,Any}()
+    _params["entries"] = to_wire(entries)
+    _params["includeSources"] = to_wire(includeSources)
+    _params["mode"] = to_wire(mode)
+    _params["zipFile"] = to_wire(zipFile)
     additionalSources === nothing ||
-        (params["additionalSources"] = to_wire(additionalSources))
-    stacksId === nothing || (params["stacksId"] = to_wire(stacksId))
-    send_message(_obj, "zip", params)
+        (_params["additionalSources"] = to_wire(additionalSources))
+    stacksId === nothing || (_params["stacksId"] = to_wire(stacksId))
+    send_message(_obj, "zip", _params)
     return nothing
 end
 
 # page.yml: Page.addInitScript
 function _page_add_init_script(_obj::PageChannel; source::AbstractString)
-    params = Dict{String,Any}()
-    params["source"] = to_wire(source)
-    result = send_message(_obj, "addInitScript", params)
-    return from_channel(_obj.connection, result["disposable"])
+    _params = Dict{String,Any}()
+    _params["source"] = to_wire(source)
+    _result = send_message(_obj, "addInitScript", _params)
+    return from_channel(_obj.connection, _result["disposable"])
 end
 
 # page.yml: Page.bringToFront
 function _page_bring_to_front(_obj::PageChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "bringToFront", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "bringToFront", _params)
     return nothing
 end
 
 # page.yml: Page.cancelPickLocator
 function _page_cancel_pick_locator(_obj::PageChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "cancelPickLocator", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "cancelPickLocator", _params)
     return nothing
 end
 
 # page.yml: Page.clearConsoleMessages
 function _page_clear_console_messages(_obj::PageChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "clearConsoleMessages", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "clearConsoleMessages", _params)
     return nothing
 end
 
 # page.yml: Page.clearPageErrors
 function _page_clear_page_errors(_obj::PageChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "clearPageErrors", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "clearPageErrors", _params)
     return nothing
 end
 
 # page.yml: Page.close
 function _page_close(_obj::PageChannel; reason::Union{AbstractString,Nothing} = nothing)
-    params = Dict{String,Any}()
-    reason === nothing || (params["reason"] = to_wire(reason))
-    send_message(_obj, "close", params)
+    _params = Dict{String,Any}()
+    reason === nothing || (_params["reason"] = to_wire(reason))
+    send_message(_obj, "close", _params)
     return nothing
 end
 
@@ -3514,10 +3524,10 @@ function _page_console_messages(
     _obj::PageChannel;
     filter::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    filter === nothing || (params["filter"] = to_wire(filter))
-    result = send_message(_obj, "consoleMessages", params)
-    return result["messages"]
+    _params = Dict{String,Any}()
+    filter === nothing || (_params["filter"] = to_wire(filter))
+    _result = send_message(_obj, "consoleMessages", _params)
+    return _result["messages"]
 end
 
 # page.yml: Page.emulateMedia
@@ -3529,13 +3539,13 @@ function _page_emulate_media(
     media::Union{AbstractString,Nothing} = nothing,
     reducedMotion::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    colorScheme === nothing || (params["colorScheme"] = to_wire(colorScheme))
-    contrast === nothing || (params["contrast"] = to_wire(contrast))
-    forcedColors === nothing || (params["forcedColors"] = to_wire(forcedColors))
-    media === nothing || (params["media"] = to_wire(media))
-    reducedMotion === nothing || (params["reducedMotion"] = to_wire(reducedMotion))
-    send_message(_obj, "emulateMedia", params)
+    _params = Dict{String,Any}()
+    colorScheme === nothing || (_params["colorScheme"] = to_wire(colorScheme))
+    contrast === nothing || (_params["contrast"] = to_wire(contrast))
+    forcedColors === nothing || (_params["forcedColors"] = to_wire(forcedColors))
+    media === nothing || (_params["media"] = to_wire(media))
+    reducedMotion === nothing || (_params["reducedMotion"] = to_wire(reducedMotion))
+    send_message(_obj, "emulateMedia", _params)
     return nothing
 end
 
@@ -3560,37 +3570,37 @@ function _page_expect_screenshot(
     style::Union{AbstractString,Nothing} = nothing,
     threshold::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["isNot"] = to_wire(isNot)
-    params["timeout"] = to_wire(timeout)
-    animations === nothing || (params["animations"] = to_wire(animations))
-    caret === nothing || (params["caret"] = to_wire(caret))
-    clip === nothing || (params["clip"] = to_wire(clip))
-    comparator === nothing || (params["comparator"] = to_wire(comparator))
-    expected === nothing || (params["expected"] = to_wire(expected))
-    fullPage === nothing || (params["fullPage"] = to_wire(fullPage))
-    locator === nothing || (params["locator"] = to_wire(locator))
-    mask === nothing || (params["mask"] = to_wire(mask))
-    maskColor === nothing || (params["maskColor"] = to_wire(maskColor))
+    _params = Dict{String,Any}()
+    _params["isNot"] = to_wire(isNot)
+    _params["timeout"] = to_wire(timeout)
+    animations === nothing || (_params["animations"] = to_wire(animations))
+    caret === nothing || (_params["caret"] = to_wire(caret))
+    clip === nothing || (_params["clip"] = to_wire(clip))
+    comparator === nothing || (_params["comparator"] = to_wire(comparator))
+    expected === nothing || (_params["expected"] = to_wire(expected))
+    fullPage === nothing || (_params["fullPage"] = to_wire(fullPage))
+    locator === nothing || (_params["locator"] = to_wire(locator))
+    mask === nothing || (_params["mask"] = to_wire(mask))
+    maskColor === nothing || (_params["maskColor"] = to_wire(maskColor))
     maxDiffPixelRatio === nothing ||
-        (params["maxDiffPixelRatio"] = to_wire(maxDiffPixelRatio))
-    maxDiffPixels === nothing || (params["maxDiffPixels"] = to_wire(maxDiffPixels))
-    omitBackground === nothing || (params["omitBackground"] = to_wire(omitBackground))
-    scale === nothing || (params["scale"] = to_wire(scale))
-    style === nothing || (params["style"] = to_wire(style))
-    threshold === nothing || (params["threshold"] = to_wire(threshold))
-    result = send_message(_obj, "expectScreenshot", params)
+        (_params["maxDiffPixelRatio"] = to_wire(maxDiffPixelRatio))
+    maxDiffPixels === nothing || (_params["maxDiffPixels"] = to_wire(maxDiffPixels))
+    omitBackground === nothing || (_params["omitBackground"] = to_wire(omitBackground))
+    scale === nothing || (_params["scale"] = to_wire(scale))
+    style === nothing || (_params["style"] = to_wire(style))
+    threshold === nothing || (_params["threshold"] = to_wire(threshold))
+    _result = send_message(_obj, "expectScreenshot", _params)
     return (
-        _v = get(result, "actual", nothing); _v === nothing ? nothing : base64decode(_v)
+        _v = get(_result, "actual", nothing); _v === nothing ? nothing : base64decode(_v)
     )
 end
 
 # page.yml: Page.exposeBinding
 function _page_expose_binding(_obj::PageChannel; name::AbstractString)
-    params = Dict{String,Any}()
-    params["name"] = to_wire(name)
-    result = send_message(_obj, "exposeBinding", params)
-    return from_channel(_obj.connection, result["disposable"])
+    _params = Dict{String,Any}()
+    _params["name"] = to_wire(name)
+    _result = send_message(_obj, "exposeBinding", _params)
+    return from_channel(_obj.connection, _result["disposable"])
 end
 
 # page.yml: Page.goBack
@@ -3599,11 +3609,11 @@ function _page_go_back(
     timeout::Real,
     waitUntil::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    waitUntil === nothing || (params["waitUntil"] = to_wire(waitUntil))
-    result = send_message(_obj, "goBack", params)
-    return from_channel(_obj.connection, get(result, "response", nothing))
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    waitUntil === nothing || (_params["waitUntil"] = to_wire(waitUntil))
+    _result = send_message(_obj, "goBack", _params)
+    return from_channel(_obj.connection, get(_result, "response", nothing))
 end
 
 # page.yml: Page.goForward
@@ -3612,33 +3622,33 @@ function _page_go_forward(
     timeout::Real,
     waitUntil::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    waitUntil === nothing || (params["waitUntil"] = to_wire(waitUntil))
-    result = send_message(_obj, "goForward", params)
-    return from_channel(_obj.connection, get(result, "response", nothing))
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    waitUntil === nothing || (_params["waitUntil"] = to_wire(waitUntil))
+    _result = send_message(_obj, "goForward", _params)
+    return from_channel(_obj.connection, get(_result, "response", nothing))
 end
 
 # page.yml: Page.hideHighlight
 function _page_hide_highlight(_obj::PageChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "hideHighlight", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "hideHighlight", _params)
     return nothing
 end
 
 # page.yml: Page.keyboardDown
 function _page_keyboard_down(_obj::PageChannel; key::AbstractString)
-    params = Dict{String,Any}()
-    params["key"] = to_wire(key)
-    send_message(_obj, "keyboardDown", params)
+    _params = Dict{String,Any}()
+    _params["key"] = to_wire(key)
+    send_message(_obj, "keyboardDown", _params)
     return nothing
 end
 
 # page.yml: Page.keyboardInsertText
 function _page_keyboard_insert_text(_obj::PageChannel; text::AbstractString)
-    params = Dict{String,Any}()
-    params["text"] = to_wire(text)
-    send_message(_obj, "keyboardInsertText", params)
+    _params = Dict{String,Any}()
+    _params["text"] = to_wire(text)
+    send_message(_obj, "keyboardInsertText", _params)
     return nothing
 end
 
@@ -3648,10 +3658,10 @@ function _page_keyboard_press(
     key::AbstractString,
     delay::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["key"] = to_wire(key)
-    delay === nothing || (params["delay"] = to_wire(delay))
-    send_message(_obj, "keyboardPress", params)
+    _params = Dict{String,Any}()
+    _params["key"] = to_wire(key)
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    send_message(_obj, "keyboardPress", _params)
     return nothing
 end
 
@@ -3661,18 +3671,18 @@ function _page_keyboard_type(
     text::AbstractString,
     delay::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["text"] = to_wire(text)
-    delay === nothing || (params["delay"] = to_wire(delay))
-    send_message(_obj, "keyboardType", params)
+    _params = Dict{String,Any}()
+    _params["text"] = to_wire(text)
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    send_message(_obj, "keyboardType", _params)
     return nothing
 end
 
 # page.yml: Page.keyboardUp
 function _page_keyboard_up(_obj::PageChannel; key::AbstractString)
-    params = Dict{String,Any}()
-    params["key"] = to_wire(key)
-    send_message(_obj, "keyboardUp", params)
+    _params = Dict{String,Any}()
+    _params["key"] = to_wire(key)
+    send_message(_obj, "keyboardUp", _params)
     return nothing
 end
 
@@ -3685,13 +3695,13 @@ function _page_mouse_click(
     clickCount::Union{Real,Nothing} = nothing,
     delay::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["x"] = to_wire(x)
-    params["y"] = to_wire(y)
-    button === nothing || (params["button"] = to_wire(button))
-    clickCount === nothing || (params["clickCount"] = to_wire(clickCount))
-    delay === nothing || (params["delay"] = to_wire(delay))
-    send_message(_obj, "mouseClick", params)
+    _params = Dict{String,Any}()
+    _params["x"] = to_wire(x)
+    _params["y"] = to_wire(y)
+    button === nothing || (_params["button"] = to_wire(button))
+    clickCount === nothing || (_params["clickCount"] = to_wire(clickCount))
+    delay === nothing || (_params["delay"] = to_wire(delay))
+    send_message(_obj, "mouseClick", _params)
     return nothing
 end
 
@@ -3701,10 +3711,10 @@ function _page_mouse_down(
     button::Union{AbstractString,Nothing} = nothing,
     clickCount::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    button === nothing || (params["button"] = to_wire(button))
-    clickCount === nothing || (params["clickCount"] = to_wire(clickCount))
-    send_message(_obj, "mouseDown", params)
+    _params = Dict{String,Any}()
+    button === nothing || (_params["button"] = to_wire(button))
+    clickCount === nothing || (_params["clickCount"] = to_wire(clickCount))
+    send_message(_obj, "mouseDown", _params)
     return nothing
 end
 
@@ -3715,11 +3725,11 @@ function _page_mouse_move(
     y::Real,
     steps::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["x"] = to_wire(x)
-    params["y"] = to_wire(y)
-    steps === nothing || (params["steps"] = to_wire(steps))
-    send_message(_obj, "mouseMove", params)
+    _params = Dict{String,Any}()
+    _params["x"] = to_wire(x)
+    _params["y"] = to_wire(y)
+    steps === nothing || (_params["steps"] = to_wire(steps))
+    send_message(_obj, "mouseMove", _params)
     return nothing
 end
 
@@ -3729,19 +3739,19 @@ function _page_mouse_up(
     button::Union{AbstractString,Nothing} = nothing,
     clickCount::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    button === nothing || (params["button"] = to_wire(button))
-    clickCount === nothing || (params["clickCount"] = to_wire(clickCount))
-    send_message(_obj, "mouseUp", params)
+    _params = Dict{String,Any}()
+    button === nothing || (_params["button"] = to_wire(button))
+    clickCount === nothing || (_params["clickCount"] = to_wire(clickCount))
+    send_message(_obj, "mouseUp", _params)
     return nothing
 end
 
 # page.yml: Page.mouseWheel
 function _page_mouse_wheel(_obj::PageChannel; deltaX::Real, deltaY::Real)
-    params = Dict{String,Any}()
-    params["deltaX"] = to_wire(deltaX)
-    params["deltaY"] = to_wire(deltaY)
-    send_message(_obj, "mouseWheel", params)
+    _params = Dict{String,Any}()
+    _params["deltaX"] = to_wire(deltaX)
+    _params["deltaY"] = to_wire(deltaY)
+    send_message(_obj, "mouseWheel", _params)
     return nothing
 end
 
@@ -3750,10 +3760,10 @@ function _page_page_errors(
     _obj::PageChannel;
     filter::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    filter === nothing || (params["filter"] = to_wire(filter))
-    result = send_message(_obj, "pageErrors", params)
-    return result["errors"]
+    _params = Dict{String,Any}()
+    filter === nothing || (_params["filter"] = to_wire(filter))
+    _result = send_message(_obj, "pageErrors", _params)
+    return _result["errors"]
 end
 
 # page.yml: Page.pdf
@@ -3774,32 +3784,32 @@ function _page_pdf(
     tagged::Union{Bool,Nothing} = nothing,
     width::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
+    _params = Dict{String,Any}()
     displayHeaderFooter === nothing ||
-        (params["displayHeaderFooter"] = to_wire(displayHeaderFooter))
-    footerTemplate === nothing || (params["footerTemplate"] = to_wire(footerTemplate))
-    format === nothing || (params["format"] = to_wire(format))
-    headerTemplate === nothing || (params["headerTemplate"] = to_wire(headerTemplate))
-    height === nothing || (params["height"] = to_wire(height))
-    landscape === nothing || (params["landscape"] = to_wire(landscape))
-    margin === nothing || (params["margin"] = to_wire(margin))
-    outline === nothing || (params["outline"] = to_wire(outline))
-    pageRanges === nothing || (params["pageRanges"] = to_wire(pageRanges))
+        (_params["displayHeaderFooter"] = to_wire(displayHeaderFooter))
+    footerTemplate === nothing || (_params["footerTemplate"] = to_wire(footerTemplate))
+    format === nothing || (_params["format"] = to_wire(format))
+    headerTemplate === nothing || (_params["headerTemplate"] = to_wire(headerTemplate))
+    height === nothing || (_params["height"] = to_wire(height))
+    landscape === nothing || (_params["landscape"] = to_wire(landscape))
+    margin === nothing || (_params["margin"] = to_wire(margin))
+    outline === nothing || (_params["outline"] = to_wire(outline))
+    pageRanges === nothing || (_params["pageRanges"] = to_wire(pageRanges))
     preferCSSPageSize === nothing ||
-        (params["preferCSSPageSize"] = to_wire(preferCSSPageSize))
-    printBackground === nothing || (params["printBackground"] = to_wire(printBackground))
-    scale === nothing || (params["scale"] = to_wire(scale))
-    tagged === nothing || (params["tagged"] = to_wire(tagged))
-    width === nothing || (params["width"] = to_wire(width))
-    result = send_message(_obj, "pdf", params)
-    return base64decode(result["pdf"])
+        (_params["preferCSSPageSize"] = to_wire(preferCSSPageSize))
+    printBackground === nothing || (_params["printBackground"] = to_wire(printBackground))
+    scale === nothing || (_params["scale"] = to_wire(scale))
+    tagged === nothing || (_params["tagged"] = to_wire(tagged))
+    width === nothing || (_params["width"] = to_wire(width))
+    _result = send_message(_obj, "pdf", _params)
+    return base64decode(_result["pdf"])
 end
 
 # page.yml: Page.pickLocator
 function _page_pick_locator(_obj::PageChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "pickLocator", params)
-    return result["selector"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "pickLocator", _params)
+    return _result["selector"]
 end
 
 # page.yml: Page.registerLocatorHandler
@@ -3808,11 +3818,11 @@ function _page_register_locator_handler(
     selector::AbstractString,
     noWaitAfter::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["selector"] = to_wire(selector)
-    noWaitAfter === nothing || (params["noWaitAfter"] = to_wire(noWaitAfter))
-    result = send_message(_obj, "registerLocatorHandler", params)
-    return result["uid"]
+    _params = Dict{String,Any}()
+    _params["selector"] = to_wire(selector)
+    noWaitAfter === nothing || (_params["noWaitAfter"] = to_wire(noWaitAfter))
+    _result = send_message(_obj, "registerLocatorHandler", _params)
+    return _result["uid"]
 end
 
 # page.yml: Page.reload
@@ -3821,25 +3831,25 @@ function _page_reload(
     timeout::Real,
     waitUntil::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    waitUntil === nothing || (params["waitUntil"] = to_wire(waitUntil))
-    result = send_message(_obj, "reload", params)
-    return from_channel(_obj.connection, get(result, "response", nothing))
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    waitUntil === nothing || (_params["waitUntil"] = to_wire(waitUntil))
+    _result = send_message(_obj, "reload", _params)
+    return from_channel(_obj.connection, get(_result, "response", nothing))
 end
 
 # page.yml: Page.requestGC
 function _page_request_gc(_obj::PageChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "requestGC", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "requestGC", _params)
     return nothing
 end
 
 # page.yml: Page.requests
 function _page_requests(_obj::PageChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "requests", params)
-    return result["requests"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "requests", _params)
+    return _result["requests"]
 end
 
 # page.yml: Page.resolveLocatorHandlerNoReply
@@ -3848,17 +3858,17 @@ function _page_resolve_locator_handler_no_reply(
     uid::Real,
     remove::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["uid"] = to_wire(uid)
-    remove === nothing || (params["remove"] = to_wire(remove))
-    send_message(_obj, "resolveLocatorHandlerNoReply", params)
+    _params = Dict{String,Any}()
+    _params["uid"] = to_wire(uid)
+    remove === nothing || (_params["remove"] = to_wire(remove))
+    send_message(_obj, "resolveLocatorHandlerNoReply", _params)
     return nothing
 end
 
 # page.yml: Page.runBeforeUnload
 function _page_run_before_unload(_obj::PageChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "runBeforeUnload", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "runBeforeUnload", _params)
     return nothing
 end
 
@@ -3869,34 +3879,34 @@ function _page_screencast_chapter(
     description::Union{AbstractString,Nothing} = nothing,
     duration::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["title"] = to_wire(title)
-    description === nothing || (params["description"] = to_wire(description))
-    duration === nothing || (params["duration"] = to_wire(duration))
-    send_message(_obj, "screencastChapter", params)
+    _params = Dict{String,Any}()
+    _params["title"] = to_wire(title)
+    description === nothing || (_params["description"] = to_wire(description))
+    duration === nothing || (_params["duration"] = to_wire(duration))
+    send_message(_obj, "screencastChapter", _params)
     return nothing
 end
 
 # page.yml: Page.screencastHideActions
 function _page_screencast_hide_actions(_obj::PageChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "screencastHideActions", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "screencastHideActions", _params)
     return nothing
 end
 
 # page.yml: Page.screencastRemoveOverlay
 function _page_screencast_remove_overlay(_obj::PageChannel; id::AbstractString)
-    params = Dict{String,Any}()
-    params["id"] = to_wire(id)
-    send_message(_obj, "screencastRemoveOverlay", params)
+    _params = Dict{String,Any}()
+    _params["id"] = to_wire(id)
+    send_message(_obj, "screencastRemoveOverlay", _params)
     return nothing
 end
 
 # page.yml: Page.screencastSetOverlayVisible
 function _page_screencast_set_overlay_visible(_obj::PageChannel; visible::Bool)
-    params = Dict{String,Any}()
-    params["visible"] = to_wire(visible)
-    send_message(_obj, "screencastSetOverlayVisible", params)
+    _params = Dict{String,Any}()
+    _params["visible"] = to_wire(visible)
+    send_message(_obj, "screencastSetOverlayVisible", _params)
     return nothing
 end
 
@@ -3908,12 +3918,12 @@ function _page_screencast_show_actions(
     fontSize::Union{Real,Nothing} = nothing,
     position::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    cursor === nothing || (params["cursor"] = to_wire(cursor))
-    duration === nothing || (params["duration"] = to_wire(duration))
-    fontSize === nothing || (params["fontSize"] = to_wire(fontSize))
-    position === nothing || (params["position"] = to_wire(position))
-    send_message(_obj, "screencastShowActions", params)
+    _params = Dict{String,Any}()
+    cursor === nothing || (_params["cursor"] = to_wire(cursor))
+    duration === nothing || (_params["duration"] = to_wire(duration))
+    fontSize === nothing || (_params["fontSize"] = to_wire(fontSize))
+    position === nothing || (_params["position"] = to_wire(position))
+    send_message(_obj, "screencastShowActions", _params)
     return nothing
 end
 
@@ -3923,11 +3933,11 @@ function _page_screencast_show_overlay(
     html::AbstractString,
     duration::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["html"] = to_wire(html)
-    duration === nothing || (params["duration"] = to_wire(duration))
-    result = send_message(_obj, "screencastShowOverlay", params)
-    return result["id"]
+    _params = Dict{String,Any}()
+    _params["html"] = to_wire(html)
+    duration === nothing || (_params["duration"] = to_wire(duration))
+    _result = send_message(_obj, "screencastShowOverlay", _params)
+    return _result["id"]
 end
 
 # page.yml: Page.screencastStart
@@ -3938,19 +3948,19 @@ function _page_screencast_start(
     sendFrames::Union{Bool,Nothing} = nothing,
     size::Union{AbstractDict,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    quality === nothing || (params["quality"] = to_wire(quality))
-    record === nothing || (params["record"] = to_wire(record))
-    sendFrames === nothing || (params["sendFrames"] = to_wire(sendFrames))
-    size === nothing || (params["size"] = to_wire(size))
-    result = send_message(_obj, "screencastStart", params)
-    return from_channel(_obj.connection, get(result, "artifact", nothing))
+    _params = Dict{String,Any}()
+    quality === nothing || (_params["quality"] = to_wire(quality))
+    record === nothing || (_params["record"] = to_wire(record))
+    sendFrames === nothing || (_params["sendFrames"] = to_wire(sendFrames))
+    size === nothing || (_params["size"] = to_wire(size))
+    _result = send_message(_obj, "screencastStart", _params)
+    return from_channel(_obj.connection, get(_result, "artifact", nothing))
 end
 
 # page.yml: Page.screencastStop
 function _page_screencast_stop(_obj::PageChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "screencastStop", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "screencastStop", _params)
     return nothing
 end
 
@@ -3970,36 +3980,36 @@ function _page_screenshot(
     style::Union{AbstractString,Nothing} = nothing,
     type::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["timeout"] = to_wire(timeout)
-    animations === nothing || (params["animations"] = to_wire(animations))
-    caret === nothing || (params["caret"] = to_wire(caret))
-    clip === nothing || (params["clip"] = to_wire(clip))
-    fullPage === nothing || (params["fullPage"] = to_wire(fullPage))
-    mask === nothing || (params["mask"] = to_wire(mask))
-    maskColor === nothing || (params["maskColor"] = to_wire(maskColor))
-    omitBackground === nothing || (params["omitBackground"] = to_wire(omitBackground))
-    quality === nothing || (params["quality"] = to_wire(quality))
-    scale === nothing || (params["scale"] = to_wire(scale))
-    style === nothing || (params["style"] = to_wire(style))
-    type === nothing || (params["type"] = to_wire(type))
-    result = send_message(_obj, "screenshot", params)
-    return base64decode(result["binary"])
+    _params = Dict{String,Any}()
+    _params["timeout"] = to_wire(timeout)
+    animations === nothing || (_params["animations"] = to_wire(animations))
+    caret === nothing || (_params["caret"] = to_wire(caret))
+    clip === nothing || (_params["clip"] = to_wire(clip))
+    fullPage === nothing || (_params["fullPage"] = to_wire(fullPage))
+    mask === nothing || (_params["mask"] = to_wire(mask))
+    maskColor === nothing || (_params["maskColor"] = to_wire(maskColor))
+    omitBackground === nothing || (_params["omitBackground"] = to_wire(omitBackground))
+    quality === nothing || (_params["quality"] = to_wire(quality))
+    scale === nothing || (_params["scale"] = to_wire(scale))
+    style === nothing || (_params["style"] = to_wire(style))
+    type === nothing || (_params["type"] = to_wire(type))
+    _result = send_message(_obj, "screenshot", _params)
+    return base64decode(_result["binary"])
 end
 
 # page.yml: Page.setDockTile
 function _page_set_dock_tile(_obj::PageChannel; image::Vector{UInt8})
-    params = Dict{String,Any}()
-    params["image"] = to_wire(image)
-    send_message(_obj, "setDockTile", params)
+    _params = Dict{String,Any}()
+    _params["image"] = to_wire(image)
+    send_message(_obj, "setDockTile", _params)
     return nothing
 end
 
 # page.yml: Page.setExtraHTTPHeaders
 function _page_set_extra_http_headers(_obj::PageChannel; headers::AbstractVector)
-    params = Dict{String,Any}()
-    params["headers"] = to_wire(headers)
-    send_message(_obj, "setExtraHTTPHeaders", params)
+    _params = Dict{String,Any}()
+    _params["headers"] = to_wire(headers)
+    send_message(_obj, "setExtraHTTPHeaders", _params)
     return nothing
 end
 
@@ -4008,17 +4018,17 @@ function _page_set_network_interception_patterns(
     _obj::PageChannel;
     patterns::AbstractVector,
 )
-    params = Dict{String,Any}()
-    params["patterns"] = to_wire(patterns)
-    send_message(_obj, "setNetworkInterceptionPatterns", params)
+    _params = Dict{String,Any}()
+    _params["patterns"] = to_wire(patterns)
+    send_message(_obj, "setNetworkInterceptionPatterns", _params)
     return nothing
 end
 
 # page.yml: Page.setViewportSize
 function _page_set_viewport_size(_obj::PageChannel; viewportSize::AbstractDict)
-    params = Dict{String,Any}()
-    params["viewportSize"] = to_wire(viewportSize)
-    send_message(_obj, "setViewportSize", params)
+    _params = Dict{String,Any}()
+    _params["viewportSize"] = to_wire(viewportSize)
+    send_message(_obj, "setViewportSize", _params)
     return nothing
 end
 
@@ -4027,9 +4037,9 @@ function _page_set_web_socket_interception_patterns(
     _obj::PageChannel;
     patterns::AbstractVector,
 )
-    params = Dict{String,Any}()
-    params["patterns"] = to_wire(patterns)
-    send_message(_obj, "setWebSocketInterceptionPatterns", params)
+    _params = Dict{String,Any}()
+    _params["patterns"] = to_wire(patterns)
+    send_message(_obj, "setWebSocketInterceptionPatterns", _params)
     return nothing
 end
 
@@ -4038,10 +4048,10 @@ function _page_start_css_coverage(
     _obj::PageChannel;
     resetOnNavigation::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
+    _params = Dict{String,Any}()
     resetOnNavigation === nothing ||
-        (params["resetOnNavigation"] = to_wire(resetOnNavigation))
-    send_message(_obj, "startCSSCoverage", params)
+        (_params["resetOnNavigation"] = to_wire(resetOnNavigation))
+    send_message(_obj, "startCSSCoverage", _params)
     return nothing
 end
 
@@ -4051,60 +4061,60 @@ function _page_start_js_coverage(
     reportAnonymousScripts::Union{Bool,Nothing} = nothing,
     resetOnNavigation::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
+    _params = Dict{String,Any}()
     reportAnonymousScripts === nothing ||
-        (params["reportAnonymousScripts"] = to_wire(reportAnonymousScripts))
+        (_params["reportAnonymousScripts"] = to_wire(reportAnonymousScripts))
     resetOnNavigation === nothing ||
-        (params["resetOnNavigation"] = to_wire(resetOnNavigation))
-    send_message(_obj, "startJSCoverage", params)
+        (_params["resetOnNavigation"] = to_wire(resetOnNavigation))
+    send_message(_obj, "startJSCoverage", _params)
     return nothing
 end
 
 # page.yml: Page.stopCSSCoverage
 function _page_stop_css_coverage(_obj::PageChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "stopCSSCoverage", params)
-    return result["entries"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "stopCSSCoverage", _params)
+    return _result["entries"]
 end
 
 # page.yml: Page.stopJSCoverage
 function _page_stop_js_coverage(_obj::PageChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "stopJSCoverage", params)
-    return result["entries"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "stopJSCoverage", _params)
+    return _result["entries"]
 end
 
 # page.yml: Page.touchscreenTap
 function _page_touchscreen_tap(_obj::PageChannel; x::Real, y::Real)
-    params = Dict{String,Any}()
-    params["x"] = to_wire(x)
-    params["y"] = to_wire(y)
-    send_message(_obj, "touchscreenTap", params)
+    _params = Dict{String,Any}()
+    _params["x"] = to_wire(x)
+    _params["y"] = to_wire(y)
+    send_message(_obj, "touchscreenTap", _params)
     return nothing
 end
 
 # page.yml: Page.unregisterLocatorHandler
 function _page_unregister_locator_handler(_obj::PageChannel; uid::Real)
-    params = Dict{String,Any}()
-    params["uid"] = to_wire(uid)
-    send_message(_obj, "unregisterLocatorHandler", params)
+    _params = Dict{String,Any}()
+    _params["uid"] = to_wire(uid)
+    send_message(_obj, "unregisterLocatorHandler", _params)
     return nothing
 end
 
 # page.yml: Page.updateSubscription
 function _page_update_subscription(_obj::PageChannel; enabled::Bool, event::AbstractString)
-    params = Dict{String,Any}()
-    params["enabled"] = to_wire(enabled)
-    params["event"] = to_wire(event)
-    send_message(_obj, "updateSubscription", params)
+    _params = Dict{String,Any}()
+    _params["enabled"] = to_wire(enabled)
+    _params["event"] = to_wire(event)
+    send_message(_obj, "updateSubscription", _params)
     return nothing
 end
 
 # page.yml: Page.webStorageClear
 function _page_web_storage_clear(_obj::PageChannel; kind::AbstractString)
-    params = Dict{String,Any}()
-    params["kind"] = to_wire(kind)
-    send_message(_obj, "webStorageClear", params)
+    _params = Dict{String,Any}()
+    _params["kind"] = to_wire(kind)
+    send_message(_obj, "webStorageClear", _params)
     return nothing
 end
 
@@ -4114,19 +4124,19 @@ function _page_web_storage_get_item(
     kind::AbstractString,
     name::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["kind"] = to_wire(kind)
-    params["name"] = to_wire(name)
-    result = send_message(_obj, "webStorageGetItem", params)
-    return get(result, "value", nothing)
+    _params = Dict{String,Any}()
+    _params["kind"] = to_wire(kind)
+    _params["name"] = to_wire(name)
+    _result = send_message(_obj, "webStorageGetItem", _params)
+    return get(_result, "value", nothing)
 end
 
 # page.yml: Page.webStorageItems
 function _page_web_storage_items(_obj::PageChannel; kind::AbstractString)
-    params = Dict{String,Any}()
-    params["kind"] = to_wire(kind)
-    result = send_message(_obj, "webStorageItems", params)
-    return result["items"]
+    _params = Dict{String,Any}()
+    _params["kind"] = to_wire(kind)
+    _result = send_message(_obj, "webStorageItems", _params)
+    return _result["items"]
 end
 
 # page.yml: Page.webStorageRemoveItem
@@ -4135,10 +4145,10 @@ function _page_web_storage_remove_item(
     kind::AbstractString,
     name::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["kind"] = to_wire(kind)
-    params["name"] = to_wire(name)
-    send_message(_obj, "webStorageRemoveItem", params)
+    _params = Dict{String,Any}()
+    _params["kind"] = to_wire(kind)
+    _params["name"] = to_wire(name)
+    send_message(_obj, "webStorageRemoveItem", _params)
     return nothing
 end
 
@@ -4149,11 +4159,11 @@ function _page_web_storage_set_item(
     name::AbstractString,
     value::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["kind"] = to_wire(kind)
-    params["name"] = to_wire(name)
-    params["value"] = to_wire(value)
-    send_message(_obj, "webStorageSetItem", params)
+    _params = Dict{String,Any}()
+    _params["kind"] = to_wire(kind)
+    _params["name"] = to_wire(name)
+    _params["value"] = to_wire(value)
+    send_message(_obj, "webStorageSetItem", _params)
     return nothing
 end
 
@@ -4172,86 +4182,88 @@ function _playwright_root_new_request(
     tracesDir::Union{AbstractString,Nothing} = nothing,
     userAgent::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    baseURL === nothing || (params["baseURL"] = to_wire(baseURL))
+    _params = Dict{String,Any}()
+    baseURL === nothing || (_params["baseURL"] = to_wire(baseURL))
     clientCertificates === nothing ||
-        (params["clientCertificates"] = to_wire(clientCertificates))
-    extraHTTPHeaders === nothing || (params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
-    failOnStatusCode === nothing || (params["failOnStatusCode"] = to_wire(failOnStatusCode))
-    httpCredentials === nothing || (params["httpCredentials"] = to_wire(httpCredentials))
+        (_params["clientCertificates"] = to_wire(clientCertificates))
+    extraHTTPHeaders === nothing ||
+        (_params["extraHTTPHeaders"] = to_wire(extraHTTPHeaders))
+    failOnStatusCode === nothing ||
+        (_params["failOnStatusCode"] = to_wire(failOnStatusCode))
+    httpCredentials === nothing || (_params["httpCredentials"] = to_wire(httpCredentials))
     ignoreHTTPSErrors === nothing ||
-        (params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
-    maxRedirects === nothing || (params["maxRedirects"] = to_wire(maxRedirects))
-    proxy === nothing || (params["proxy"] = to_wire(proxy))
-    storageState === nothing || (params["storageState"] = to_wire(storageState))
-    tracesDir === nothing || (params["tracesDir"] = to_wire(tracesDir))
-    userAgent === nothing || (params["userAgent"] = to_wire(userAgent))
-    result = send_message(_obj, "newRequest", params)
-    return from_channel(_obj.connection, result["request"])
+        (_params["ignoreHTTPSErrors"] = to_wire(ignoreHTTPSErrors))
+    maxRedirects === nothing || (_params["maxRedirects"] = to_wire(maxRedirects))
+    proxy === nothing || (_params["proxy"] = to_wire(proxy))
+    storageState === nothing || (_params["storageState"] = to_wire(storageState))
+    tracesDir === nothing || (_params["tracesDir"] = to_wire(tracesDir))
+    userAgent === nothing || (_params["userAgent"] = to_wire(userAgent))
+    _result = send_message(_obj, "newRequest", _params)
+    return from_channel(_obj.connection, _result["request"])
 end
 
 # network.yml: Request.rawRequestHeaders
 function _request_raw_request_headers(_obj::RequestChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "rawRequestHeaders", params)
-    return result["headers"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "rawRequestHeaders", _params)
+    return _result["headers"]
 end
 
 # network.yml: Request.response
 function _request_response(_obj::RequestChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "response", params)
-    return from_channel(_obj.connection, get(result, "response", nothing))
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "response", _params)
+    return from_channel(_obj.connection, get(_result, "response", nothing))
 end
 
 # network.yml: Response.body
 function _response_body(_obj::ResponseChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "body", params)
-    return base64decode(result["binary"])
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "body", _params)
+    return base64decode(_result["binary"])
 end
 
 # network.yml: Response.httpVersion
 function _response_http_version(_obj::ResponseChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "httpVersion", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "httpVersion", _params)
+    return _result["value"]
 end
 
 # network.yml: Response.rawResponseHeaders
 function _response_raw_response_headers(_obj::ResponseChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "rawResponseHeaders", params)
-    return result["headers"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "rawResponseHeaders", _params)
+    return _result["headers"]
 end
 
 # network.yml: Response.securityDetails
 function _response_security_details(_obj::ResponseChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "securityDetails", params)
-    return get(result, "value", nothing)
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "securityDetails", _params)
+    return get(_result, "value", nothing)
 end
 
 # network.yml: Response.serverAddr
 function _response_server_addr(_obj::ResponseChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "serverAddr", params)
-    return get(result, "value", nothing)
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "serverAddr", _params)
+    return get(_result, "value", nothing)
 end
 
 # network.yml: Response.sizes
 function _response_sizes(_obj::ResponseChannel)
-    params = Dict{String,Any}()
-    result = send_message(_obj, "sizes", params)
-    return result["sizes"]
+    _params = Dict{String,Any}()
+    _result = send_message(_obj, "sizes", _params)
+    return _result["sizes"]
 end
 
 # playwright.yml: Root.initialize
 function _root_initialize(_obj::RootChannel; sdkLanguage::AbstractString)
-    params = Dict{String,Any}()
-    params["sdkLanguage"] = to_wire(sdkLanguage)
-    result = send_message(_obj, "initialize", params)
-    return from_channel(_obj.connection, result["playwright"])
+    _params = Dict{String,Any}()
+    _params["sdkLanguage"] = to_wire(sdkLanguage)
+    _result = send_message(_obj, "initialize", _params)
+    return from_channel(_obj.connection, _result["playwright"])
 end
 
 # network.yml: Route.abort
@@ -4259,9 +4271,9 @@ function _route_abort(
     _obj::RouteChannel;
     errorCode::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    errorCode === nothing || (params["errorCode"] = to_wire(errorCode))
-    send_message(_obj, "abort", params)
+    _params = Dict{String,Any}()
+    errorCode === nothing || (_params["errorCode"] = to_wire(errorCode))
+    send_message(_obj, "abort", _params)
     return nothing
 end
 
@@ -4274,13 +4286,13 @@ function _route_continue(
     postData::Union{Vector{UInt8},Nothing} = nothing,
     url::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["isFallback"] = to_wire(isFallback)
-    headers === nothing || (params["headers"] = to_wire(headers))
-    method === nothing || (params["method"] = to_wire(method))
-    postData === nothing || (params["postData"] = to_wire(postData))
-    url === nothing || (params["url"] = to_wire(url))
-    send_message(_obj, "continue", params)
+    _params = Dict{String,Any}()
+    _params["isFallback"] = to_wire(isFallback)
+    headers === nothing || (_params["headers"] = to_wire(headers))
+    method === nothing || (_params["method"] = to_wire(method))
+    postData === nothing || (_params["postData"] = to_wire(postData))
+    url === nothing || (_params["url"] = to_wire(url))
+    send_message(_obj, "continue", _params)
     return nothing
 end
 
@@ -4293,21 +4305,22 @@ function _route_fulfill(
     isBase64::Union{Bool,Nothing} = nothing,
     status::Union{Real,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    body === nothing || (params["body"] = to_wire(body))
-    fetchResponseUid === nothing || (params["fetchResponseUid"] = to_wire(fetchResponseUid))
-    headers === nothing || (params["headers"] = to_wire(headers))
-    isBase64 === nothing || (params["isBase64"] = to_wire(isBase64))
-    status === nothing || (params["status"] = to_wire(status))
-    send_message(_obj, "fulfill", params)
+    _params = Dict{String,Any}()
+    body === nothing || (_params["body"] = to_wire(body))
+    fetchResponseUid === nothing ||
+        (_params["fetchResponseUid"] = to_wire(fetchResponseUid))
+    headers === nothing || (_params["headers"] = to_wire(headers))
+    isBase64 === nothing || (_params["isBase64"] = to_wire(isBase64))
+    status === nothing || (_params["status"] = to_wire(status))
+    send_message(_obj, "fulfill", _params)
     return nothing
 end
 
 # network.yml: Route.redirectNavigationRequest
 function _route_redirect_navigation_request(_obj::RouteChannel; url::AbstractString)
-    params = Dict{String,Any}()
-    params["url"] = to_wire(url)
-    send_message(_obj, "redirectNavigationRequest", params)
+    _params = Dict{String,Any}()
+    _params["url"] = to_wire(url)
+    send_message(_obj, "redirectNavigationRequest", _params)
     return nothing
 end
 
@@ -4318,11 +4331,11 @@ function _socks_support_socks_connected(
     port::Real,
     uid::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["host"] = to_wire(host)
-    params["port"] = to_wire(port)
-    params["uid"] = to_wire(uid)
-    send_message(_obj, "socksConnected", params)
+    _params = Dict{String,Any}()
+    _params["host"] = to_wire(host)
+    _params["port"] = to_wire(port)
+    _params["uid"] = to_wire(uid)
+    send_message(_obj, "socksConnected", _params)
     return nothing
 end
 
@@ -4332,18 +4345,18 @@ function _socks_support_socks_data(
     data::Vector{UInt8},
     uid::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["data"] = to_wire(data)
-    params["uid"] = to_wire(uid)
-    send_message(_obj, "socksData", params)
+    _params = Dict{String,Any}()
+    _params["data"] = to_wire(data)
+    _params["uid"] = to_wire(uid)
+    send_message(_obj, "socksData", _params)
     return nothing
 end
 
 # playwright.yml: SocksSupport.socksEnd
 function _socks_support_socks_end(_obj::SocksSupportChannel; uid::AbstractString)
-    params = Dict{String,Any}()
-    params["uid"] = to_wire(uid)
-    send_message(_obj, "socksEnd", params)
+    _params = Dict{String,Any}()
+    _params["uid"] = to_wire(uid)
+    send_message(_obj, "socksEnd", _params)
     return nothing
 end
 
@@ -4353,10 +4366,10 @@ function _socks_support_socks_error(
     error::AbstractString,
     uid::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["error"] = to_wire(error)
-    params["uid"] = to_wire(uid)
-    send_message(_obj, "socksError", params)
+    _params = Dict{String,Any}()
+    _params["error"] = to_wire(error)
+    _params["uid"] = to_wire(uid)
+    send_message(_obj, "socksError", _params)
     return nothing
 end
 
@@ -4366,26 +4379,26 @@ function _socks_support_socks_failed(
     errorCode::AbstractString,
     uid::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["errorCode"] = to_wire(errorCode)
-    params["uid"] = to_wire(uid)
-    send_message(_obj, "socksFailed", params)
+    _params = Dict{String,Any}()
+    _params["errorCode"] = to_wire(errorCode)
+    _params["uid"] = to_wire(uid)
+    send_message(_obj, "socksFailed", _params)
     return nothing
 end
 
 # artifact.yml: Stream.close
 function _stream_close(_obj::StreamChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "close", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "close", _params)
     return nothing
 end
 
 # artifact.yml: Stream.read
 function _stream_read(_obj::StreamChannel; size::Union{Real,Nothing} = nothing)
-    params = Dict{String,Any}()
-    size === nothing || (params["size"] = to_wire(size))
-    result = send_message(_obj, "read", params)
-    return base64decode(result["binary"])
+    _params = Dict{String,Any}()
+    size === nothing || (_params["size"] = to_wire(size))
+    _result = send_message(_obj, "read", _params)
+    return base64decode(_result["binary"])
 end
 
 # tracing.yml: Tracing.harExport
@@ -4394,13 +4407,13 @@ function _tracing_har_export(
     mode::AbstractString,
     harId::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["mode"] = to_wire(mode)
-    harId === nothing || (params["harId"] = to_wire(harId))
-    result = send_message(_obj, "harExport", params)
+    _params = Dict{String,Any}()
+    _params["mode"] = to_wire(mode)
+    harId === nothing || (_params["harId"] = to_wire(harId))
+    _result = send_message(_obj, "harExport", _params)
     return (
-        artifact = from_channel(_obj.connection, get(result, "artifact", nothing)),
-        entries = get(result, "entries", nothing),
+        artifact = from_channel(_obj.connection, get(_result, "artifact", nothing)),
+        entries = get(_result, "entries", nothing),
     )
 end
 
@@ -4410,11 +4423,11 @@ function _tracing_har_start(
     options::AbstractDict,
     page::Union{PageChannel,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["options"] = to_wire(options)
-    page === nothing || (params["page"] = to_wire(page))
-    result = send_message(_obj, "harStart", params)
-    return result["harId"]
+    _params = Dict{String,Any}()
+    _params["options"] = to_wire(options)
+    page === nothing || (_params["page"] = to_wire(page))
+    _result = send_message(_obj, "harStart", _params)
+    return _result["harId"]
 end
 
 # tracing.yml: Tracing.tracingGroup
@@ -4423,17 +4436,17 @@ function _tracing_tracing_group(
     name::AbstractString,
     location::Union{AbstractDict,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["name"] = to_wire(name)
-    location === nothing || (params["location"] = to_wire(location))
-    send_message(_obj, "tracingGroup", params)
+    _params = Dict{String,Any}()
+    _params["name"] = to_wire(name)
+    location === nothing || (_params["location"] = to_wire(location))
+    send_message(_obj, "tracingGroup", _params)
     return nothing
 end
 
 # tracing.yml: Tracing.tracingGroupEnd
 function _tracing_tracing_group_end(_obj::TracingChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "tracingGroupEnd", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "tracingGroupEnd", _params)
     return nothing
 end
 
@@ -4445,12 +4458,12 @@ function _tracing_tracing_start(
     screenshots::Union{Bool,Nothing} = nothing,
     snapshots::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    live === nothing || (params["live"] = to_wire(live))
-    name === nothing || (params["name"] = to_wire(name))
-    screenshots === nothing || (params["screenshots"] = to_wire(screenshots))
-    snapshots === nothing || (params["snapshots"] = to_wire(snapshots))
-    send_message(_obj, "tracingStart", params)
+    _params = Dict{String,Any}()
+    live === nothing || (_params["live"] = to_wire(live))
+    name === nothing || (_params["name"] = to_wire(name))
+    screenshots === nothing || (_params["screenshots"] = to_wire(screenshots))
+    snapshots === nothing || (_params["snapshots"] = to_wire(snapshots))
+    send_message(_obj, "tracingStart", _params)
     return nothing
 end
 
@@ -4460,28 +4473,28 @@ function _tracing_tracing_start_chunk(
     name::Union{AbstractString,Nothing} = nothing,
     title::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    name === nothing || (params["name"] = to_wire(name))
-    title === nothing || (params["title"] = to_wire(title))
-    result = send_message(_obj, "tracingStartChunk", params)
-    return result["traceName"]
+    _params = Dict{String,Any}()
+    name === nothing || (_params["name"] = to_wire(name))
+    title === nothing || (_params["title"] = to_wire(title))
+    _result = send_message(_obj, "tracingStartChunk", _params)
+    return _result["traceName"]
 end
 
 # tracing.yml: Tracing.tracingStop
 function _tracing_tracing_stop(_obj::TracingChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "tracingStop", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "tracingStop", _params)
     return nothing
 end
 
 # tracing.yml: Tracing.tracingStopChunk
 function _tracing_tracing_stop_chunk(_obj::TracingChannel; mode::AbstractString)
-    params = Dict{String,Any}()
-    params["mode"] = to_wire(mode)
-    result = send_message(_obj, "tracingStopChunk", params)
+    _params = Dict{String,Any}()
+    _params["mode"] = to_wire(mode)
+    _result = send_message(_obj, "tracingStopChunk", _params)
     return (
-        artifact = from_channel(_obj.connection, get(result, "artifact", nothing)),
-        entries = get(result, "entries", nothing),
+        artifact = from_channel(_obj.connection, get(_result, "artifact", nothing)),
+        entries = get(_result, "entries", nothing),
     )
 end
 
@@ -4492,11 +4505,11 @@ function _web_socket_route_close_page(
     code::Union{Real,Nothing} = nothing,
     reason::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["wasClean"] = to_wire(wasClean)
-    code === nothing || (params["code"] = to_wire(code))
-    reason === nothing || (params["reason"] = to_wire(reason))
-    send_message(_obj, "closePage", params)
+    _params = Dict{String,Any}()
+    _params["wasClean"] = to_wire(wasClean)
+    code === nothing || (_params["code"] = to_wire(code))
+    reason === nothing || (_params["reason"] = to_wire(reason))
+    send_message(_obj, "closePage", _params)
     return nothing
 end
 
@@ -4507,25 +4520,25 @@ function _web_socket_route_close_server(
     code::Union{Real,Nothing} = nothing,
     reason::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["wasClean"] = to_wire(wasClean)
-    code === nothing || (params["code"] = to_wire(code))
-    reason === nothing || (params["reason"] = to_wire(reason))
-    send_message(_obj, "closeServer", params)
+    _params = Dict{String,Any}()
+    _params["wasClean"] = to_wire(wasClean)
+    code === nothing || (_params["code"] = to_wire(code))
+    reason === nothing || (_params["reason"] = to_wire(reason))
+    send_message(_obj, "closeServer", _params)
     return nothing
 end
 
 # network.yml: WebSocketRoute.connect
 function _web_socket_route_connect(_obj::WebSocketRouteChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "connect", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "connect", _params)
     return nothing
 end
 
 # network.yml: WebSocketRoute.ensureOpened
 function _web_socket_route_ensure_opened(_obj::WebSocketRouteChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "ensureOpened", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "ensureOpened", _params)
     return nothing
 end
 
@@ -4535,10 +4548,10 @@ function _web_socket_route_send_to_page(
     isBase64::Bool,
     message::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["isBase64"] = to_wire(isBase64)
-    params["message"] = to_wire(message)
-    send_message(_obj, "sendToPage", params)
+    _params = Dict{String,Any}()
+    _params["isBase64"] = to_wire(isBase64)
+    _params["message"] = to_wire(message)
+    send_message(_obj, "sendToPage", _params)
     return nothing
 end
 
@@ -4548,10 +4561,10 @@ function _web_socket_route_send_to_server(
     isBase64::Bool,
     message::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["isBase64"] = to_wire(isBase64)
-    params["message"] = to_wire(message)
-    send_message(_obj, "sendToServer", params)
+    _params = Dict{String,Any}()
+    _params["isBase64"] = to_wire(isBase64)
+    _params["message"] = to_wire(message)
+    send_message(_obj, "sendToServer", _params)
     return nothing
 end
 
@@ -4560,9 +4573,9 @@ function _worker_disconnect(
     _obj::WorkerChannel;
     reason::Union{AbstractString,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    reason === nothing || (params["reason"] = to_wire(reason))
-    send_message(_obj, "disconnect", params)
+    _params = Dict{String,Any}()
+    reason === nothing || (_params["reason"] = to_wire(reason))
+    send_message(_obj, "disconnect", _params)
     return nothing
 end
 
@@ -4573,12 +4586,12 @@ function _worker_evaluate_expression(
     expression::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evaluateExpression", params)
-    return result["value"]
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evaluateExpression", _params)
+    return _result["value"]
 end
 
 # worker.yml: Worker.evaluateExpressionHandle
@@ -4588,12 +4601,12 @@ function _worker_evaluate_expression_handle(
     expression::AbstractString,
     isFunction::Union{Bool,Nothing} = nothing,
 )
-    params = Dict{String,Any}()
-    params["arg"] = to_wire(arg)
-    params["expression"] = to_wire(expression)
-    isFunction === nothing || (params["isFunction"] = to_wire(isFunction))
-    result = send_message(_obj, "evaluateExpressionHandle", params)
-    return from_channel(_obj.connection, result["handle"])
+    _params = Dict{String,Any}()
+    _params["arg"] = to_wire(arg)
+    _params["expression"] = to_wire(expression)
+    isFunction === nothing || (_params["isFunction"] = to_wire(isFunction))
+    _result = send_message(_obj, "evaluateExpressionHandle", _params)
+    return from_channel(_obj.connection, _result["handle"])
 end
 
 # worker.yml: Worker.updateSubscription
@@ -4602,25 +4615,25 @@ function _worker_update_subscription(
     enabled::Bool,
     event::AbstractString,
 )
-    params = Dict{String,Any}()
-    params["enabled"] = to_wire(enabled)
-    params["event"] = to_wire(event)
-    send_message(_obj, "updateSubscription", params)
+    _params = Dict{String,Any}()
+    _params["enabled"] = to_wire(enabled)
+    _params["event"] = to_wire(event)
+    send_message(_obj, "updateSubscription", _params)
     return nothing
 end
 
 # artifact.yml: WritableStream.close
 function _writable_stream_close(_obj::WritableStreamChannel)
-    params = Dict{String,Any}()
-    send_message(_obj, "close", params)
+    _params = Dict{String,Any}()
+    send_message(_obj, "close", _params)
     return nothing
 end
 
 # artifact.yml: WritableStream.write
 function _writable_stream_write(_obj::WritableStreamChannel; binary::Vector{UInt8})
-    params = Dict{String,Any}()
-    params["binary"] = to_wire(binary)
-    send_message(_obj, "write", params)
+    _params = Dict{String,Any}()
+    _params["binary"] = to_wire(binary)
+    send_message(_obj, "write", _params)
     return nothing
 end
 

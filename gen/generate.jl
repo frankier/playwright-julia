@@ -274,22 +274,27 @@ function emit_command(io, iface, cmd_name, cmd, entries, sources, unmapped)
     end
     println(io, ")")
 
-    println(io, "params = Dict{String,Any}()")
+    # Every local this emitter introduces leads with `_`, and every protocol
+    # parameter is spelled exactly as the spec spells it. That is what keeps
+    # the two namespaces disjoint: no protocol parameter leads with an
+    # underscore, so none can shadow a local. Before this rule, a command with
+    # a parameter called `params` built its message out of itself.
+    println(io, "_params = Dict{String,Any}()")
     for p in required
-        println(io, "params[\"$(p.name)\"] = to_wire($(safe_ident(p.name)))")
+        println(io, "_params[\"$(p.name)\"] = to_wire($(safe_ident(p.name)))")
     end
     for p in optional
         println(
             io,
-            "$(safe_ident(p.name)) === nothing || (params[\"$(p.name)\"] = to_wire($(safe_ident(p.name))))",
+            "$(safe_ident(p.name)) === nothing || (_params[\"$(p.name)\"] = to_wire($(safe_ident(p.name))))",
         )
     end
 
     if isempty(ret_names)
-        println(io, "send_message(_obj, \"$cmd_name\", params)")
+        println(io, "send_message(_obj, \"$cmd_name\", _params)")
         println(io, "return nothing")
     else
-        println(io, "result = send_message(_obj, \"$cmd_name\", params)")
+        println(io, "_result = send_message(_obj, \"$cmd_name\", _params)")
         exprs = [
             (name = n, expr = return_expr(n, map_type(returns[n], entries, unmapped)))
             for n in ret_names
@@ -312,7 +317,7 @@ end
 
 "How one field of a command's result is turned into a Julia value."
 function return_expr(name, spec::SpecType)
-    access = spec.optional ? "get(result, \"$name\", nothing)" : "result[\"$name\"]"
+    access = spec.optional ? "get(_result, \"$name\", nothing)" : "_result[\"$name\"]"
     spec.channel && return "from_channel(_obj.connection, $access)"
     spec.binary && return spec.optional ?
            "(_v = $access; _v === nothing ? nothing : base64decode(_v))" :

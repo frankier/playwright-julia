@@ -227,21 +227,21 @@ end
             @test occursin("var\"end\"", poke)
             # Optional parameters are omitted from the wire when unset.
             @test occursin(
-                "strict === nothing || (params[\"strict\"] = to_wire(strict))",
+                "strict === nothing || (_params[\"strict\"] = to_wire(strict))",
                 poke,
             )
             # A single channel-typed result resolves through from_channel.
-            @test occursin("return from_channel(_obj.connection, result[\"gadget\"])", poke)
+            @test occursin("return from_channel(_obj.connection, _result[\"gadget\"])", poke)
 
             @test occursin(
-                "return base64decode(result[\"binary\"])",
+                "return base64decode(_result[\"binary\"])",
                 command_body(text, "_widget_snap"),
             )
             @test occursin("return nothing", command_body(text, "_widget_reset"))
             # Several result fields come back as a NamedTuple, in sorted order —
             # everything is emitted sorted so the output is byte-reproducible.
             @test occursin(
-                "return (count = get(result, \"count\", nothing), value = result[\"value\"])",
+                "return (count = get(_result, \"count\", nothing), value = _result[\"value\"])",
                 command_body(text, "_gadget_ping"),
             )
 

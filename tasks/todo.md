@@ -32,11 +32,26 @@ wrong. Fix the lifetime, not the test.
       - the bare-locals half names **`result` as well as `params`** — D1 spells
         out only `params`, but D1's *rule* and D2's check both cover every
         emitted local, so T2 renames both
-- [ ] T2: underscore every emitted local in `gen/generate.jl` (S) — D1, deps: T1
+- [x] T2: underscore every emitted local in `gen/generate.jl` (S) — D1, deps: T1
       - the rule is the deliverable: emitted locals lead with `_`, protocol
         parameters are spelled as the spec spells them
-- [ ] T3: regenerate `channels.jl` + the scripted diff filter (S) — SC 3, 4, deps: T2
+      - **two** locals, not one: `params` → `_params` and `result` → `_result`
+- [x] T3: regenerate `channels.jl` + the scripted diff filter (S) — SC 3, 4, deps: T2
       - the filter *is* the review; nobody reads 4,000 lines honestly (R2)
+      - landed in **one commit with T2**: the emitter change alone leaves
+        `--check` stale and T1's gate red, and a commit with a red suite is
+        exactly what T7's note forbids
+      - `gen/generate.jl --check` → `Generated channel layer is in sync`
+      - filter output (SC 4):
+        ```
+        PASS: remainder empty -- the only change to src/generated/channels.jl
+              is params -> _params, result -> _result, and the formatter
+              reflow those renames caused.
+        ```
+      - the filter strips whitespace before comparing **on purpose**: `_params`
+        is one character longer, so JuliaFormatter rewraps ~12 lines. A reflow
+        is not a change in meaning, and a filter that flagged it would be a
+        filter nobody trusted
 - [ ] T4: `apirequest.jl` stops hand-building its message (S) — D3, SC 2, 5, deps: T3
       - the exact call that produced `DriverError: params: expected array, got
         object` must now succeed
