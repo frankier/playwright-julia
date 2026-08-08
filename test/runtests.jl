@@ -46,7 +46,7 @@ using Playwright
         include("test_parity.jl")
         include("test_smoke_network.jl")
         # After test_smoke_network.jl: reuses its with_browser, within_deadline
-        # and todo_texts helpers, and its m6.html fixture page.
+        # and todo_texts helpers, and its network.html fixture page.
         include("test_smoke_har.jl")
         # After test_smoke.jl and test_smoke_network.jl: uses the former's
         # fixture server and playwright_browser_pids, the latter's

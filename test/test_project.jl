@@ -23,7 +23,7 @@ using TOML
         @test compat["julia"] == "1.10"
     end
 
-    @testset "[deps] is unchanged (SC 15)" begin
+    @testset "[deps] is unchanged" begin
         # M5 adds no runtime dependency: examples and docs live in their own
         # projects (D2). If this list needs editing, that is the milestone's
         # boundary being crossed, not a stale test.

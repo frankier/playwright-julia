@@ -386,12 +386,11 @@ dispatch_event!(
     timeout = resolve_timeout(loc, timeout),
 )
 
-# --- Evaluating against a locator's element (T7) --------------------------
+# --- Evaluating against a locator's element --------------------------------
 #
-# Before this, driving a range input meant reaching into `loc.frame` and
-# `loc.selector` by hand — the `fill_range!` helper in SPEC-M2.md did exactly
-# that. A Locator already knows its selector and its strictness, so making it
-# an evaluate target removes the reason to look inside one.
+# A Locator already knows its selector and its strictness, so it is an evaluate
+# target in its own right. Driving a range input needs no reach into
+# `loc.frame` or `loc.selector`.
 
 """
     evaluate(loc::Locator, expression, arg=missing; is_function=nothing) -> Any

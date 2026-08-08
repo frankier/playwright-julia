@@ -310,7 +310,7 @@ end
 # the five levels in turn, overriding exactly one thing at a time -- a test
 # that set them all at once would pass with the precedence backwards.
 
-@testset "strictness cascade (D7, SC 10)" begin
+@testset "strictness cascade" begin
     @testset "the package default is true" begin
         f = timeout_fixture()
         @test locator(f.page, "tr").strict == true

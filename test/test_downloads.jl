@@ -50,7 +50,7 @@ function fire_download(
     return nothing
 end
 
-@testset "downloads (T12)" begin
+@testset "downloads" begin
     @testset "the event payload carries what the artifact cannot" begin
         # url and suggestedFilename live on the event and nowhere else, so a
         # bare Artifact would lose both -- which is the whole reason Download

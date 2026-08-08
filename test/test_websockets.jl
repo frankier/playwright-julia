@@ -111,8 +111,8 @@ function ws_until(cond, seconds = 10.0)
     return true
 end
 
-@testset "WebSocket routing (M8 Part D)" begin
-    @testset "registering arms the driver's patterns (T18, D11)" begin
+@testset "WebSocket routing" begin
+    @testset "registering arms the driver's patterns" begin
         f = har_fixture()
         reg = route_web_socket!(_ -> nothing, f.context, "**/ws")
 
@@ -137,7 +137,7 @@ end
         close(f.conn)
     end
 
-    @testset "the dispatcher spawns on the first registration, not before (T18)" begin
+    @testset "the dispatcher spawns on the first registration, not before" begin
         f = har_fixture()
         @test Playwright.ws_registry_for(f.context) === nothing
 
@@ -154,7 +154,7 @@ end
         close(f.conn)
     end
 
-    @testset "the handler gets the route the driver announced (T18)" begin
+    @testset "the handler gets the route the driver announced" begin
         f = har_fixture()
         got = Ref{Any}(nothing)
         reg = route_web_socket!(wsr -> (got[] = wsr), f.context, "**/ws")
@@ -168,7 +168,7 @@ end
         close(f.conn)
     end
 
-    @testset "handlers never run on the transport reader task (T18, SC 21)" begin
+    @testset "handlers never run on the transport reader task" begin
         # The world-age trap events.jl's header opens with, asserted rather than
         # trusted — the same assertion test_dialogs.jl makes, by the same means.
         # User code on the reader task cannot call anything defined after the
@@ -188,7 +188,7 @@ end
         close(f.conn)
     end
 
-    @testset "handlers run sequentially, never concurrently (T18, D11)" begin
+    @testset "handlers run sequentially, never concurrently" begin
         f = har_fixture()
         overlapping = Ref(false)
         inside = Ref(0)
@@ -211,7 +211,7 @@ end
         close(f.conn)
     end
 
-    @testset "the newest matching registration wins (T18, D11)" begin
+    @testset "the newest matching registration wins" begin
         f = har_fixture()
         winner = Ref("")
         old = route_web_socket!(_ -> (winner[] = "old"), f.context, "**/ws")
@@ -226,7 +226,7 @@ end
         close(f.conn)
     end
 
-    @testset "a handler that throws is collected and rethrown (T18, D11)" begin
+    @testset "a handler that throws is collected and rethrown" begin
         f = har_fixture()
         reg = route_web_socket!(_ -> error("handler boom"), f.context, "**/ws")
 
@@ -239,7 +239,7 @@ end
         close(f.conn)
     end
 
-    @testset "a throwing handler does not kill the dispatcher (T18)" begin
+    @testset "a throwing handler does not kill the dispatcher" begin
         f = har_fixture()
         calls = Ref(0)
         reg = route_web_socket!(f.context, "**/ws") do _
@@ -258,7 +258,7 @@ end
         close(f.conn)
     end
 
-    @testset "several exceptions become a CompositeException (T18)" begin
+    @testset "several exceptions become a CompositeException" begin
         f = har_fixture()
         calls = Ref(0)
         reg = route_web_socket!(f.context, "**/ws") do _
@@ -274,7 +274,7 @@ end
         close(f.conn)
     end
 
-    @testset "unroute_web_socket! is idempotent, and clears all (T18)" begin
+    @testset "unroute_web_socket! is idempotent, and clears all" begin
         f = har_fixture()
         a = route_web_socket!(_ -> nothing, f.context, "**/a")
         route_web_socket!(_ -> nothing, f.context, "**/b")
@@ -291,7 +291,7 @@ end
         close(f.conn)
     end
 
-    @testset "with_web_socket_route unregisters even when the body throws (T18)" begin
+    @testset "with_web_socket_route unregisters even when the body throws" begin
         f = har_fixture()
         @test_throws ErrorException with_web_socket_route(
             f.context,
@@ -311,7 +311,7 @@ end
         close(f.conn)
     end
 
-    @testset "a Page target arms the page's own channel (T18, D11)" begin
+    @testset "a Page target arms the page's own channel" begin
         # The registry keys on the target the caller named — the probe found
         # delivery is symmetric, so no filtering step is needed (T17, OQ2).
         f = har_fixture()
@@ -336,7 +336,7 @@ end
         close(f.conn)
     end
 
-    @testset "a handler that registers nothing is legal (T18, D11)" begin
+    @testset "a handler that registers nothing is legal" begin
         # No unsettled-route warning, because a WebSocket route has no settle. A
         # handler that registers nothing is a socket that mocks everything and
         # answers nothing, which is a legitimate thing to want — proving a page
@@ -354,7 +354,7 @@ end
         close(f.conn)
     end
 
-    @testset "the socket is opened once the handler has set it up (T18)" begin
+    @testset "the socket is opened once the handler has set it up" begin
         # ensureOpened is what lets the page's WebSocket fire `onopen` in mock
         # mode. Without it the handler runs, registers its callbacks, and the
         # page waits forever for a socket that never opens.
@@ -370,9 +370,9 @@ end
         close(f.conn)
     end
 
-    # --- T19: connect!, the send verbs, binary (D12, SC 24, SC 27) ----------
+    # --- T19: connect!, the send verbs, binary ---------------------------------
 
-    @testset "connect! switches the route from mock to proxy (T19, D12)" begin
+    @testset "connect! switches the route from mock to proxy" begin
         # Whether connect! was called is the entire mode switch. Nothing else
         # distinguishes the two modes, which is why the flag is worth asserting
         # directly and not only through its consequences.
@@ -388,7 +388,7 @@ end
         close(f.conn)
     end
 
-    @testset "a route is in mock mode until connect! (T19, D12)" begin
+    @testset "a route is in mock mode until connect!" begin
         f = har_fixture()
         reg = route_web_socket!(_ -> nothing, f.context, "**/ws")
         route = fire_web_socket_route(f)
@@ -401,7 +401,7 @@ end
         close(f.conn)
     end
 
-    @testset "connecting twice raises rather than reconnecting (T19)" begin
+    @testset "connecting twice raises rather than reconnecting" begin
         f = har_fixture()
         second = Ref{Any}(nothing)
         reg = route_web_socket!(f.context, "**/ws") do wsr
@@ -424,7 +424,7 @@ end
         close(f.conn)
     end
 
-    @testset "a connected route is not also ensureOpened (T19, D12)" begin
+    @testset "a connected route is not also ensureOpened" begin
         # ensureOpened is what opens a *mocked* socket. A proxied one is opened
         # by the server it connected to, and asking for both is asking the
         # driver to open the same socket twice.
@@ -439,7 +439,7 @@ end
         close(f.conn)
     end
 
-    @testset "send_to_page! sends a String as text (T19)" begin
+    @testset "send_to_page! sends a String as text" begin
         f = har_fixture()
         reg = route_web_socket!(wsr -> send_to_page!(wsr, "pong"), f.context, "**/ws")
         route = fire_web_socket_route(f)
@@ -454,7 +454,7 @@ end
         close(f.conn)
     end
 
-    @testset "send_to_page! base64-encodes bytes (T19, SC 24)" begin
+    @testset "send_to_page! base64-encodes bytes" begin
         f = har_fixture()
         bytes = UInt8[0x00, 0xff, 0x10, 0x80]
         reg = route_web_socket!(wsr -> send_to_page!(wsr, bytes), f.context, "**/ws")
@@ -470,7 +470,7 @@ end
         close(f.conn)
     end
 
-    @testset "a wire message decodes back to the type it was sent as (T19, SC 24)" begin
+    @testset "a wire message decodes back to the type it was sent as" begin
         # The other half of the round trip: what the driver hands back. Bytes
         # sent as bytes must arrive as `Vector{UInt8}`, not as a base64 String
         # the caller has to know to decode.
@@ -484,7 +484,7 @@ end
         @test back == bytes
     end
 
-    @testset "send_to_server! in mock mode raises before the wire (T19, SC 27)" begin
+    @testset "send_to_server! in mock mode raises before the wire" begin
         f = har_fixture()
         thrown = Ref{Any}(nothing)
         reg = route_web_socket!(f.context, "**/ws") do wsr
@@ -508,7 +508,7 @@ end
         close(f.conn)
     end
 
-    @testset "send_to_server! sends text and bytes once connected (T19, SC 24)" begin
+    @testset "send_to_server! sends text and bytes once connected" begin
         f = har_fixture()
         bytes = UInt8[0x01, 0x02, 0xfe]
         reg = route_web_socket!(f.context, "**/ws") do wsr
@@ -528,7 +528,7 @@ end
         close(f.conn)
     end
 
-    @testset "close_ws! closes the page's socket with code and reason (T19)" begin
+    @testset "close_ws! closes the page's socket with code and reason" begin
         f = har_fixture()
         reg = route_web_socket!(f.context, "**/ws") do wsr
             close_ws!(wsr; code = 4001, reason = "done here")
@@ -548,7 +548,7 @@ end
         close(f.conn)
     end
 
-    @testset "close_ws! omits a code and reason nobody gave (T19)" begin
+    @testset "close_ws! omits a code and reason nobody gave" begin
         f = har_fixture()
         reg = route_web_socket!(close_ws!, f.context, "**/ws")
         fire_web_socket_route(f)
@@ -562,9 +562,9 @@ end
         close(f.conn)
     end
 
-    # --- T20: callbacks, and the subscriptions that must not leak (D13) -----
+    # --- T20: callbacks, and the subscriptions that must not leak --------------
 
-    @testset "a page message reaches on_message_from_page! (T20, D13)" begin
+    @testset "a page message reaches on_message_from_page!" begin
         f = har_fixture()
         got = Ref{Any}(nothing)
         with_live_socket(
@@ -579,7 +579,7 @@ end
         close(f.conn)
     end
 
-    @testset "a binary page message arrives as bytes (T20, SC 24)" begin
+    @testset "a binary page message arrives as bytes" begin
         # The caller never names base64 — in this direction the decode is the
         # half T19 could only test through its helper.
         f = har_fixture()
@@ -597,7 +597,7 @@ end
         close(f.conn)
     end
 
-    @testset "a server message reaches on_message_from_server! (T20)" begin
+    @testset "a server message reaches on_message_from_server!" begin
         f = har_fixture()
         got = Ref{Any}(nothing)
         with_live_socket(
@@ -614,7 +614,7 @@ end
         close(f.conn)
     end
 
-    @testset "an unhandled server message is forwarded to the page (T20, D12)" begin
+    @testset "an unhandled server message is forwarded to the page" begin
         # The default in proxy mode: a socket nobody rewrote behaves like the
         # socket the page asked for.
         f = har_fixture()
@@ -629,7 +629,7 @@ end
         close(f.conn)
     end
 
-    @testset "a handled server message is swallowed, as intended (T20, D12)" begin
+    @testset "a handled server message is swallowed, as intended" begin
         # D12's sharp edge, pinned rather than fixed: a callback *replaces* the
         # forwarding for its direction, so a callback that does not forward
         # silently drops every server message. It is Playwright's semantics; if
@@ -650,7 +650,7 @@ end
         close(f.conn)
     end
 
-    @testset "an unhandled page message is forwarded to the server (T20, D12)" begin
+    @testset "an unhandled page message is forwarded to the server" begin
         f = har_fixture()
         with_live_socket(f; setup = connect!) do route, _
             ws_frame(f, route, "messageFromPage", "ping")
@@ -660,7 +660,7 @@ end
         close(f.conn)
     end
 
-    @testset "in mock mode an unhandled page message goes nowhere (T20)" begin
+    @testset "in mock mode an unhandled page message goes nowhere" begin
         # There is no server to forward to, and inventing one by connecting
         # would make mock mode contact the network it exists to avoid.
         f = har_fixture()
@@ -676,7 +676,7 @@ end
         close(f.conn)
     end
 
-    @testset "on_close! sees the code and the reason (T20)" begin
+    @testset "on_close! sees the code and the reason" begin
         f = har_fixture()
         got = Ref{Any}(nothing)
         with_live_socket(
@@ -690,7 +690,7 @@ end
         close(f.conn)
     end
 
-    @testset "an unhandled close closes the other side (T20, D12)" begin
+    @testset "an unhandled close closes the other side" begin
         f = har_fixture()
         with_live_socket(f; setup = connect!) do route, _
             ws_close_frame(f, route, "closePage"; code = 1000, reason = "bye")
@@ -702,7 +702,7 @@ end
         close(f.conn)
     end
 
-    @testset "the route's subscriptions are gone once it closes (T20, SC 28)" begin
+    @testset "the route's subscriptions are gone once it closes" begin
         # R3, as a test failure rather than a memory profile. The route object
         # is short-lived and its subscriptions belong to it, so a table that
         # keeps them grows one entry per socket for the life of the process —
@@ -719,7 +719,7 @@ end
         close(f.conn)
     end
 
-    @testset "disposing the route drops its state too (T20, D13)" begin
+    @testset "disposing the route drops its state too" begin
         # The other way a socket ends: the page navigates away and the driver
         # disposes the route without closing it first.
         f = har_fixture()
@@ -734,7 +734,7 @@ end
         close(f.conn)
     end
 
-    @testset "unrouting drops a live socket's state (T20, SC 28)" begin
+    @testset "unrouting drops a live socket's state" begin
         # The third way: the *registration* goes while the socket is still up.
         f = har_fixture()
         armed = Ref(false)
@@ -753,7 +753,7 @@ end
         close(f.conn)
     end
 
-    @testset "a callback that throws is collected and rethrown (T20)" begin
+    @testset "a callback that throws is collected and rethrown" begin
         f = har_fixture()
         armed = Ref(false)
         reg = route_web_socket!(f.context, "**/ws") do wsr
@@ -771,7 +771,7 @@ end
         close(f.conn)
     end
 
-    @testset "callbacks never run on the transport reader task (T20, SC 21)" begin
+    @testset "callbacks never run on the transport reader task" begin
         f = har_fixture()
         ran_on = Ref{Any}(nothing)
         registry = Ref{Any}(nothing)

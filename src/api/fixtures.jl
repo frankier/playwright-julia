@@ -1,9 +1,9 @@
 # Test fixtures: the per-page setup/teardown a suite would otherwise hand-roll.
 #
-# B4 in SPEC-M4.md — every suite that has run in CI has written some version of
-# "page errors + console errors + a screenshot into an artifacts dir", and got
-# it subtly wrong in the same way each time: the dump throws on a page that has
-# already gone, and the caller's real failure is lost behind it.
+# Every suite that has run in CI has written some version of "page errors +
+# console errors + a screenshot into an artifacts dir", and got it subtly wrong
+# in the same way each time: the dump throws on a page that has already gone,
+# and the caller's real failure is lost behind it.
 #
 # The rule these two obey, and the reason they are written together: **a
 # teardown-path function never throws.** It runs while a more important error
@@ -48,15 +48,15 @@ function report_diagnostics(page::Page, dir::AbstractString)
         return written
     end
 
-    # `screenshot` is the one that still throws on a closed page (D4, open
-    # question 2): it returns bytes, so it has no natural empty answer. It is
+    # `screenshot` is the one that still throws on a closed page: it returns
+    # bytes, so it has no natural empty answer. It is
     # caught here rather than made silent there, which keeps the silence in
     # one place and out of the ordinary API.
     capture(written, joinpath(dir, "screenshot.png"), "screenshot") do
         screenshot_bytes(page)
     end
 
-    # These two are already no-throw on a dead target (T3), so what is being
+    # These two are already no-throw on a dead target, so what is being
     # guarded here is the write, not the read.
     capture(written, joinpath(dir, "console.log"), "console log") do
         messages = console_messages(page)

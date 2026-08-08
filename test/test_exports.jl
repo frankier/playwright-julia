@@ -213,7 +213,7 @@
     # `checkdocs = :exports` cannot see its docstring, which is gap 1's shape
     # arrived at on purpose this time. So the gate the export list would have
     # given is replaced by this test rather than dropped.
-    @testset "Playwright.fetch is unexported but documented (D14)" begin
+    @testset "Playwright.fetch is unexported but documented" begin
         @test !(:fetch in names(Playwright))
         @test isdefined(Playwright, :fetch)
         documented = Base.Docs.meta(Playwright)
@@ -232,7 +232,7 @@
     #
     # Written as a function over its inputs, the shape `deferred_table_is_honest`
     # uses, so the gate can be watched failing as well as passing.
-    @testset "the README's not-covered list is still true (T24, SC 33)" begin
+    @testset "the README's not-covered list is still true" begin
         # The phrase the list would use, and the exported name that exists if
         # the thing is in fact covered.
         claims = [
@@ -282,7 +282,7 @@
     end
 end
 
-# --- Part A's two safety nets (M6 T5) --------------------------------------
+# --- Part A's two safety nets ----------------------------------------------
 #
 # The renames in SPEC-M6 D1–D3 are mechanical, and mechanical changes are
 # exactly the ones that regress quietly. These two testsets are what stop that:
@@ -329,7 +329,7 @@ end
     ]
 end
 
-@testset "no old spelling survives anywhere (SC A4)" begin
+@testset "no old spelling survives anywhere" begin
     # SPEC-M6 D4: the claim that Part A is complete is a grep, not a habit.
     # Each old name is searched for *as a call*, across every hand-written
     # source in the repo.

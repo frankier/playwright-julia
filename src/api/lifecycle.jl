@@ -128,10 +128,8 @@ end
 # apart. So the defaults and the snake_case → wire-name mapping live here once,
 # and all three entry points call these.
 #
-# This is a refactor of code that already worked, which is normally out of scope
-# — it is in scope because the alternative is 28 copy-pasted keyword defaults,
-# and because `test_connection.jl` pins the exact wire params for both existing
-# callers *before* the refactor rather than after (R4, SC 16).
+# `test_connection.jl` pins the exact wire params for every caller, so a change
+# here that alters what goes out is a test failure rather than a surprise.
 
 """
 The wire options for a browser launch, from this package's snake_case keywords.
@@ -419,17 +417,15 @@ end
 
 # PERSISTENT_BROWSERS: deliberately absent.
 #
-# SPEC-M8 D9 says a persistent context must own its browser, because "otherwise
-# every use leaks a browser process, and the leak is invisible because the
-# context — the thing the caller is holding — did close". **That premise is
-# false on this driver**, probed on both engines (tasks/m8-probe.md, T15/T16
-# addendum): closing a persistent context already takes the browser process with
-# it, disposes the Browser object, and makes an explicit close! raise
-# TargetClosedError.
+# A persistent context might be expected to need an ownership table, so that
+# closing it also closes the browser process behind it. **This driver needs no
+# such thing.** On both engines, closing a persistent context already takes the
+# browser process with it, disposes the Browser object, and makes an explicit
+# close! raise TargetClosedError.
 #
 # So there is no ownership table and close!(::BrowserContext) is unchanged. The
 # claim is not merely assumed either — test_smoke_persistent.jl asserts on the
-# *process* that nothing is left behind (SC 20), so a driver that ever stops
+# *process* that nothing is left behind, so a driver that ever stops
 # doing this is a test failure here rather than a leak in the wild.
 
 # Pages opened by new_page(::Browser) own the context created for them, so

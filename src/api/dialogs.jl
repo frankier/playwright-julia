@@ -1,4 +1,5 @@
-# Dialogs (SPEC-M7.md D12).
+# JavaScript dialogs: the Dialog wrapper, the per-owner registry, and the
+# dispatcher task that runs user handlers.
 #
 # Playwright's rule: with no listener registered a dialog is auto-dismissed;
 # with one registered it is not, and a dialog nobody answers blocks its page
@@ -11,21 +12,21 @@
 # this is a registry rather than an expect_event wrapper, and why nothing here
 # subscribes until a handler actually exists.
 #
-# The lifetime is M6's route dispatcher, reused rather than reinvented, and it
-# carries the same three decisions:
+# The lifetime is route interception's dispatcher, reused rather than
+# reinvented, and it carries the same three rules:
 #
 #   * a dialog nobody settles is dismissed, and warned about once per
-#     registration (M6 D6)
+#     registration
 #   * a handler that throws is collected and rethrown at release, with the
-#     dialog still dismissed so the page proceeds (M6 D7)
-#   * handlers run on a dispatcher task, never on the transport reader task
-#     (M6 D5 -- the world-age trap in events.jl's header)
+#     dialog still dismissed so the page proceeds
+#   * handlers run on a dispatcher task, never on the transport reader task --
+#     the world-age trap in events.jl's header
 #
 # One wrinkle the routes did not have: the `dialog` event is declared on
 # browserContext, not page (browserContext.yml:364), while the *subscription*
 # is accepted on either. So a page-scoped registry subscribes to the page's
-# context and filters by the dialog's own `page` -- the same split M6 D11 made
-# for the network events.
+# context and filters by the dialog's own `page` -- the same split the network
+# events make.
 
 # --- The Dialog wrapper ----------------------------------------------------
 #
@@ -219,7 +220,7 @@ function start_dialog_dispatcher!(registry::DialogRegistry)
     return registry.task
 end
 
-"Whether a `dialog` event's payload belongs to `page` (M6 D11's filter)."
+"Whether a `dialog` event's payload belongs to `page`."
 function dialog_belongs_to(params, page::Page)
     ref = get(params, "page", nothing)
     ref === nothing && return true      # context-wide dialog: nobody else will take it
@@ -230,8 +231,8 @@ end
 Stop the dispatcher and wait for it to finish.
 
 Closing the channel wakes it: `take!` on a closed channel raises, which is the
-loop's exit. No sentinel, no polling, and above all no `sleep` — R1's tripwire
-says a lifetime needing one is the wrong lifetime.
+loop's exit. No sentinel, no polling, and above all no `sleep`: a lifetime
+needing one is the wrong lifetime.
 """
 function stop_dialog_dispatcher!(registry::DialogRegistry)
     task = registry.task

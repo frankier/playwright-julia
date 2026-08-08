@@ -94,7 +94,7 @@ function fake_response(fake, guid = "response@1"; init = Dict{String,Any}())
 end
 
 @testset "network" begin
-    @testset "Request reads its initializer (D10)" begin
+    @testset "Request reads its initializer" begin
         fake = FakeDriver()
         req = fake_request(fake)
 

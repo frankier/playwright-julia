@@ -60,7 +60,7 @@ function with_files_server(f::Function)
             return HTTP.Response(200, ["Content-Type" => "text/plain"], body)
         end
 
-        path = target == "/" ? "/m7.html" : target
+        path = target == "/" ? "/files.html" : target
         file = normpath(joinpath(dir, lstrip(path, '/')))
         if startswith(file, dir) && isfile(file)
             ext = splitext(file)[2]
@@ -99,13 +99,13 @@ end
 
 # --- T13: downloads (SC 13-16) ---------------------------------------------
 
-@testset "downloads, both engines (T13)" begin
+@testset "downloads, both engines" begin
     on_both_engines("downloads") do browser, base_url, _uploads, engine
         ctx = new_context(browser)
         page = new_page(ctx)
-        goto!(page, "$base_url/m7.html")
+        goto!(page, "$base_url/files.html")
 
-        @testset "SC 13: the header names the file, and the bytes survive" begin
+        @testset "the header names the file, and the bytes survive" begin
             dl = expect_download(page; timeout = 15_000) do
                 click!(locator(page, "#download-report"))
             end
@@ -120,7 +120,7 @@ end
             @test read(dest) == M7_REPORT_BYTES
         end
 
-        @testset "SC 14: path blocks until the file is there -- no sleep" begin
+        @testset "path blocks until the file is there -- no sleep" begin
             dl = expect_download(page; timeout = 15_000) do
                 click!(locator(page, "#download-report"))
             end
@@ -134,7 +134,7 @@ end
             @test isnothing(failure(dl))
         end
 
-        @testset "SC 16: the artifact escape hatch is exercised" begin
+        @testset "the artifact escape hatch is exercised" begin
             dl = expect_download(page; timeout = 15_000) do
                 click!(locator(page, "#download-report"))
             end
@@ -150,13 +150,13 @@ end
 
         close!(ctx)
 
-        @testset "SC 15: a refused download still arrives, and then throws" begin
+        @testset "a refused download still arrives, and then throws" begin
             # The probe's least guessable finding. `deny` does not suppress the
             # event: it arrives with a correct url and filename, and the
             # refusal surfaces only when the artifact is asked for something.
             denied_ctx = new_context(browser; accept_downloads = false)
             denied_page = new_page(denied_ctx)
-            goto!(denied_page, "$base_url/m7.html")
+            goto!(denied_page, "$base_url/files.html")
 
             dl = expect_download(denied_page; timeout = 15_000) do
                 click!(locator(denied_page, "#download-report"))
@@ -182,13 +182,13 @@ end
 
 # --- T15: dialogs (SC 17-19) -----------------------------------------------
 
-@testset "dialogs, both engines (T15)" begin
+@testset "dialogs, both engines" begin
     on_both_engines("dialogs") do browser, base_url, _uploads, engine
         page = new_page(new_context(browser))
-        goto!(page, "$base_url/m7.html")
+        goto!(page, "$base_url/files.html")
         result() = text_content(locator(page, "#dialog-result"))
 
-        @testset "SC 17: each type produces its own observable effect" begin
+        @testset "each type produces its own observable effect" begin
             seen = Ref{Any}(nothing)
             with_dialog(
                 page;
@@ -227,7 +227,7 @@ end
             @test result() == "null"
         end
 
-        @testset "SC 18: with no handler, the dialog is auto-dismissed" begin
+        @testset "with no handler, the dialog is auto-dismissed" begin
             # The single most important assertion in Part C. With nothing
             # registered the driver dismisses dialogs itself and the page
             # proceeds -- which is what makes the registry design safe and the
@@ -245,10 +245,10 @@ end
             expect(locator(page, "#dialog-result"); to_have_text = "dismissed")
 
             # ...and the page is still alive and interactive afterwards.
-            @test title(page) == "Playwright.jl · M7 files fixture"
+            @test title(page) == "Files fixture"
         end
 
-        @testset "SC 19: unsettled warns once, throwing surfaces, page proceeds" begin
+        @testset "unsettled warns once, throwing surfaces, page proceeds" begin
             # A handler that answers nothing: the dialog is dismissed for it,
             # so the page proceeds rather than hanging.
             reg = on_dialog!(_ -> nothing, page)
@@ -282,10 +282,10 @@ end
 
 # --- T17: uploads, asserted server-side (SC 20-22) -------------------------
 
-@testset "uploads, both engines (T17)" begin
+@testset "uploads, both engines" begin
     on_both_engines("uploads") do browser, base_url, uploads, engine
         page = new_page(new_context(browser))
-        goto!(page, "$base_url/m7.html")
+        goto!(page, "$base_url/files.html")
         fixture = joinpath(@__DIR__, "fixtures", "upload.csv")
         fixture_bytes = read(fixture)
 
@@ -297,7 +297,7 @@ end
             return uploads[]
         end
 
-        @testset "SC 20: the server receives the filename and the bytes" begin
+        @testset "the server receives the filename and the bytes" begin
             # Asserted from the server's side, not the page's. A client-side
             # check that the input has a file attached says the browser did
             # its job -- it does not say a byte was transferred.
@@ -308,7 +308,7 @@ end
             @test last(single)[2] == fixture_bytes
         end
 
-        @testset "SC 20: several files arrive as several parts" begin
+        @testset "several files arrive as several parts" begin
             second = joinpath(mktempdir(), "second.csv")
             write(second, "x,y\n9,9\n")
             set_input_files!(locator(page, "#file-multi"), [fixture, second])
@@ -320,7 +320,7 @@ end
                   fixture_bytes
         end
 
-        @testset "SC 20: an in-memory file needs no file on disk" begin
+        @testset "an in-memory file needs no file on disk" begin
             inline = Vector{UInt8}("inline,only\n1,2\n")
             set_input_files!(
                 locator(page, "#file-single");
@@ -334,7 +334,7 @@ end
             @test last(single)[2] == inline
         end
 
-        @testset "SC 21: the ArgumentError comes before the wire" begin
+        @testset "the ArgumentError comes before the wire" begin
             loc = locator(page, "#file-single")
             @test_throws ArgumentError set_input_files!(
                 loc,
@@ -344,10 +344,10 @@ end
             )
             @test_throws ArgumentError set_input_files!(loc, "/no/such/file.csv")
             # The page is untouched by a call that never happened.
-            @test title(page) == "Playwright.jl · M7 files fixture"
+            @test title(page) == "Files fixture"
         end
 
-        @testset "SC 22: is_multiple, including webkitdirectory" begin
+        @testset "is_multiple, including webkitdirectory" begin
             # Probed identical on both engines. The webkitdirectory case
             # asserts `false` ON PURPOSE -- a directory picker is one
             # selection, not many -- so a test expecting `true` would be wrong
@@ -362,7 +362,7 @@ end
             end
         end
 
-        @testset "SC 22: set_files! through the chooser reaches the server" begin
+        @testset "set_files! through the chooser reaches the server" begin
             fc = expect_file_chooser(page; timeout = 15_000) do
                 click!(locator(page, "#file-single"))
             end

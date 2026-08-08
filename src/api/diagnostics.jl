@@ -1,6 +1,6 @@
 # Diagnostics pulled from a page: console messages and uncaught page errors.
 #
-# These are pull-based getters (SPEC-M2.md D6), not subscriptions: the driver
+# These are pull-based getters, not subscriptions: the driver
 # buffers messages and errors per page, and these read the buffer. There is no
 # background task, no callback, and no ordering guarantee beyond the driver's
 # own. That is enough for the thing they exist for — explaining a test failure
@@ -73,11 +73,11 @@ function source_location(raw)
     )
 end
 
-# D4: the postmortem readers never throw on a dead target.
+# The postmortem readers never throw on a dead target.
 #
 # These run in `finally` blocks, which is exactly when the page may already be
 # gone — and a throw there replaces the caller's real failure with a less
-# interesting one (B5). "The page is closed" is not news to someone who is
+# interesting one. "The page is closed" is not news to someone who is
 # already handling an error, so the answer is "nothing to report" rather than a
 # second exception.
 #

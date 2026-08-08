@@ -1,8 +1,8 @@
-# HAR archives: replaying one (Part A) and recording one (Part B).
+# HAR archives: replaying one, and recording one.
 #
 # Replay is not a mechanism of its own — there is no server-side "replay this
 # archive" command. It is `harOpen` once, `harLookup` per request, `harClose` at
-# the end, and the thing that produces the requests is M6's `route!`. So
+# the end, and the thing that produces the requests is `route!`. So
 # everything here is a route handler and a lifetime, and `unroute!` is what owns
 # the lifetime.
 #
@@ -50,8 +50,8 @@ function route_from_har(
 )
     # `update = true` does not replay. It *records*, into the same file,
     # replacing it — the name says "route" and the behaviour is "trace", which
-    # is confusing enough to be worth stating twice. So it is Part B's
-    # machinery under Part A's name, and it returns early: none of the replay
+    # is confusing enough to be worth stating twice. So it is the recording
+    # machinery under replay's name, and it returns early: none of the replay
     # setup below applies to it.
     update && return record_into_har(target, har; url)
 
@@ -82,7 +82,7 @@ function route_from_har(
         # harOpen is per-registration, not per-request: the driver parses the
         # archive once and hands back an id, and releasing it is unroute!'s job
         #. For a .zip there is a second lifetime — the extraction — and it
-        # is released here too, which is R5's "two lifetimes, one owner".
+        # is released here too: two lifetimes, one owner.
         release = () -> begin
             _local_utils_har_close(utils; harId = opened)
             workdir === nothing || rm(workdir; recursive = true, force = true)
@@ -257,7 +257,7 @@ function serve_from_har(route::Route, utils, har_id, archive, not_found::Symbol)
             # about, or the warning below stops meaning anything.
             continue!(route)
         else
-            # D5a: harOpen succeeds on a file that is not a HAR, so a typo'd or
+            # harOpen succeeds on a file that is not a HAR, so a typo'd or
             # truncated archive opens cleanly and then misses *everything*.
             # Under :abort that is a page whose every request fails with no clue
             # why. Naming both the URL and the archive is what makes "your HAR
@@ -282,15 +282,15 @@ function serve_from_har(route::Route, utils, har_id, archive, not_found::Symbol)
     return nothing
 end
 
-# --- Recording (Part B) -----------------------------------------------------
+# --- Recording -------------------------------------------------------------
 #
-# D6: a start!/stop! pair, not a `new_context` keyword. There is no `recordHar`
+# A start!/stop! pair, not a `new_context` keyword. There is no `recordHar`
 # in `ContextOptions` — checked against mixins.yml:98 and browser.yml:62 — so
 # other bindings' `record_har_path` is client-side sugar that calls `harStart`
-# after the context exists. M8 declines the sugar, for three reasons in order of
-# weight:
+# after the context exists. This package declines the sugar, for three reasons
+# in order of weight:
 #
-#   1. start_tracing!/stop_tracing! already made this decision in M4, for the
+#   1. start_tracing!/stop_tracing! already made this decision, for the
 #      identical protocol shape: a Tracing command pair producing an Artifact.
 #      A second feature on the same object with the opposite spelling would be
 #      the package disagreeing with itself.

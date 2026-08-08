@@ -1,4 +1,4 @@
-# The SerializedValue / SerializedArgument codec (SPEC-M2.md D3).
+# The SerializedValue / SerializedArgument codec.
 #
 # This is the bridge between Julia values and JavaScript values: everything
 # `evaluate` sends and receives passes through here. It is hand-written rather

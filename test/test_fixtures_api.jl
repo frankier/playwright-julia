@@ -24,7 +24,7 @@ closed_reply(fake, id) = driver_send(
     ),
 )
 
-@testset "with_page argument validation (T9)" begin
+@testset "with_page argument validation" begin
     # All of this happens before a page is opened, so it needs no browser —
     # and a caller who typo'd a keyword finds out immediately rather than
     # after a browser launch.
@@ -82,7 +82,7 @@ closed_reply(fake, id) = driver_send(
     end
 end
 
-@testset "report_diagnostics (T9)" begin
+@testset "report_diagnostics" begin
     @testset "a dead target yields no files and no exception" begin
         # B5's shape, one level up: every reader fails, and the dump still
         # returns rather than throwing into a `finally` block.
@@ -244,7 +244,7 @@ end
 # --- Smoke: real browsers, both engines -----------------------------------
 
 if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
-    @testset "with_page, live (T9, SC 11)" begin
+    @testset "with_page, live" begin
         with_fixture_server() do base_url
             playwright() do pw
                 for engine in ("chromium", "firefox")
@@ -255,8 +255,8 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         dir = mktempdir()
 
                         err = try
-                            with_page(browser, "$base_url/m4.html"; artifacts = dir) do page
-                                expect(page; to_have_title = "M4")
+                            with_page(browser, "$base_url/late-title.html"; artifacts = dir) do page
+                                expect(page; to_have_title = "Dashboard")
                                 error("the assertion I actually care about")
                             end
                             nothing
@@ -294,8 +294,8 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         dir = mktempdir()
 
                         result =
-                            with_page(browser, "$base_url/m4.html"; artifacts = dir) do page
-                                expect(page; to_have_title = "M4")
+                            with_page(browser, "$base_url/late-title.html"; artifacts = dir) do page
+                                expect(page; to_have_title = "Dashboard")
                                 return :passed
                             end
 
@@ -310,11 +310,11 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
 
                         result = with_page(
                             browser,
-                            "$base_url/m4.html";
+                            "$base_url/late-title.html";
                             artifacts = dir,
                             artifacts_on = :always,
                         ) do page
-                            expect(page; to_have_title = "M4")
+                            expect(page; to_have_title = "Dashboard")
                             return :passed
                         end
 
@@ -328,7 +328,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                     @testset "$engine: the page really is closed afterwards" begin
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
-                        escaped = with_page(ctx, "$base_url/m4.html") do page
+                        escaped = with_page(ctx, "$base_url/late-title.html") do page
                             return page
                         end
                         # Closed on the way out, however the body ended.
@@ -336,13 +336,13 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: report_diagnostics after close!(ctx) (SC 10)" begin
+                    @testset "$engine: report_diagnostics after close!(ctx)" begin
                         # The B5 regression test in full: close the context,
                         # then dump. Nothing throws.
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         page = new_page(ctx)
-                        goto!(page, "$base_url/m4.html")
+                        goto!(page, "$base_url/late-title.html")
                         close!(ctx)
 
                         dir = mktempdir()

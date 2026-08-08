@@ -195,7 +195,7 @@ function install(; browsers::Vector{String} = ["chromium", "firefox"])
     return nothing
 end
 
-# --- Install ergonomics (T9) ----------------------------------------------
+# --- Install ergonomics ----------------------------------------------------
 
 """
     browsers_path() -> Union{String,Nothing}

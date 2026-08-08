@@ -13,7 +13,7 @@ using Playwright:
 "A real file on disk, since set_input_files! refuses paths that do not exist."
 const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
 
-@testset "uploads (T16)" begin
+@testset "uploads" begin
     @testset "the fixture file exists" begin
         @test isfile(UPLOAD_FIXTURE)
     end

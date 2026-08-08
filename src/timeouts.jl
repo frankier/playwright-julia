@@ -25,7 +25,8 @@ const NO_SETTINGS = (action = nothing, navigation = nothing, strict = nothing)
 "Owners that can carry a timeout setting."
 const TimeoutOwner = Union{Page,BrowserContext}
 
-# Frames included, unlike TimeoutOwner: D7's cascade has a frame level, and a
+# Frames included, unlike TimeoutOwner: the strictness cascade has a frame
+# level, and a
 # frame is the one place a caller can say "everything inside this iframe works
 # with lists" without saying it about the whole page.
 "Owners that can carry a strictness setting."

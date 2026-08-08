@@ -1,15 +1,13 @@
 # URL matchers: Playwright's glob dialect, and the three-way matcher union.
 #
-# Everything here is pure. No driver, no browser, no connection — which is why
-# it is the first thing in Part B and the only piece that can be finished and
-# reviewed on its own.
+# Everything here is pure. No driver, no browser, no connection.
 #
 # The dialect is not invented. It is a port of `globToRegexPattern` in
 # playwright-core 1.61.1 (`lib/coreBundle.js`), read out of the pinned driver
 # rather than remembered, because "* does not cross / but ** does" is the kind
 # of rule that passes six hand-written tests and fails on the seventh real URL.
 #
-# D9: matchers are evaluated *client-side*. The driver only ever receives the
+# Matchers are evaluated *client-side*. The driver only ever receives the
 # union of the live registrations' globs, because `setNetworkInterceptionPatterns`
 # replaces the whole pattern set and so cannot express per-handler filtering
 # once there are two handlers.
@@ -227,7 +225,7 @@ driver_pattern(matcher::AbstractString) = String(matcher)
 driver_pattern(::Regex) = "**/*"
 driver_pattern(::Function) = "**/*"
 
-# --- The shared case table (SC 17) -----------------------------------------
+# --- The shared case table -------------------------------------------------
 
 """
     GLOB_CASES

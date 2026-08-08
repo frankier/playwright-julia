@@ -45,7 +45,7 @@ export playwright,
     title,
     locator,
     glob_to_regex,
-    # M6 T9: the network surface — Request and Response
+    # The network surface: Request and Response
     Request,
     Response,
     headers,
@@ -71,7 +71,7 @@ export playwright,
     fetch_uid,
     expect_request,
     expect_response,
-    # M6 T10: route interception (D5–D9)
+    # Route interception
     Route,
     route!,
     unroute!,
@@ -81,26 +81,26 @@ export playwright,
     continue!,
     fulfill!,
     RouteRegistration,
-    # M8 T4/T7: HAR replay (D2–D5a)
+    # HAR replay
     route_from_har,
     with_har,
-    # M8 T8: HAR recording (D6, D8)
+    # HAR recording
     HarRecording,
     start_har_recording!,
     stop_har_recording!,
     with_har_recording,
-    # M8 T18: WebSocket routing (D11-D13)
+    # WebSocket routing
     WebSocketRoute,
     WebSocketRouteRegistration,
     route_web_socket!,
     unroute_web_socket!,
     with_web_socket_route,
-    # M8 T19: mock or proxy, and the messages
+    # Mock or proxy, and the messages
     connect!,
     send_to_page!,
     send_to_server!,
     close_ws!,
-    # M8 T20: the route's own events
+    # The route's own events
     on_message_from_page!,
     on_message_from_server!,
     on_close!,
@@ -113,14 +113,14 @@ export playwright,
     pdf,
     pdf_bytes,
     save_as!,
-    # M7 T16: uploads
+    # Uploads
     set_input_files!,
     FileChooser,
     expect_file_chooser,
     element,
     is_multiple,
     set_files!,
-    # M7 T14: dialogs
+    # Dialogs
     Dialog,
     dialog_type,
     message,
@@ -130,7 +130,7 @@ export playwright,
     on_dialog!,
     off_dialog!,
     with_dialog,
-    # M7 T12: downloads (D10, D11)
+    # Downloads
     Download,
     expect_download,
     suggested_filename,
@@ -226,7 +226,7 @@ include("api/downloads.jl")
 # after lifecycle.jl, whose name_value_array it mirrors.
 include("api/network.jl")
 include("api/routing.jl")
-# After routing.jl: HAR replay is a route! handler with a release hook (D2, D3),
+# After routing.jl: HAR replay is a route! handler with a release hook,
 # so it needs route!, the settle verbs and RouteRegistration to exist.
 include("api/har.jl")
 # After routing.jl: reuses its raise_collected, and its dispatcher pattern.

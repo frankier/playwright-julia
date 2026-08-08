@@ -2,12 +2,11 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <!-- Deliberately NOT "M4". SPEC-M4.md's target snippet asserts
-         `to_have_title = "M4"`, and SC 6 wants that to pass "for a late-set
-         value" — a title that is already correct at parse would pass whether
-         or not expect retries, which is exactly the thing under test. The
-         script below renames the document 300ms in. -->
-    <title>M4 (loading)</title>
+    <!-- Deliberately NOT "Dashboard": the script below renames the document
+         300ms in. A title that is already correct at parse would satisfy
+         `to_have_title = "Dashboard"` whether or not expect retries, which is
+         the thing under test. -->
+    <title>Dashboard (loading)</title>
     <style>
       body {
         font-family: system-ui, sans-serif;
@@ -36,7 +35,7 @@
          source of console output and an uncaught error (T9's diagnostics
          dump), and tall enough with enough ink that a screenshot and a PDF
          are more than a blank sheet (T7). -->
-    <h1>Milestone 4</h1>
+    <h1>Dashboard</h1>
 
     <p>
       This page exists so that a trace, a video, a screenshot and a PDF of it
@@ -81,7 +80,7 @@
       // The late title (T8 / SC 6). Timestamped so a test can prove it landed
       // after parse instead of racing goto to observe the old value.
       setTimeout(() => {
-        document.title = "M4";
+        document.title = "Dashboard";
         window.__titleAt = performance.now();
       }, 300);
 

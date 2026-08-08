@@ -2,8 +2,8 @@
 # rewrite messages in flight.
 #
 # This is the **third** use of the registry + dispatcher-task shape, after
-# routing.jl (M6) and dialogs.jl (M7). It is a reuse rather than an invention,
-# and the differences from routing.jl are few enough to list:
+# routing.jl and dialogs.jl. It is a reuse rather than an invention, and the
+# differences from routing.jl are few enough to list:
 #
 #   - There is no unsettled-route warning, because a WebSocket route has no
 #     settle. A handler that registers nothing is a socket that mocks
@@ -84,9 +84,9 @@ owner whether or not anyone routes is a package that leaks a task per page.
 """
 function start_ws_dispatcher!(registry::WebSocketRouteRegistry)
     registry.task === nothing || return registry.task
-    # Keyed on the owner the caller named. The probe found delivery is
-    # symmetric — a context-armed pattern is delivered on the context, a
-    # page-armed one on the page — so no filtering step is needed (T17, OQ2).
+    # Keyed on the owner the caller named. Delivery is symmetric — a
+    # context-armed pattern is delivered on the context, a page-armed one on
+    # the page — so no filtering step is needed.
     sub = subscribe(
         registry.owner,
         "webSocketRoute",
@@ -421,8 +421,7 @@ url(route::WebSocketRoute) = route.initializer["url"]::String
 #
 # Bounded by the sockets currently *open*, not by the sockets ever routed:
 # `forget_ws_route!` drops the entry when the route is disposed. Without that
-# this is one entry per socket, forever — the leak R3 names, in its smaller
-# form.
+# this is one entry per socket, forever.
 
 const CONNECTED_WS_ROUTES = Set{String}()
 const CONNECTED_WS_ROUTES_LOCK = ReentrantLock()
@@ -578,13 +577,13 @@ end
 # the route, which arrives mid-flight and is gone when the socket closes. The
 # `Subscription` machinery is keyed by guid and works unchanged; what is new is
 # that something has to *drop* the subscriptions, or the table grows one entry
-# per socket for the life of the process (R3).
+# per socket for the life of the process.
 #
 # The subscriptions share their owner's dispatcher queue rather than each
 # getting a task: `Channel` has no select, so four channels would mean four
 # tasks per socket, and a socket-heavy page would spawn dozens. One queue keeps
-# the guarantee D11 already made — user code runs sequentially, on one task per
-# routed owner, never on the reader task — and adds ordering between a route
+# the guarantee routing already makes — user code runs sequentially, on one task
+# per routed owner, never on the reader task — and adds ordering between a route
 # and its own frames for free.
 
 "A frame or a close on a live route, tagged for the dispatcher."
@@ -746,7 +745,7 @@ function deliver_ws_route_event(ev::WebSocketRouteEvent)
             ws_forward(() -> close_other(ev.route; wasClean = was_clean, code, reason))
         end
         # Either side closing ends the socket, and with it everything this
-        # package holds for it. SC 28 asserts exactly this.
+        # package holds for it.
         disarm_ws_route!(ev.route.guid)
     end
     return nothing

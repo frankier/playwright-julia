@@ -70,7 +70,7 @@ collect_requests!(f) = autoreply!(f.fake)
 "Wait for `cond`, failing the test rather than hanging if it never holds."
 bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
 
-@testset "dialogs (T14)" begin
+@testset "dialogs" begin
     # --- The lifetime, first ------------------------------------------------
 
     @testset "nothing is subscribed until a handler exists" begin

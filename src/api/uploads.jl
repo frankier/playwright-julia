@@ -1,4 +1,4 @@
-# File uploads (SPEC-M7.md D13).
+# File uploads: setting an input directly, and answering a file chooser.
 #
 # Two mechanisms, because two things happen in the wild: a plain
 # `<input type=file>` you can select and set directly, and a button that opens

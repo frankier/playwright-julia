@@ -1,7 +1,7 @@
 # Route interception: the Route wrapper, the per-owner registry, and the
 # dispatcher task that runs user handlers.
 #
-# This file is written lifetime-first on purpose (R1). Three of its failure
+# This file is written lifetime-first on purpose. Three of its failure
 # modes — a dispatcher that leaks, one that dies, one that deadlocks — present
 # to a user identically: requests hang and an unrelated `goto!` times out
 # thirty seconds later, metres from the cause. So the task's birth and death
@@ -76,7 +76,7 @@ mutable struct RouteRegistration
     matcher::Any
     handler::Any
     exceptions::Vector{Any}
-    warned::Bool          # D6: one warning per registration, not per request
+    warned::Bool          # one warning per registration, not per request
     active::Bool
     release::Union{Function,Nothing}
     released::Bool        # so a second unroute! does not release twice
@@ -128,7 +128,7 @@ registry_for(owner::ChannelOwner) =
         get(ROUTE_REGISTRIES, owner.guid, nothing)
     end
 
-# --- The dispatcher's lifetime (R1) ----------------------------------------
+# --- The dispatcher's lifetime ---------------------------------------------
 
 """
 Start the dispatcher for `registry` if it is not already running.
@@ -149,8 +149,8 @@ end
 Stop the dispatcher and wait for it to finish.
 
 Closing the channel is what wakes it: `take!` on a closed channel raises, which
-is the loop's exit. No sentinel value, no polling, and above all no `sleep` —
-R1's tripwire says a lifetime that needs one is the wrong lifetime.
+is the loop's exit. No sentinel value, no polling, and above all no `sleep`: a
+lifetime that needs one is the wrong lifetime.
 
 `close(sub)` first, so the reader task stops delivering into a channel that is
 about to close; `deliver_event` already treats a put! into a dead subscription
@@ -247,7 +247,7 @@ function handle_route_inner(registry::RouteRegistry, route::Route)
         matched || continue
 
         try
-            # R4: anything the handler fetches with Playwright.fetch is disposed
+            # Anything the handler fetches with Playwright.fetch is disposed
             # when it returns. The driver buffers an unfetched body until it is
             # told otherwise, so without this every mock-from-upstream leaks one.
             with_fetch_scope() do
@@ -263,7 +263,7 @@ function handle_route_inner(registry::RouteRegistry, route::Route)
             end
         catch e
             record_exception!(reg, e)
-            settle_default!(route)          # D7: the page proceeds regardless
+            settle_default!(route)          # the page proceeds regardless
             return nothing
         end
 
@@ -412,7 +412,7 @@ function unroute!(target::Union{Page,BrowserContext}, reg::RouteRegistration)
     push_patterns!(registry)
     empty_now && retire!(registry)
 
-    # D8: a route already in the handler settles before this returns. The
+    # A route already in the handler settles before this returns. The
     # registration is deactivated above, so this waits for at most the one
     # dispatch that was already under way.
     settle_in_flight!(registry)

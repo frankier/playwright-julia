@@ -15,7 +15,7 @@ using Playwright:
     GLOB_CASES
 
 @testset "globs" begin
-    @testset "the shared case table (SC 17)" begin
+    @testset "the shared case table" begin
         # Every row of the table the guide prints is exercised here. A case
         # that is documented but untested cannot exist, because there is only
         # one table.
@@ -69,7 +69,7 @@ using Playwright:
         @test_throws ArgumentError glob_to_regex("**/{a,b")
     end
 
-    @testset "regex metacharacters are literals (R2)" begin
+    @testset "regex metacharacters are literals" begin
         # The failure mode this guards: a glob that silently becomes a much
         # broader regex. Each of these matches itself and nothing clever.
         for (glob, literal, other) in [
@@ -144,7 +144,7 @@ using Playwright:
         @test_throws ArgumentError matches(u -> "yes", url)
     end
 
-    @testset "driver_pattern widens for what a glob cannot express (D9)" begin
+    @testset "driver_pattern widens for what a glob cannot express" begin
         @test driver_pattern("**/api/*") == "**/api/*"
         @test driver_pattern(r"api") == "**/*"
         @test driver_pattern(u -> true) == "**/*"

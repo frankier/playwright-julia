@@ -8,7 +8,7 @@
 # Everything here writes only to a path the caller supplied. The package never
 # chooses a location of its own.
 
-# --- The Artifact surface (A4) --------------------------------------------
+# --- The Artifact surface --------------------------------------------------
 #
 # A driver-side file that is still being written. Tracing and video both hand
 # one back, and the same three verbs serve both.
@@ -95,10 +95,10 @@ function delete_file!(a::Artifact)
     return nothing
 end
 
-# --- Tracing (A1, D1) ------------------------------------------------------
+# --- Tracing ---------------------------------------------------------------
 #
-# The stop path is not a guess. Probed against the live 1.61.1 driver before
-# any of this was written (T1, tasks/m4-probe.md): `tracingStopChunk` with
+# The stop path comes from the live 1.61.1 driver rather than from the protocol
+# spec: `tracingStopChunk` with
 # mode="archive" returns a real Artifact whose `saveAs` writes a valid zip, on
 # Chromium and Firefox alike, with or without `tracesDir` set at launch. The
 # alternative the protocol also offers — mode="entries" plus `localUtils.zip`
@@ -246,7 +246,7 @@ function with_tracing(f, ctx::BrowserContext; path::AbstractString, kw...)
     end
 end
 
-# --- Video (A2, D6) --------------------------------------------------------
+# --- Video -----------------------------------------------------------------
 
 """
     video(page::Page) -> Union{Artifact,Nothing}
@@ -284,7 +284,7 @@ function video(page::Page)
     return from_channel(page.connection, raw)::Artifact
 end
 
-# --- PDF (A3) --------------------------------------------------------------
+# --- PDF -------------------------------------------------------------------
 
 """
     pdf(page::Page; path, kwargs...) -> String
@@ -355,7 +355,7 @@ function pdf_bytes(
     outline::Union{Bool,Nothing} = nothing,
     tagged::Union{Bool,Nothing} = nothing,
 )
-    # D7: knowable without asking, so ask nobody.
+    # Knowable without asking, so ask nobody.
     engine = browser_name(page)
     engine == "chromium" || throw(
         ArgumentError(

@@ -81,7 +81,7 @@ end
         for engine in ("chromium", "firefox")
             bt = getfield(pw, Symbol(engine))
 
-            @testset "$engine: record, stop the server, replay (T11, SC 12)" begin
+            @testset "$engine: record, stop the server, replay" begin
                 workdir = mktempdir()
                 archive = joinpath(workdir, "roundtrip.har")
 
@@ -96,7 +96,7 @@ end
                             page = new_page(browser)
                             ctx = first(contexts(browser))
                             with_har_recording(ctx; path = archive) do
-                                goto!(page, "$url/m6.html")
+                                goto!(page, "$url/network.html")
                                 click!(locator(page, "#load"))
                                 expect(locator(page, "#status"); to_have_text = "loaded")
                             end
@@ -124,7 +124,7 @@ end
                         page = new_page(browser)
                         ctx = first(contexts(browser))
                         with_har(ctx, archive) do
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
                             click!(locator(page, "#load"))
                             expect(locator(page, "#status"); to_have_text = "loaded")
                             todo_texts(page)
@@ -135,7 +135,7 @@ end
                 @test replayed == recorded
             end
 
-            @testset "$engine: a url filter leaves the document out (T11, SC 13)" begin
+            @testset "$engine: a url filter leaves the document out" begin
                 # SC 13 asserts the *absence* of something from the archive,
                 # which cannot be read off the file without parsing HAR — and
                 # this package does not parse HAR. So it is asserted the way a
@@ -150,7 +150,7 @@ end
                             page = new_page(browser)
                             ctx = first(contexts(browser))
                             with_har_recording(ctx; path = archive, url = "**/api/**") do
-                                goto!(page, "$url/m6.html")
+                                goto!(page, "$url/network.html")
                                 click!(locator(page, "#load"))
                                 expect(locator(page, "#status"); to_have_text = "loaded")
                             end
@@ -171,7 +171,7 @@ end
                         ctx = first(contexts(browser))
                         with_har(ctx, archive; not_found = :abort) do
                             try
-                                goto!(page, "$base_url/m6.html")
+                                goto!(page, "$base_url/network.html")
                                 false
                             catch
                                 true
@@ -182,7 +182,7 @@ end
                 @test navigation_failed
             end
 
-            @testset "$engine: update = true refreshes a stale archive (T12, SC 14)" begin
+            @testset "$engine: update = true refreshes a stale archive" begin
                 # The leg that closes the loop. Unlike every other replay test
                 # this one needs a backend to record *from*, which is why it
                 # does not share a fixture with them (D7 says so up front).
@@ -200,7 +200,7 @@ end
                             page = new_page(browser)
                             ctx = first(contexts(browser))
                             with_har_recording(ctx; path = archive) do
-                                goto!(page, "$url/m6.html")
+                                goto!(page, "$url/network.html")
                                 click!(locator(page, "#load"))
                                 expect(locator(page, "#status"); to_have_text = "loaded")
                             end
@@ -215,7 +215,7 @@ end
                             page = new_page(browser)
                             ctx = first(contexts(browser))
                             with_har(ctx, archive; update = true) do
-                                goto!(page, "$url/m6.html")
+                                goto!(page, "$url/network.html")
                                 click!(locator(page, "#load"))
                                 expect(locator(page, "#status"); to_have_text = "loaded")
                             end
@@ -237,7 +237,7 @@ end
                         page = new_page(browser)
                         ctx = first(contexts(browser))
                         with_har(ctx, archive) do
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
                             click!(locator(page, "#load"))
                             expect(locator(page, "#status"); to_have_text = "loaded")
                             todo_texts(page)

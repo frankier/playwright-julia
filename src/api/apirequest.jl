@@ -18,8 +18,8 @@ browser's own network stack, with its cookies and proxy settings.
 
 Not a `ChannelOwner`, because that is not what the protocol models (`api.yml`):
 it is an object identified by a `fetch_uid`. It is `mutable` for one reason —
-Julia attaches finalizers only to mutable objects, and R4's "a leaked response
-is disposed on finalization" needs one. Nothing mutates it but disposal.
+Julia attaches finalizers only to mutable objects, and a leaked response has to
+be disposed on finalization. Nothing mutates it but disposal.
 
 [`url`](@ref), [`status`](@ref), [`status_text`](@ref) and
 [`headers`](@ref) read its fields and cost nothing; [`body`](@ref),
@@ -50,8 +50,8 @@ mutable struct APIResponse
             name_value_pairs(get(raw, "headers", Any[])),
             false,
         )
-        # R4's second half. The first half is handle_route disposing what a
-        # handler fetched; this catches a response fetched outside one and then
+        # The second half of disposal. The first half is handle_route disposing
+        # what a handler fetched. This catches a response fetched outside one and
         # dropped, which the driver would otherwise buffer for the life of the
         # context.
         finalizer(dispose!, r)
@@ -305,7 +305,7 @@ function do_fetch(
     return response
 end
 
-# --- R4: responses fetched inside a route handler ---------------------------
+# --- Responses fetched inside a route handler ------------------------------
 #
 # The dispatcher runs handlers one at a time on its own task, so "the responses
 # this handler fetched" is exactly "the responses fetched on this task since

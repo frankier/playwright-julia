@@ -129,7 +129,7 @@ function last_patterns(requests)
 end
 
 @testset "routing" begin
-    # --- The dispatcher's lifetime (R1) -----------------------------------
+    # --- The dispatcher's lifetime ---------------------------------------------
 
     @testset "the dispatcher spawns on the first registration, not before" begin
         f = routing_fixture()
@@ -176,7 +176,7 @@ end
         close(f.conn)
     end
 
-    @testset "a handler that throws does not kill the dispatcher (D7)" begin
+    @testset "a handler that throws does not kill the dispatcher" begin
         f = routing_fixture()
         seen = Channel{String}(10)
         reg = route!(f.context, "**/*", function (route)
@@ -228,9 +228,9 @@ end
         @test istaskdone(task)
     end
 
-    # --- Registration and the pattern union (D9) --------------------------
+    # --- Registration and the pattern union ------------------------------------
 
-    @testset "the driver gets the union, re-sent on every change (D9)" begin
+    @testset "the driver gets the union, re-sent on every change" begin
         f = routing_fixture()
 
         reg1 = route!(f.context, "**/api/*", route -> abort!(route))
@@ -248,7 +248,7 @@ end
         close(f.conn)
     end
 
-    @testset "a Regex or predicate widens the union to **/* (D9)" begin
+    @testset "a Regex or predicate widens the union to **/*" begin
         f = routing_fixture()
 
         reg = route!(f.context, r"api", route -> abort!(route))
@@ -285,9 +285,9 @@ end
         close(f.conn)
     end
 
-    # --- Handler selection (D5) -------------------------------------------
+    # --- Handler selection -----------------------------------------------------
 
-    @testset "the newest matching registration wins (D5)" begin
+    @testset "the newest matching registration wins" begin
         f = routing_fixture()
         winner = Channel{String}(4)
 
@@ -322,7 +322,7 @@ end
         close(f.conn)
     end
 
-    @testset "handlers run sequentially, never concurrently (D5)" begin
+    @testset "handlers run sequentially, never concurrently" begin
         f = routing_fixture()
         # If two handlers ran at once this counter would see 2. Sequential
         # dispatch is what lets a user closure touch shared state unlocked.
@@ -352,7 +352,7 @@ end
         close(f.conn)
     end
 
-    # --- Exception collection (D7) ----------------------------------------
+    # --- Exception collection --------------------------------------------------
 
     @testset "one handler exception is rethrown directly" begin
         f = routing_fixture()
@@ -402,7 +402,7 @@ end
         close(f.conn)
     end
 
-    @testset "unroute! waits for an in-flight route to settle (D8)" begin
+    @testset "unroute! waits for an in-flight route to settle" begin
         f = routing_fixture()
         entered = Channel{Bool}(4)
         release = Channel{Bool}(4)
@@ -438,7 +438,7 @@ end
         close(f.conn)
     end
 
-    @testset "with_route unregisters even when the body throws (D8)" begin
+    @testset "with_route unregisters even when the body throws" begin
         f = routing_fixture()
         reg_count_before = registration_count(f.context)
 
@@ -487,7 +487,7 @@ end
     # `unroute!` the owner of that lifetime, so these tests are about *when* it
     # runs and how many times, not about what it does.
 
-    @testset "a release hook runs exactly once on unroute! (T3)" begin
+    @testset "a release hook runs exactly once on unroute!" begin
         f = routing_fixture()
         runs = Ref(0)
         reg = route!(f.context, "**/*", route -> abort!(route); release = () -> runs[] += 1)
@@ -501,7 +501,7 @@ end
         close(f.conn)
     end
 
-    @testset "unroute_all! runs every registration's release hook (T3)" begin
+    @testset "unroute_all! runs every registration's release hook" begin
         f = routing_fixture()
         a = Ref(0)
         b = Ref(0)
@@ -515,7 +515,7 @@ end
         close(f.conn)
     end
 
-    @testset "with_route runs the release hook even when the body throws (T3)" begin
+    @testset "with_route runs the release hook even when the body throws" begin
         f = routing_fixture()
         runs = Ref(0)
 
@@ -543,7 +543,7 @@ end
         close(f.conn)
     end
 
-    @testset "a registration without a release hook is unchanged (T3)" begin
+    @testset "a registration without a release hook is unchanged" begin
         f = routing_fixture()
         reg = route!(f.context, "**/*", route -> abort!(route))
         @test reg.release === nothing
@@ -552,7 +552,7 @@ end
         close(f.conn)
     end
 
-    @testset "the release hook runs after the handler's exception is collected (T3)" begin
+    @testset "the release hook runs after the handler's exception is collected" begin
         # Ordering matters for D3: the hook releases what the handler was using,
         # so it must run after the last dispatch and not before. Asserted through
         # the exception path because that is where an early release would show
@@ -576,7 +576,7 @@ end
 
     # --- The settle verbs --------------------------------------------------
 
-    @testset "abort! validates its error code client-side (D15)" begin
+    @testset "abort! validates its error code client-side" begin
         f = routing_fixture()
         route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
 
@@ -602,7 +602,7 @@ end
         close(f.conn)
     end
 
-    @testset "fulfill! rejects two body sources at the call site (D15)" begin
+    @testset "fulfill! rejects two body sources at the call site" begin
         f = routing_fixture()
         route = send_route(f.fake, "context@1", "route@1", "https://x.test/a")
 

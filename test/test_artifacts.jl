@@ -4,7 +4,7 @@
 # wire params, argument validation, repo hygiene. The browser legs live behind
 # PLAYWRIGHT_JL_SMOKE=1 at the bottom of the file.
 
-@testset "artifacts stay out of git (T0)" begin
+@testset "artifacts stay out of git" begin
     # The tests below write real binaries — trace zips, .webm video, PDF — into
     # artifacts/. Ignoring the directory is what stops one of them being
     # committed by a `git add -A` on a bad day, so it is asserted rather than
@@ -97,7 +97,7 @@ end
 # already exist; this is the hand-written layer over them, and its whole job is
 # to keep wire spellings out of the API layer.
 
-@testset "Artifact (T4)" begin
+@testset "Artifact" begin
     @testset "save_as! sends the path and returns it" begin
         f = timeout_fixture()
         art = fixture_artifact(f)
@@ -125,7 +125,7 @@ end
     # Called out on its own because M7's Download extends this exact signature,
     # and a new name should be born with the right shape rather than renamed a
     # week later.
-    @testset "the artifact family agrees on one calling convention (SC 8)" begin
+    @testset "the artifact family agrees on one calling convention" begin
         f = timeout_fixture()
         art = fixture_artifact(f)
         dest = joinpath(mktempdir(), "chained.zip")
@@ -191,7 +191,7 @@ function fixture_tracing(f)
     return Playwright.lookup_object(f.fake.connection, "tracing@1")
 end
 
-@testset "tracing (T5)" begin
+@testset "tracing" begin
     @testset "start_tracing! starts a recording and opens a chunk" begin
         # Both calls are needed: tracingStart configures the recording,
         # tracingStartChunk opens the span that tracingStopChunk closes. A
@@ -216,7 +216,7 @@ end
         close(f.fake.connection)
     end
 
-    @testset "sources is not a keyword at all (D8, SC 9)" begin
+    @testset "sources is not a keyword at all" begin
         # Inverted rather than deleted. It used to be accepted and refused at
         # runtime with an ArgumentError; M7 removes it from the signature, so
         # the same call is a MethodError. Same answer, delivered earlier and by
@@ -382,7 +382,7 @@ end
 
 # --- T6: video (SPEC-M4.md A2, D6) ----------------------------------------
 
-@testset "video (T6)" begin
+@testset "video" begin
     @testset "record_video marshals to the recordVideo object" begin
         f = timeout_fixture()
         sent = waiting_request(
@@ -468,7 +468,7 @@ end
 
 # --- T7: pdf (SPEC-M4.md A3, D7) ------------------------------------------
 
-@testset "pdf (T7)" begin
+@testset "pdf" begin
     "Reply to a pdf request with `bytes`, the way the driver does (base64)."
     pdf_reply(fake, id, bytes) =
         reply_ok(fake, id, Dict{String,Any}("pdf" => base64encode(bytes)))
@@ -535,7 +535,7 @@ end
     # be the in-memory form and is now nothing at all — a MethodError rather
     # than a silent change of return type, which is the whole reason `path`
     # became required instead of merely recommended.
-    @testset "capture and export are separate functions (SC 7)" begin
+    @testset "capture and export are separate functions" begin
         f = timeout_fixture()
 
         # SPEC-M7 D5 predicts a MethodError here. It is an UndefKeywordError,
@@ -585,12 +585,12 @@ end
     end
 end
 
-@testset "the m4 fixture exists (T0)" begin
-    fixture = joinpath(@__DIR__, "fixtures", "m4.html")
+@testset "the late-title fixture exists" begin
+    fixture = joinpath(@__DIR__, "fixtures", "late-title.html")
     @test isfile(fixture)
 
     html = read(fixture, String)
-    # The target snippet asserts `to_have_title = "M4"`, and SC 6 wants that
+    # The target snippet asserts `to_have_title = "Dashboard"`, and SC 6 wants that
     # value to arrive *late* — a title that is already correct at parse proves
     # nothing about retrying. So the document starts under a different title
     # and renames itself.
@@ -606,14 +606,14 @@ end
 const ARTIFACT_DIR = joinpath(@__DIR__, "..", "artifacts")
 
 if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
-    @testset "artifacts, live (M4)" begin
+    @testset "artifacts, live" begin
         mkpath(ARTIFACT_DIR)
         with_fixture_server() do base_url
             playwright() do pw
                 for engine in ("chromium", "firefox")
                     bt = getfield(pw, Symbol(engine))
 
-                    @testset "$engine: tracing round-trip (T5, SC 1)" begin
+                    @testset "$engine: tracing round-trip" begin
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         dest = joinpath(ARTIFACT_DIR, "trace-$engine.zip")
@@ -626,7 +626,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                             snapshots = true,
                         ) do
                             page = new_page(ctx)
-                            goto!(page, "$base_url/m4.html")
+                            goto!(page, "$base_url/late-title.html")
                             click!(locator(page, "h1"))
                             return :done
                         end
@@ -643,7 +643,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: the trace survives a throwing block (T5, SC 2)" begin
+                    @testset "$engine: the trace survives a throwing block" begin
                         # The case the milestone exists for: the run worth
                         # tracing is the one that failed.
                         browser = launch(bt; headless = true)
@@ -654,7 +654,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         err = try
                             with_tracing(ctx; path = dest) do
                                 page = new_page(ctx)
-                                goto!(page, "$base_url/m4.html")
+                                goto!(page, "$base_url/late-title.html")
                                 error("deliberate failure mid-trace")
                             end
                             nothing
@@ -672,7 +672,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: video (T6, SC 4)" begin
+                    @testset "$engine: video" begin
                         browser = launch(bt; headless = true)
                         video_dir = joinpath(ARTIFACT_DIR, "video-$engine")
                         ispath(video_dir) && rm(video_dir; recursive = true)
@@ -685,7 +685,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                             ),
                         )
                         page = new_page(ctx)
-                        goto!(page, "$base_url/m4.html")
+                        goto!(page, "$base_url/late-title.html")
                         click!(locator(page, "h1"))
 
                         v = video(page)
@@ -710,20 +710,20 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: no recording means video(page) is nothing (SC 4)" begin
+                    @testset "$engine: no recording means video(page) is nothing" begin
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         page = new_page(ctx)
-                        goto!(page, "$base_url/m4.html")
+                        goto!(page, "$base_url/late-title.html")
                         @test video(page) === nothing
                         close!(browser)
                     end
 
-                    @testset "$engine: pdf (T7, SC 5)" begin
+                    @testset "$engine: pdf" begin
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         page = new_page(ctx)
-                        goto!(page, "$base_url/m4.html")
+                        goto!(page, "$base_url/late-title.html")
 
                         @test browser_name(page) == engine
 

@@ -1,6 +1,6 @@
 # Request and Response: what the browser asked for, and what came back.
 #
-# D10: both carry nearly everything in their initializer, which is already in
+# Both carry nearly everything in their initializer, which is already in
 # memory by the time the event that delivered them arrives. The accessors read
 # it directly. Only `body`, `response` and the two raw-header calls go to the
 # wire, and each of those says so in its docstring — a round trip inside a

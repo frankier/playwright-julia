@@ -63,7 +63,7 @@ ws_received(page) =
     [text_content(item) for item in locator(page, "#received li"; strict = false)]
 
 """
-Open `m8.html` with `route` armed on the context, run `body(page)`, and tear the
+Open `websocket.html` with `route` armed on the context, run `body(page)`, and tear the
 browser down afterwards.
 
 The route is registered **before** the navigation: a pattern armed after the
@@ -76,7 +76,7 @@ function with_routed_socket(body, bt, base_url, handler; label = "ws")
             ctx = new_context(browser)
             page = new_page(ctx)
             with_web_socket_route(ctx, "**/ws", handler) do
-                goto!(page, "$base_url/m8.html")
+                goto!(page, "$base_url/websocket.html")
                 click!(locator(page, "#open"))
                 expect(locator(page, "#status"); to_have_text = "open")
                 body(page)
@@ -91,7 +91,7 @@ end
             for engine in ("chromium", "firefox")
                 bt = getfield(pw, Symbol(engine))
 
-                @testset "$engine: a context-armed pattern delivers on the context (T17, OQ2)" begin
+                @testset "$engine: a context-armed pattern delivers on the context" begin
                     # The half the spec-phase probe left open, and the reason
                     # this is Part D's *first* task: if webSocketRoute came back
                     # page-scoped for a context-armed pattern, D11's registry
@@ -117,7 +117,7 @@ end
                                     patterns = [Dict{String,Any}("glob" => "**/ws")],
                                 )
                                 before = connections[]
-                                goto!(page, "$base_url/m8.html")
+                                goto!(page, "$base_url/websocket.html")
                                 click!(locator(page, "#open"))
 
                                 arrived =
@@ -158,7 +158,7 @@ end
                     @test observed.new_connections == 0
                 end
 
-                @testset "$engine: mock mode never contacts the server (T22, SC 22)" begin
+                @testset "$engine: mock mode never contacts the server" begin
                     # Asserted server-side, which is the only place it can be
                     # asserted: a client-side check cannot tell "the server was
                     # never asked" from "it answered and we ignored it".
@@ -182,7 +182,7 @@ end
                     @test connections[] == before
                 end
 
-                @testset "$engine: proxy mode rewrites a server message (T22, SC 23)" begin
+                @testset "$engine: proxy mode rewrites a server message" begin
                     before = connections[]
                     received = with_routed_socket(
                         bt,
@@ -212,7 +212,7 @@ end
                     @test connections[] == before + 1
                 end
 
-                @testset "$engine: a binary frame survives each way (T22, SC 24)" begin
+                @testset "$engine: a binary frame survives each way" begin
                     seen = Ref{Any}(nothing)
                     bytes = with_routed_socket(
                         bt,
@@ -236,7 +236,7 @@ end
                     @test seen[] == UInt8[1, 2, 3, 4]
                 end
 
-                @testset "$engine: close_ws! is what the page's onclose sees (T22, SC 25)" begin
+                @testset "$engine: close_ws! is what the page's onclose sees" begin
                     closed = with_routed_socket(
                         bt,
                         base_url,
@@ -257,7 +257,7 @@ end
                     @test closed == "closed:4001:all done"
                 end
 
-                @testset "$engine: a handled server message is swallowed (T22, SC 26)" begin
+                @testset "$engine: a handled server message is swallowed" begin
                     # D12's sharp edge, pinned as intended on real browsers as
                     # well as against the fake connection. The callback replaces
                     # the forwarding, so the echo never reaches the page — and

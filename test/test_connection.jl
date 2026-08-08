@@ -99,7 +99,7 @@ end
         close(fake.connection)
     end
 
-    @testset "local_utils names HAR replay when the driver exposes none (T2, SC 1)" begin
+    @testset "local_utils names HAR replay when the driver exposes none" begin
         # Playwright.utils is `LocalUtils?` in the protocol (playwright.yml:36),
         # so its absence is a case that has to have an answer. D1's answer is an
         # error that says what is unavailable and why, raised at the accessor —
@@ -119,7 +119,7 @@ end
         close(fake.connection)
     end
 
-    @testset "local_utils returns the LocalUtils when the driver has one (T2)" begin
+    @testset "local_utils returns the LocalUtils when the driver has one" begin
         fake = FakeDriver()
         send_create(fake, "", "LocalUtils", "localUtils")
         sync(fake)
@@ -330,7 +330,7 @@ end
         @test !any(v -> v === nothing, values(params))
     end
 
-    # --- D10's pin (T13) ---------------------------------------------------
+    # --- D10's pin -------------------------------------------------------------
     #
     # These grow *before* launch/new_context are refactored onto shared option
     # builders, not after (R4). launch and new_context are used by every test
@@ -351,7 +351,7 @@ end
         return (fake = fake, browser = browser)
     end
 
-    @testset "new_context sends only the options that were set (T13, SC 16)" begin
+    @testset "new_context sends only the options that were set" begin
         f = context_fixture()
 
         # Defaults only: new_context sets nothing of its own, so the params are
@@ -368,7 +368,7 @@ end
         close(f.fake.connection)
     end
 
-    @testset "new_context's full option set crosses unchanged (T13, SC 16)" begin
+    @testset "new_context's full option set crosses unchanged" begin
         f = context_fixture()
 
         task = @async new_context(
@@ -436,7 +436,7 @@ end
         close(f.fake.connection)
     end
 
-    @testset "launch_persistent_context sends the union of both (T14, SC 15)" begin
+    @testset "launch_persistent_context sends the union of both" begin
         fake = FakeDriver()
         bt = Playwright.BrowserType(
             fake.connection,
@@ -488,7 +488,7 @@ end
         close(fake.connection)
     end
 
-    @testset "an empty user_data_dir is refused before the wire (T14, SC 17)" begin
+    @testset "an empty user_data_dir is refused before the wire" begin
         fake = FakeDriver()
         bt = Playwright.BrowserType(
             fake.connection,
@@ -514,7 +514,7 @@ end
         close(fake.connection)
     end
 
-    @testset "an unknown keyword names itself, not a builder (T14)" begin
+    @testset "an unknown keyword names itself, not a builder" begin
         # The cost of forwarding kwargs to T13's builders is that a typo would
         # otherwise surface as a MethodError inside launch_options. It is caught
         # here instead, where the caller can see which keyword they meant.
@@ -536,7 +536,7 @@ end
         close(fake.connection)
     end
 
-    @testset "the option-key split covers both builders exactly (T14, D10)" begin
+    @testset "the option-key split covers both builders exactly" begin
         # The guard against the drift D10 exists to prevent: if a keyword is
         # added to either builder, the splitting in launch_persistent_context
         # must see it, or that option silently stops reaching the wire for the
@@ -551,7 +551,7 @@ end
         @test isempty(intersect(launch_keys, context_keys))
     end
 
-    @testset "close! on a persistent context closes only the context (T15, SC 20)" begin
+    @testset "close! on a persistent context closes only the context" begin
         # SPEC-M8 D9 wanted close!(ctx) to close the browser as well, on the
         # premise that otherwise every use leaks a browser process. **That
         # premise is false on this driver** — probed on both engines
@@ -606,7 +606,7 @@ end
         close(fake.connection)
     end
 
-    @testset "a non-persistent context closes only itself (T15, SC 20)" begin
+    @testset "a non-persistent context closes only itself" begin
         # Unchanged by any of the above, and asserted so it stays that way.
         fake = FakeDriver()
         ctx = Playwright.BrowserContext(
@@ -629,7 +629,7 @@ end
         close(fake.connection)
     end
 
-    @testset "accept_downloads = false denies rather than omitting (T13, SC 16)" begin
+    @testset "accept_downloads = false denies rather than omitting" begin
         f = context_fixture()
         task = @async new_context(f.browser; accept_downloads = false)
         msg = take!(f.fake.client_messages)
@@ -647,7 +647,7 @@ end
 # driver, so it is asserted against the driver — the probe found it present
 # (m8-probe.md PQ0) and this is what keeps that true.
 if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
-    @testset "the pinned driver exposes a LocalUtils (T2, SC 1)" begin
+    @testset "the pinned driver exposes a LocalUtils" begin
         playwright() do pw
             @test pw.utils isa Playwright.LocalUtils
             @test Playwright.local_utils(pw.connection) === pw.utils

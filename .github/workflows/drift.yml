@@ -1,4 +1,4 @@
-# Upstream drift detection (D2).
+# Upstream drift detection.
 #
 # examples/Manifest.toml is committed and pinned so that a Genie or Makie
 # release cannot redden a pull request. The cost of that is not noticing when

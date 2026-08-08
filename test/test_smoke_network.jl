@@ -156,7 +156,7 @@ todo_texts(page) =
             for engine in ("chromium", "firefox")
                 bt = getfield(pw, Symbol(engine))
 
-                @testset "$engine: with_route fulfils with no server behind it (SC 1)" begin
+                @testset "$engine: with_route fulfils with no server behind it" begin
                     seen = within_deadline("$engine SC 1") do
                         with_browser(bt) do browser
                             page = new_page(browser)
@@ -171,7 +171,7 @@ todo_texts(page) =
                                     json = ["mocked one", "mocked two"],
                                 ),
                             ) do
-                                goto!(page, "$base_url/m6.html")
+                                goto!(page, "$base_url/network.html")
                                 click!(locator(page, "#load"))
                                 expect(locator(page, "#status"); to_have_text = "loaded")
                             end
@@ -190,7 +190,7 @@ todo_texts(page) =
                     @test seen.after == seen.before
                 end
 
-                @testset "$engine: page routes are page-scoped, context routes are not (SC 2)" begin
+                @testset "$engine: page routes are page-scoped, context routes are not" begin
                     seen = within_deadline("$engine SC 2") do
                         with_browser(bt) do browser
                             ctx = new_context(browser)
@@ -202,14 +202,14 @@ todo_texts(page) =
                                 "**/api/todos",
                                 route -> fulfill!(route; json = ["page-scoped"]),
                             ) do
-                                goto!(routed, "$base_url/m6.html")
+                                goto!(routed, "$base_url/network.html")
                                 click!(locator(routed, "#load"))
                                 expect(locator(routed, "#status"); to_have_text = "loaded")
 
                                 # The other page in the same context is untouched
                                 # by a Page registration — it gets the server's
                                 # answer, not the mock.
-                                goto!(other, "$base_url/m6.html")
+                                goto!(other, "$base_url/network.html")
                                 click!(locator(other, "#load"))
                                 expect(locator(other, "#status"); to_have_text = "loaded")
 
@@ -224,7 +224,7 @@ todo_texts(page) =
                             ) do
                                 out = String[]
                                 for page in (routed, other)
-                                    goto!(page, "$base_url/m6.html")
+                                    goto!(page, "$base_url/network.html")
                                     click!(locator(page, "#load"))
                                     expect(
                                         locator(page, "#status");
@@ -244,7 +244,7 @@ todo_texts(page) =
                     @test seen.both == ["context-scoped", "context-scoped"]
                 end
 
-                @testset "$engine: unmatched requests are continued, page loads (SC 3)" begin
+                @testset "$engine: unmatched requests are continued, page loads" begin
                     seen = within_deadline("$engine SC 3") do
                         with_browser(bt) do browser
                             page = new_page(browser)
@@ -265,7 +265,7 @@ todo_texts(page) =
                                 _url -> false,
                                 route -> fulfill!(route; body = "unreachable"),
                             ) do
-                                response = goto!(page, "$base_url/m6.html")
+                                response = goto!(page, "$base_url/network.html")
 
                                 # And a normal API call still reaches the server
                                 # through the un-matching registration.
@@ -282,16 +282,16 @@ todo_texts(page) =
                     end
 
                     @test seen.navigated
-                    @test seen.heading == "M6"
+                    @test seen.heading == "Network"
                     @test seen.todos == ["from the server"]
                 end
 
-                @testset "$engine: a throwing handler surfaces out of with_route (SC 4)" begin
+                @testset "$engine: a throwing handler surfaces out of with_route" begin
                     seen = within_deadline("$engine SC 4") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             thrown = nothing
                             try
@@ -325,16 +325,16 @@ todo_texts(page) =
                     @test seen.thrown !== nothing
                     @test occursin("the handler is broken", sprint(showerror, seen.thrown))
                     # ...and the page underneath still completed (D7).
-                    @test seen.heading == "M6"
+                    @test seen.heading == "Network"
                     @test seen.todos == ["from the server"]
                 end
 
-                @testset "$engine: a handler that settles nothing warns once, no hang (SC 5)" begin
+                @testset "$engine: a handler that settles nothing warns once, no hang" begin
                     seen = within_deadline("$engine SC 5") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             logger = Test.TestLogger(; min_level = CoreLogging.Warn)
                             todos = CoreLogging.with_logger(logger) do
@@ -376,12 +376,12 @@ todo_texts(page) =
                     @test seen.warnings == 1
                 end
 
-                @testset "$engine: expect_request returns the real request (SC 9)" begin
+                @testset "$engine: expect_request returns the real request" begin
                     seen = within_deadline("$engine SC 9") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             got = expect_request(ctx, "**/api/todos") do
                                 click!(locator(page, "#post"))
@@ -407,12 +407,12 @@ todo_texts(page) =
                     @test seen.resource in ("fetch", "xhr")
                 end
 
-                @testset "$engine: expect_response reads status, headers and body (SC 10)" begin
+                @testset "$engine: expect_response reads status, headers and body" begin
                     seen = within_deadline("$engine SC 10") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             got = expect_response(ctx, "**/api/todos") do
                                 click!(locator(page, "#load"))
@@ -434,7 +434,7 @@ todo_texts(page) =
                             # A non-200 as well, so `ok` is proved false
                             # somewhere and not merely true everywhere.
                             missing_one = expect_response(ctx, "**/missing.png") do
-                                goto!(page, "$base_url/m6.html")
+                                goto!(page, "$base_url/network.html")
                             end
 
                             (
@@ -454,12 +454,12 @@ todo_texts(page) =
                     @test seen.missing_ok == false
                 end
 
-                @testset "$engine: :requestfailed fires with the engine's text (SC 11)" begin
+                @testset "$engine: :requestfailed fires with the engine's text" begin
                     seen = within_deadline("$engine SC 11") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             failure = expect_event(ctx, :requestfailed) do
                                 # Abort is a failure from the page's point of
@@ -489,14 +489,14 @@ todo_texts(page) =
                     @test !isempty(seen.text)
                 end
 
-                @testset "$engine: page-scoped events see only their page (SC 12)" begin
+                @testset "$engine: page-scoped events see only their page" begin
                     seen = within_deadline("$engine SC 12") do
                         with_browser(bt) do browser
                             ctx = new_context(browser)
                             watched = new_page(ctx)
                             noisy = new_page(ctx)
-                            goto!(watched, "$base_url/m6.html")
-                            goto!(noisy, "$base_url/m6.html")
+                            goto!(watched, "$base_url/network.html")
+                            goto!(noisy, "$base_url/network.html")
 
                             # Both pages call the same URL inside the block. The
                             # page-scoped subscription must return the watched
@@ -521,12 +521,12 @@ todo_texts(page) =
                     @test endswith(seen.url, "/api/todos")
                 end
 
-                @testset "$engine: the four network events are no longer deferred (SC 13)" begin
+                @testset "$engine: the four network events are no longer deferred" begin
                     seen = within_deadline("$engine SC 13") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             # expect_event(ctx, :request) used to raise
                             # ArgumentError("deferred"). It returns a Request now.
@@ -544,12 +544,12 @@ todo_texts(page) =
                     @test seen.finished isa Playwright.Request
                 end
 
-                @testset "$engine: fulfil from a real upstream response (SC 14)" begin
+                @testset "$engine: fulfil from a real upstream response" begin
                     seen = within_deadline("$engine SC 14") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             upstream_status = Ref(0)
                             upstream_body = Ref("")
@@ -588,12 +588,12 @@ todo_texts(page) =
                     @test seen.rendered == ["from the server"]
                 end
 
-                @testset "$engine: an APIResponse is disposed after its handler (SC 15)" begin
+                @testset "$engine: an APIResponse is disposed after its handler" begin
                     seen = within_deadline("$engine SC 15") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             captured = Ref{Any}(nothing)
                             with_route(
@@ -645,12 +645,12 @@ todo_texts(page) =
                     @test seen.body_after_dispose == "raised"
                 end
 
-                @testset "$engine: raw_headers differs from headers (SC 16)" begin
+                @testset "$engine: raw_headers differs from headers" begin
                     seen = within_deadline("$engine SC 16") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             got = expect_request(ctx, "**/api/todos") do
                                 click!(locator(page, "#load"))
@@ -683,12 +683,12 @@ todo_texts(page) =
                     end
                 end
 
-                @testset "$engine: overlapping registrations resolve newest-first (SC 6)" begin
+                @testset "$engine: overlapping registrations resolve newest-first" begin
                     seen = within_deadline("$engine SC 6") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
 
                             older = route!(
                                 ctx,
@@ -728,12 +728,12 @@ todo_texts(page) =
                     @test seen.none == ["from the server"]
                 end
 
-                @testset "$engine: abort! stops the request reaching the server (SC 7)" begin
+                @testset "$engine: abort! stops the request reaching the server" begin
                     seen = within_deadline("$engine SC 7") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
                             before = hits[]
 
                             with_route(ctx, "**/api/hits", route -> abort!(route)) do
@@ -759,12 +759,12 @@ todo_texts(page) =
                     @test seen.after == seen.before
                 end
 
-                @testset "$engine: continue! reaches the server modified (SC 8)" begin
+                @testset "$engine: continue! reaches the server modified" begin
                     seen = within_deadline("$engine SC 8") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
-                            goto!(page, "$base_url/m6.html")
+                            goto!(page, "$base_url/network.html")
                             seen_headers[] = Dict{String,String}()
 
                             with_route(

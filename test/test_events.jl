@@ -319,7 +319,7 @@ end
         close(f.conn)
     end
 
-    @testset "payloads arrive as the milestone's own types" begin
+    @testset "payloads arrive as their own wrapper types" begin
         f = event_fixture()
 
         # :page hands back a Page, resolved through the registry
@@ -559,7 +559,7 @@ end
     # wrapped yet" long after Artifact was wrapped, so the error told users
     # something false about why their event was unsupported. The drift was the
     # finding, not the entry -- a table that drifts once will drift again.
-    @testset "the deferred table names only unsupported events (SC 23, 24)" begin
+    @testset "the deferred table names only unsupported events" begin
         f = event_fixture()
 
         # The gate itself, on both owners.
@@ -614,7 +614,7 @@ end
     # catches an entry that lies about being unsupported; nothing caught an
     # event that was silently unmentioned, which is why this asserts on the
     # message a user actually sees rather than on table membership.
-    @testset "asking for :dialog explains the registry (m7-api-gaps gap 2)" begin
+    @testset "asking for :dialog explains the registry" begin
         f = event_fixture()
         for owner in (f.page, f.context)
             err = try

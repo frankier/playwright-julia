@@ -282,12 +282,12 @@ end
 # document-level assertion is the **empty string**, and ":root" or "html" fail
 # with the same generic ExpectFailure a real mismatch produces.
 
-@testset "expect on a document (T8)" begin
+@testset "expect on a document" begin
     @testset "to_have_title goes out with the probed selector and expression" begin
         f = timeout_fixture()
         set_default_timeout!(f.context, 2_000)
 
-        sent = waiting_request(f.fake, () -> expect(f.page; to_have_title = "M4"))
+        sent = waiting_request(f.fake, () -> expect(f.page; to_have_title = "Dashboard"))
         # It runs against the page's main frame...
         @test sent["guid"] == "frame@1"
         @test sent["method"] == "expect"
@@ -295,7 +295,7 @@ end
         # ...with the empty selector. This is the probed value, and the one
         # thing here that cannot be guessed from the yml.
         @test sent["params"]["selector"] == ""
-        @test sent["params"]["expectedText"] == [Dict("string" => "M4")]
+        @test sent["params"]["expectedText"] == [Dict("string" => "Dashboard")]
         @test sent["params"]["isNot"] == false
         @test sent["params"]["timeout"] == 2_000
         close(f.fake.connection)
@@ -332,7 +332,7 @@ end
 
     @testset "a passing assertion returns its target, so calls chain" begin
         f = timeout_fixture()
-        task = @async expect(f.page; to_have_title = "M4")
+        task = @async expect(f.page; to_have_title = "Dashboard")
         msg = take!(f.fake.client_messages)
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
         @test fetch(task) === f.page
@@ -342,7 +342,7 @@ end
     @testset "several matchers in one call are each checked" begin
         f = timeout_fixture()
         sent = Vector{Any}()
-        task = @async expect(f.page; to_have_title = "M4", to_have_url = r"m4")
+        task = @async expect(f.page; to_have_title = "Dashboard", to_have_url = r"dash")
         for _ = 1:2
             @test timedwait(() -> isready(f.fake.client_messages), 10.0) === :ok
             msg = take!(f.fake.client_messages)
@@ -359,7 +359,7 @@ end
         f = timeout_fixture()
         task = @async expect(f.page; to_have_title = "Wrong")
         msg = take!(f.fake.client_messages)
-        expect_failure_reply(f.fake, msg["id"]; received = Dict("s" => "M4"))
+        expect_failure_reply(f.fake, msg["id"]; received = Dict("s" => "Dashboard"))
         err = try
             fetch(task)
             nothing
@@ -368,7 +368,7 @@ end
         end
         @test err isa Playwright.AssertionFailure
         @test occursin("Wrong", err.message)          # expected
-        @test occursin("M4", err.message)             # received
+        @test occursin("Dashboard", err.message)             # received
         @test occursin("to_have_title", err.message)  # which matcher
         # ...and it says *page*, not locator("") — an empty selector in an
         # error message reads like a bug in the package.
@@ -459,7 +459,7 @@ RecordingTestSet(description) = RecordingTestSet(description, [])
 Test.record(ts::RecordingTestSet, result) = (push!(ts.results, result); result)
 Test.finish(ts::RecordingTestSet) = ts
 
-@testset "retry_until knobs (T2)" begin
+@testset "retry_until knobs" begin
     @testset "on_timeout = :false returns false instead of raising" begin
         # B1. The whole point: a value @test can render as a Fail.
         result = retry_until(() -> false; timeout = 200, interval = 10, on_timeout = :false)

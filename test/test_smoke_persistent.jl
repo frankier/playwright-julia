@@ -19,7 +19,7 @@ using Playwright: launch_persistent_context
             for engine in ("chromium", "firefox")
                 bt = getfield(pw, Symbol(engine))
 
-                @testset "$engine: the profile survives the process (T16, SC 18)" begin
+                @testset "$engine: the profile survives the process" begin
                     profile = mktempdir()
 
                     # --- First launch: write a cookie and a localStorage key --
@@ -76,7 +76,7 @@ using Playwright: launch_persistent_context
                     @test occursin("m8=survived", reopened.cookie)
                 end
 
-                @testset "$engine: it arrives with exactly one page (T16, SC 19)" begin
+                @testset "$engine: it arrives with exactly one page" begin
                     # Asserted so that a driver change to this behaviour is
                     # caught here rather than in a user's confusing blank second
                     # page. It is the one way a persistent context differs from
@@ -99,7 +99,7 @@ using Playwright: launch_persistent_context
                     @test count_and_second[2] == 2
                 end
 
-                @testset "$engine: close! leaves no browser process (T16, SC 20)" begin
+                @testset "$engine: close! leaves no browser process" begin
                     # The process-level half of SC 20. T15 asserted the close on
                     # the wire; this asserts nothing is actually left running,
                     # which is the claim that matters and the one the wire
