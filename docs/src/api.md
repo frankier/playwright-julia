@@ -18,6 +18,7 @@ playwright
 launch
 install
 new_context
+launch_persistent_context
 new_page
 close!
 contexts

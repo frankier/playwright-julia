@@ -129,6 +129,8 @@
         :with_har_recording,
         :frame_name,
         :new_context,
+        # M8 T14: persistent contexts (D9, D10)
+        :launch_persistent_context,
         :new_page,
         :nth,
         :owner_frame,

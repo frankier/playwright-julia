@@ -332,6 +332,117 @@ one.
 new_context(browser::Browser; kwargs...) =
     _browser_new_context(browser; context_options(; kwargs...)...)::BrowserContext
 
+"""
+    launch_persistent_context(browser_type, user_data_dir; kwargs...) -> BrowserContext
+
+Launch a browser on the profile directory `user_data_dir` and return its
+context, so cookies, `localStorage` and the rest of the profile **survive the
+process**.
+
+Every context this package otherwise makes is a fresh incognito profile. That is
+the right default and the wrong only option: a suite for anything with a login
+has to replay the login every test or reach for `storage_state`, and neither is
+what a real browser does.
+
+```julia
+ctx = launch_persistent_context(pw.chromium, "/tmp/profile"; headless = true)
+# A persistent context arrives with a page already open — use it rather than
+# calling new_page, which would open a blank second one (D9).
+page = first(pages(ctx))
+goto!(page, url)
+click!(locator(page, "#accept-cookies"))
+close!(ctx)
+
+# Same directory, new process. The cookie is still there.
+ctx = launch_persistent_context(pw.chromium, "/tmp/profile"; headless = true)
+```
+
+Takes the keywords of [`launch`](@ref) **and** [`new_context`](@ref) together;
+see those for what each does.
+
+`user_data_dir` is positional because it is the entire reason the function
+exists and there is no sensible default. Playwright allows an empty string,
+meaning a temporary profile; this package raises instead, because a *persistent*
+context whose profile evaporates is a call nobody meant to make.
+
+!!! note "It comes with a page, and `close!` takes the browser with it"
+    `length(pages(ctx)) == 1` immediately after this returns — probed on both
+    engines — which is the one way this function differs from every other
+    context in the package. Reach for `first(pages(ctx))`, not
+    [`new_page`](@ref).
+
+    [`close!`](@ref) on the returned context also closes the browser it was
+    launched with (D9). The browser has exactly one context and is not
+    independently useful, so the alternative is leaking a browser process on
+    every use — invisibly, because the thing you were holding did close.
+"""
+function launch_persistent_context(
+    bt::BrowserType,
+    user_data_dir::AbstractString;
+    kwargs...,
+)
+    isempty(user_data_dir) && throw(
+        ArgumentError(
+            "user_data_dir must name a directory. Playwright reads an empty " *
+            "string as \"use a temporary profile\", which is the opposite of " *
+            "what launch_persistent_context is for — use new_context for a " *
+            "profile that need not survive the process.",
+        ),
+    )
+
+    launch_keys = option_keywords(launch_options)
+    context_keys = option_keywords(context_options)
+    unknown = setdiff(keys(kwargs), (launch_keys..., context_keys...))
+    isempty(unknown) || throw(
+        ArgumentError(
+            "unknown option$(length(unknown) == 1 ? "" : "s") " *
+            "$(join(map(repr, unknown), ", ")) for launch_persistent_context. " *
+            "It takes launch's keywords and new_context's together.",
+        ),
+    )
+
+    split(names) = (; (k => v for (k, v) in kwargs if k in names)...)
+    options = merge(
+        launch_options(; split(launch_keys)...),
+        context_options(; split(context_keys)...),
+    )
+
+    result = _browser_type_launch_persistent_context(
+        bt;
+        userDataDir = String(user_data_dir),
+        options...,
+    )
+    context = result.context::BrowserContext
+    # The context owns the browser from here: close!(ctx) closes both (D9).
+    remember_persistent_browser!(context, result.browser::Browser)
+    return context
+end
+
+# Contexts from launch_persistent_context own the browser they were launched
+# with, so close!(ctx) can take it down too (D9). Beside IMPLICIT_CONTEXTS and
+# for the same reason: a BrowserContext is a generated struct with a fixed field
+# layout, so the association lives here rather than on the object.
+#
+# SPEC-M8 D9 suggested the connection-side state table; this is the shape the
+# package already uses for exactly this relationship one level down (a Page and
+# the context new_page created for it), and matching it beats matching the
+# suggestion.
+const PERSISTENT_BROWSERS = Dict{String,Browser}()
+const PERSISTENT_BROWSERS_LOCK = ReentrantLock()
+
+remember_persistent_browser!(ctx::BrowserContext, browser::Browser) =
+    lock(PERSISTENT_BROWSERS_LOCK) do
+        PERSISTENT_BROWSERS[ctx.guid] = browser
+    end
+
+"The browser a persistent context owns, and forget it — close! calls this once."
+take_persistent_browser!(ctx::BrowserContext) =
+    lock(PERSISTENT_BROWSERS_LOCK) do
+        browser = get(PERSISTENT_BROWSERS, ctx.guid, nothing)
+        browser === nothing || delete!(PERSISTENT_BROWSERS, ctx.guid)
+        browser
+    end
+
 # Pages opened by new_page(::Browser) own the context created for them, so
 # close!(page) can tear it down (D7). A Page is a generated struct with a fixed
 # field layout, so the association lives here rather than on the object.

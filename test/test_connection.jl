@@ -426,6 +426,121 @@ end
         close(f.fake.connection)
     end
 
+    @testset "launch_persistent_context sends the union of both (T14, SC 15)" begin
+        fake = FakeDriver()
+        bt = Playwright.BrowserType(
+            fake.connection,
+            "BrowserType",
+            "browserType@1",
+            Dict{String,Any}("name" => "chromium"),
+        )
+
+        task = @async launch_persistent_context(
+            bt,
+            "/tmp/m8-profile";
+            headless = false,           # a launch option
+            args = ["--no-sandbox"],    # ...another
+            viewport = (width = 800, height = 600),   # a context option
+            locale = "de-DE",           # ...another
+        )
+        msg = take!(fake.client_messages)
+        @test msg["method"] == "launchPersistentContext"
+        params = msg["params"]
+
+        @test params["userDataDir"] == "/tmp/m8-profile"
+        # Both families, in one message, through T13's builders.
+        @test params["headless"] === false
+        @test params["args"] == ["--no-sandbox"]
+        @test params["viewport"] == Dict("width" => 800, "height" => 600)
+        @test params["locale"] == "de-DE"
+        # launch's defaults come along, because a persistent context is still a
+        # launch and the protocol requires the timeout.
+        @test haskey(params, "timeout")
+        # ...and still no explicit nulls.
+        @test !any(v -> v === nothing, values(params))
+
+        send_create(fake, "browserType@1", "Browser", "browser@1")
+        send_create(fake, "browser@1", "BrowserContext", "context@1")
+        reply_ok(
+            fake,
+            msg["id"],
+            Dict(
+                "browser" => Dict("guid" => "browser@1"),
+                "context" => Dict("guid" => "context@1"),
+            ),
+        )
+        # The *context* is returned, not the browser: it is what every caller
+        # then uses, and the browser has exactly one context anyway (D9).
+        ctx = fetch(task)
+        @test ctx isa Playwright.BrowserContext
+        @test ctx.guid == "context@1"
+
+        close(fake.connection)
+    end
+
+    @testset "an empty user_data_dir is refused before the wire (T14, SC 17)" begin
+        fake = FakeDriver()
+        bt = Playwright.BrowserType(
+            fake.connection,
+            "BrowserType",
+            "browserType@1",
+            Dict{String,Any}("name" => "chromium"),
+        )
+
+        # Playwright allows "" — meaning a temp profile — and this package does
+        # not: a *persistent* context whose profile evaporates is a call the
+        # caller did not mean to make (D9).
+        err = try
+            launch_persistent_context(bt, "")
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("user_data_dir", err.msg)
+
+        # Nothing was sent, so no browser was started to be leaked.
+        @test !isready(fake.client_messages)
+        close(fake.connection)
+    end
+
+    @testset "an unknown keyword names itself, not a builder (T14)" begin
+        # The cost of forwarding kwargs to T13's builders is that a typo would
+        # otherwise surface as a MethodError inside launch_options. It is caught
+        # here instead, where the caller can see which keyword they meant.
+        fake = FakeDriver()
+        bt = Playwright.BrowserType(
+            fake.connection,
+            "BrowserType",
+            "browserType@1",
+            Dict{String,Any}("name" => "chromium"),
+        )
+        err = try
+            launch_persistent_context(bt, "/tmp/p"; headles = true)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("headles", err.msg)
+        close(fake.connection)
+    end
+
+    @testset "the option-key split covers both builders exactly (T14, D10)" begin
+        # The guard against the drift D10 exists to prevent: if a keyword is
+        # added to either builder, the splitting in launch_persistent_context
+        # must see it, or that option silently stops reaching the wire for the
+        # third caller only.
+        launch_keys = Playwright.option_keywords(Playwright.launch_options)
+        context_keys = Playwright.option_keywords(Playwright.context_options)
+
+        @test :headless in launch_keys
+        @test :viewport in context_keys
+        # The two families are disjoint, which is what makes splitting by name
+        # unambiguous.
+        @test isempty(intersect(launch_keys, context_keys))
+    end
+
     @testset "accept_downloads = false denies rather than omitting (T13, SC 16)" begin
         f = context_fixture()
         task = @async new_context(f.browser; accept_downloads = false)
