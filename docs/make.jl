@@ -1,27 +1,24 @@
 #     julia --project=docs docs/make.jl
 #
-# D4: this build never launches a browser. Every browser-requiring sample in
-# the guide is a plain ```julia block, so the site can be built and gated on a
-# runner with no browsers installed, and a docs failure always means a docs
-# problem.
+# This build never launches a browser. Every browser-requiring sample in the
+# guide is a plain ```julia block, so the site builds on a runner with no
+# browsers installed, and a docs failure always means a docs problem.
 
 using Documenter
 using Playwright
 
-# Every jldoctest block runs against a bare `using Playwright` and nothing
-# else. D4 constrains which docstrings can carry one: only browser-free paths
-# qualify — value deserialisation, matcher construction, error construction —
-# because this build must never launch a browser.
+# Every jldoctest block runs against a bare `using Playwright` and nothing else.
+# So only browser-free paths can carry one: value deserialisation, matcher
+# construction, error construction.
 DocMeta.setdocmeta!(Playwright, :DocTestSetup, :(using Playwright); recursive = true)
 
 makedocs(;
     sitename = "Playwright.jl",
     authors = "Frankie Robertson",
     modules = [Playwright],
-    # D5, and the two gates this milestone is not allowed to weaken:
-    # checkdocs reports any exported name missing from the reference, and
-    # warnonly = false turns every Documenter warning — a broken @ref, a
-    # missing page, a duplicate docstring — into a failed build.
+    # Two gates worth keeping: checkdocs reports any exported name missing from
+    # the reference, and warnonly = false turns every Documenter warning — a
+    # broken @ref, a missing page, a duplicate docstring — into a failed build.
     checkdocs = :exports,
     warnonly = false,
     doctest = true,
@@ -62,9 +59,8 @@ makedocs(;
     ],
 )
 
-# Only in CI. Run locally, `deploydocs` cannot detect a deployment
-# environment and says so — a warning on every local build, in a milestone
-# whose acceptance is a warning-free build.
+# Only in CI. Run locally, `deploydocs` cannot detect a deployment environment
+# and warns about it, which would make every local build noisy.
 if get(ENV, "CI", "false") == "true"
     deploydocs(;
         repo = "github.com/frankier/playwright-julia",

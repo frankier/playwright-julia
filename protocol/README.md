@@ -8,10 +8,9 @@
 It is the input to `gen/generate.jl`, which emits
 `src/generated/channels.jl`.
 
-It is vendored rather than fetched on demand so that builds, tests and CI
-never depend on GitHub, and so protocol changes show up as a reviewable
-diff. These files are Microsoft's, licensed Apache 2.0 — see
-`LICENSE-PLAYWRIGHT`.
+These files are vendored rather than fetched on demand, for two reasons. Builds,
+tests and CI then depend on no network, and a protocol change appears as a diff.
+The files are Microsoft's, licensed Apache 2.0 — see `LICENSE-PLAYWRIGHT`.
 
 ## Refreshing
 

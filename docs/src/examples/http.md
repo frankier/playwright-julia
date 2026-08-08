@@ -17,26 +17,23 @@ server is closed in one, the browser in another. A test that fails still tears
 down what it created, which matters more in CI than anywhere else — a leaked
 browser outlives the job.
 
-**The port is not hard-coded.** HTTP.jl can pick one itself with
-`listenany = true` and hand it back, which is better than choosing a free port
-and then binding it: there is no window in between for something else to take
-it. The other examples use `free_port()` from `common.jl` only because their
-frameworks insist on being told a port up front.
+**The port is not hard-coded.** HTTP.jl picks one itself with `listenany = true`
+and returns it. That beats choosing a free port and then binding it, because it
+leaves no window for something else to take the port. The other examples use
+`free_port()` from `common.jl` only because their frameworks insist on being told
+a port first.
 
 **The page mutates itself 300 milliseconds after the click**, deliberately.
-That delay is handled by `expect`'s retry and not by a `sleep` on the Julia
-side — which is the entire argument of [Assertions](@ref) in one line of test
-code.
+`expect`'s retry absorbs that delay, and no `sleep` appears on the Julia side.
+That is the whole argument of [Assertions](@ref) in one line of test code.
 
-**`expect` to settle, `@test` to check.** The assertions that wait are
-`expect`; once the DOM has settled, a plain read is the natural thing to put
-inside `@test`. Using each for its own job is what removes the temptation to
-sleep.
+**Use `expect` to settle, `@test` to check.** `expect` is the assertion that
+waits. Once the DOM settles, put a plain read inside `@test`. Give each one its
+own job and the temptation to sleep goes away.
 
 ## The source
 
-Read from `examples/http_jl.jl` at build time, so this page cannot drift from
-what CI actually ran:
+Read from `examples/http_jl.jl` at build time:
 
 ```@eval
 using Markdown, Playwright

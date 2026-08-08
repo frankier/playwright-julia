@@ -1,8 +1,8 @@
 # Generator-only environment. NEVER loaded at runtime — the package's own
-# Project.toml is unaffected by anything in here (see SPEC-M2.md D2).
+# Project.toml is unaffected by anything in here.
 #
 # Versions are pinned rather than bounded because the generator's output is
-# checked in and verified byte-for-byte by `gen/generate.jl --check`; a
+# checked in, and `gen/generate.jl --check` verifies it byte-for-byte. A
 # formatter upgrade that reflows code would otherwise read as a spurious diff.
 
 [deps]

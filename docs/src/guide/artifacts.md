@@ -3,10 +3,9 @@
 What to reach for when a suite goes red in CI and the assertion message is not
 enough.
 
-The problem this solves is specific: the run that failed happened on a machine
-you cannot see, in a browser that no longer exists, and it will probably pass
-when you run it again. Evidence has to be collected *at the time*, by the
-failing run itself.
+The problem is specific. The run that failed happened on a machine you cannot
+see, in a browser that no longer exists, and it will probably pass when you run
+it again. So the failing run has to collect its own evidence, *at the time*.
 
 | Call | Produces |
 |---|---|
@@ -30,22 +29,22 @@ with_page(browser, url; artifacts = "artifacts/checkout") do page
 end
 ```
 
-It opens a page, navigates, always closes it, and — when the body throws —
-dumps diagnostics **before** closing, because afterwards there is nothing left
-to look at.
+It opens a page, navigates, and always closes the page. When the body throws it
+dumps diagnostics **before** closing, because afterwards there is nothing left to
+look at.
 
-**Your exception propagates unchanged.** A failure while collecting the
-evidence is a `@warn`, never a replacement for the failure being diagnosed. A
-helper that adds evidence must not destroy the thing it was called to explain.
+**Your exception propagates unchanged.** If collecting the evidence fails, you
+get a `@warn` rather than a second exception. A helper that adds evidence must
+not destroy the thing it was called to explain.
 
-`artifacts_on = :always` captures on success too; the default `:failure` keeps
-a large suite from writing a screenshot per passing test.
+`artifacts_on = :always` captures on success too. The default `:failure` stops a
+large suite writing a screenshot per passing test.
 
 ## Tracing
 
-A trace is the full record of what the browser did — actions, DOM snapshots
-before and after each one, console output, network — viewable afterwards in
-Playwright's own viewer.
+A trace is the full record of what the browser did: actions, DOM snapshots
+before and after each one, console output and network. Playwright's own viewer
+reads it.
 
 ```julia
 with_tracing(ctx; path = "artifacts/trace.zip", screenshots = true) do
@@ -57,9 +56,8 @@ end
 "However the block exits" is the point: the run worth tracing is the one that
 threw.
 
-Open the result with the upstream viewer. This package neither builds nor
-parses a trace — the zip is assembled by the driver and is an opaque artifact
-for the viewer:
+Open the result with the upstream viewer. This package neither builds nor parses
+a trace. The driver assembles the zip, and it stays opaque to Julia:
 
 ```console
 $ npx playwright@1.61.1 show-trace artifacts/trace.zip
@@ -70,19 +68,17 @@ stop consumes the chunk the start opened, so tracing a second run means
 starting again.
 
 !!! note "`sources` is not accepted"
-    A reader coming from `playwright-python` will look for it, so its absence
-    is documented rather than left to be discovered. Upstream clients embed
-    calling source files by passing `includeSources` when they assemble the zip
-    themselves. This package lets the driver assemble it, and the driver's
-    `tracingStart` carries no `sources` flag.
+    `playwright-python` takes it, so a reader coming from there will look for
+    it. Upstream clients embed calling source files by passing `includeSources`
+    when they assemble the zip themselves. This package lets the driver assemble
+    it, and the driver's `tracingStart` carries no `sources` flag.
 
-    The keyword is not in the signature, so `sources = true` is a `MethodError`
-    — the same refusal the previous release gave as a runtime `ArgumentError`,
-    delivered earlier and by the language.
+    The keyword is not in the signature, so `sources = true` raises a
+    `MethodError`.
 
 ## Video
 
-Video is recorded per page, and switched on at the **context**:
+The driver records one video per page, and you switch it on at the **context**:
 
 ```julia
 ctx = new_context(browser; record_video = (dir = "artifacts/video",))
@@ -91,8 +87,8 @@ goto!(page, url)
 ```
 
 !!! warning "The video does not exist until the page closes"
-    The driver knows the eventual path immediately, but the file is not
-    finished until its page or context closes. [`path`](@ref) is what waits:
+    The driver knows the eventual path immediately, but the file is not complete
+    until its page or context closes. [`path`](@ref) is the call that waits:
 
     ```julia
     recording = video(page)
@@ -102,28 +98,27 @@ goto!(page, url)
 
 ## Screenshots and PDFs
 
-The artifact family follows one rule: **if you name a destination you get the
-destination back; if you want bytes you call the function that says bytes.**
+The artifact family follows one rule. **Name a destination and you get the
+destination back. Want bytes, and you call the function that says bytes.**
 
 ```julia
 screenshot(page; path = "artifacts/checkout.png")   # -> the path
 bytes = screenshot_bytes(page)                      # -> Vector{UInt8}
 ```
 
-[`screenshot`](@ref) requires `path` and returns it;
-[`screenshot_bytes`](@ref) touches no filesystem, so a screenshot can still be
-attached to a report without writing one. Splitting them keeps both
-type-stable — the alternative, returning `Union{String,Vector{UInt8}}`
-depending on whether a keyword was passed, is not.
+[`screenshot`](@ref) requires `path` and returns it. [`screenshot_bytes`](@ref)
+touches no filesystem, so you can attach a screenshot to a report without
+writing a file. Two functions rather than one keeps both type-stable, which a
+single function returning `Union{String,Vector{UInt8}}` would not.
 
-[`pdf`](@ref) and [`pdf_bytes`](@ref) are the same shape, and both are
-**Chromium only** — off Chromium they raise an `ArgumentError` naming the
+[`pdf`](@ref) and [`pdf_bytes`](@ref) have the same shape, and both are
+**Chromium only**. On any other engine they raise an `ArgumentError` naming the
 engine, decided client-side with no round trip.
 
 ## Diagnostics
 
-[`report_diagnostics`](@ref) writes the three things you want at once —
-`screenshot.png`, `console.log` and `errors.log`:
+[`report_diagnostics`](@ref) writes three files at once: `screenshot.png`,
+`console.log` and `errors.log`.
 
 ```julia
 try
@@ -138,8 +133,8 @@ It is what `with_page` calls for you.
 
 ## The `Artifact` type
 
-Traces and videos come back as an [`Artifact`](@ref) — a file the driver is
-producing. Three verbs:
+Traces and videos come back as an [`Artifact`](@ref), a file the driver is still
+writing. Three verbs:
 
 | Call | Does |
 |---|---|
@@ -163,5 +158,5 @@ browser, so a passing test that keeps everything is a slow leak.
 ## Keep them out of git
 
 Traces, videos, screenshots and PDFs are binaries, regenerated on every run.
-Add the directory you write them to your `.gitignore` — this repository ignores
+Add the directory you write them to your `.gitignore`. This repository ignores
 `artifacts/`.

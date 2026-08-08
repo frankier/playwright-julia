@@ -1,11 +1,10 @@
 # API reference
 
-Every exported name, grouped by what it is for rather than alphabetically —
-alphabetical order puts `click!` next to `clear_page_errors!` and separates
-`start_tracing!` from `stop_tracing!`, which helps nobody.
+Every exported name, grouped by what it is for rather than alphabetically.
+Alphabetical order would put `click!` next to `clear_page_errors!` and separate
+`start_tracing!` from `stop_tracing!`.
 
-`checkdocs = :exports` is on, so this page is complete by construction: an
-export missing from it fails the build.
+This page covers the whole export list. A missing export fails the docs build.
 
 ```@docs
 Playwright
@@ -225,8 +224,8 @@ method
 
 ### Headers
 
-Three functions, because there are three genuinely different questions — see
-each docstring for which one to reach for.
+Three functions, because there are three genuinely different questions. See each
+docstring for which one you want.
 
 ```@docs
 headers
@@ -278,10 +277,9 @@ with_har_recording
 
 ### WebSocket routing
 
-Intercepting a socket, rather than observing one. A socket is a conversation
-with no request/response shape, so the handler registers callbacks and returns;
-whether `connect!` was called decides whether the real server is
-contacted at all.
+Intercepting a socket, rather than observing one. A socket is a conversation with
+no request/response shape, so the handler registers callbacks and returns.
+Calling `connect!` is what decides whether anything reaches the real server.
 
 ```@docs
 WebSocketRoute
@@ -293,10 +291,9 @@ with_web_socket_route
 
 #### Driving a socket
 
-[`connect!`](@ref) is the mode switch: mock until it is called, proxy
-afterwards. The send verbs take a `String` for a text frame or a
-`Vector{UInt8}` for a binary one, in both directions; base64 is the protocol's
-business and never the caller's.
+[`connect!`](@ref) is the mode switch: mock until you call it, proxy afterwards.
+The send verbs take a `String` for a text frame or a `Vector{UInt8}` for a binary
+one, in both directions. Base64 is the protocol's business, never the caller's.
 
 ```@docs
 connect!
@@ -308,9 +305,9 @@ close_ws!
 #### The route's own events
 
 These belong to the route object rather than to a [`Page`](@ref) or a
-[`BrowserContext`](@ref), and they are consumed by these callbacks rather than
-by [`expect_event`](@ref). **Each one replaces the default forwarding for its
-direction** — see [The network](@ref) for what that costs if you forget.
+[`BrowserContext`](@ref), and these callbacks consume them rather than
+[`expect_event`](@ref). **Each one replaces the default forwarding for its
+direction.** See [The network](@ref) for what that costs if you forget.
 
 ```@docs
 on_message_from_page!
@@ -320,10 +317,9 @@ on_close!
 
 ### Network events
 
-`expect_request` and `expect_response` are sugar over
-[`expect_event`](@ref) with a matcher-derived predicate. The four raw events —
-`:request`, `:response`, `:requestfinished`, `:requestfailed` — are listed in
-the events guide.
+`expect_request` and `expect_response` are sugar over [`expect_event`](@ref) with
+a matcher-derived predicate. The events guide lists the four raw events:
+`:request`, `:response`, `:requestfinished` and `:requestfailed`.
 
 ```@docs
 expect_request
@@ -363,9 +359,8 @@ AssertionFailure
 ## Base extensions
 
 These extend their `Base` counterparts rather than taking a new name, so they
-work unqualified — `count(loc)`, not `Playwright.count(loc)` — but they do not
-appear in `names(Playwright)` and so are outside `checkdocs`' reach. They are
-public surface all the same.
+work unqualified: `count(loc)`, not `Playwright.count(loc)`. They do not appear
+in `names(Playwright)`, but they are public surface all the same.
 
 ```@docs
 Base.count
@@ -378,7 +373,7 @@ Base.close
 
 ## Internals
 
-Not exported, and not part of the supported surface. They are here because the
+Not exported, and not part of the supported surface. They appear here because the
 docstrings above refer to them.
 
 ```@docs

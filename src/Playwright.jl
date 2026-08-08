@@ -1,8 +1,8 @@
 """
     Playwright
 
-Drive real browsers (Chromium & Firefox) from Julia through the official
-Playwright automation engine. See the README for a quick start:
+Drive real browsers — Chromium and Firefox — from Julia, through the official
+Playwright automation engine.
 
 ```julia
 using Playwright
