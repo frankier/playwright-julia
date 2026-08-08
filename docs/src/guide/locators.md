@@ -174,7 +174,7 @@ finally
 end
 ```
 
-[`element_handle`](@ref) does not wait; [`wait_for_selector`](@ref) is the form
+[`element_handle`](@ref) does not wait. [`wait_for_selector`](@ref) is the form
 that does. See [Waiting](@ref).
 
 ## Reading a locator back

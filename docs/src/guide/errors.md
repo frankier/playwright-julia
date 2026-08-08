@@ -50,8 +50,8 @@ That last line is the answer: the selector was fine, the button was disabled.
 ## Which error means what
 
 **`TimeoutError`** — something never happened in time. The page may be slow, or
-the selector may be wrong; the call log distinguishes them. Raising the timeout
-is occasionally right and usually a way of not reading the log.
+the selector may be wrong. The call log tells them apart. Raising the timeout is
+occasionally right, and usually a way of not reading the log.
 
 **`AssertionFailure`** — a retrying assertion never matched. Distinct from a
 bare timeout because it names both the expected and the received value:

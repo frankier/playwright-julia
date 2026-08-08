@@ -118,7 +118,7 @@ takes two functions, so the keyword names the unusual one rather than leaving
 argument position to tell them apart.
 
 Read the dialog with [`dialog_type`](@ref), [`message`](@ref) and
-[`default_value`](@ref); answer it with [`accept!`](@ref) or
+[`default_value`](@ref). Answer it with [`accept!`](@ref) or
 [`dismiss!`](@ref):
 
 ```julia

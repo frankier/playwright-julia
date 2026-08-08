@@ -40,7 +40,7 @@ round from [`with_events`](@ref). There are two functions to pass and only one
 can be the block, so the block goes to the one with statements in it.
 
 The target is a [`Page`](@ref) or a [`BrowserContext`](@ref). A page
-registration sees only that page's requests; a context registration sees every
+registration sees only that page's requests. A context registration sees every
 page's.
 
 ## Settling a route
