@@ -21,6 +21,9 @@ using Playwright
     include("test_network.jl")
     include("test_events.jl")
     include("test_routing.jl")
+    # After test_routing.jl: HAR replay is a route! handler (D2), so its tests
+    # reuse send_route and last_patterns from there.
+    include("test_har.jl")
     include("test_waiting.jl")
     # After test_waiting.jl: these use its waiting_request helper, as well as
     # timeout_fixture (test_timeouts.jl) and send_event (test_events.jl).

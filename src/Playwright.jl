@@ -81,6 +81,8 @@ export playwright,
     continue!,
     fulfill!,
     RouteRegistration,
+    # M8 T4: HAR replay (D2–D5a)
+    route_from_har,
     click!,
     text_content,
     input_value,
@@ -202,6 +204,9 @@ include("api/downloads.jl")
 # after lifecycle.jl, whose name_value_array it mirrors.
 include("api/network.jl")
 include("api/routing.jl")
+# After routing.jl: HAR replay is a route! handler with a release hook (D2, D3),
+# so it needs route!, the settle verbs and RouteRegistration to exist.
+include("api/har.jl")
 # After routing.jl: reuses its raise_collected, and its dispatcher pattern.
 include("api/dialogs.jl")
 include("api/uploads.jl")

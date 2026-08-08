@@ -34,7 +34,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 - [x] **T2** (M) `LocalUtils` plumbed through the `Connection`; `local_utils`
       accessor with the absent case named (D1) — SC 1
 - [x] **T3** (S) `RouteRegistration` gains an optional release hook (D3)
-- [ ] **T4** (L) `route_from_har`: the action table, `fulfill`/`noentry`,
+- [x] **T4** (L) `route_from_har`: the action table, `fulfill`/`noentry`,
       `not_found` validation (D2, D4) — SC 2, 3
 - [ ] **T5** (M) `redirect` → one `continue!`; the driver's cycle error; the
       abort message that names the archive (D5, D5a) — SC 4, 5

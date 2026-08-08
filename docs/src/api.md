@@ -250,6 +250,17 @@ fulfill!
 RouteRegistration
 ```
 
+### HAR replay
+
+Serving a whole page's network from a recorded archive, with no backend
+running. It is a [`route!`](@ref) handler underneath, which is why it returns a
+[`RouteRegistration`](@ref) and why [`unroute!`](@ref) is what closes the
+archive.
+
+```@docs
+route_from_har
+```
+
 ### Network events
 
 `expect_request` and `expect_response` are sugar over
