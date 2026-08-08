@@ -264,8 +264,13 @@ three before any smoke means debugging three new surfaces at once.
 
 ### Checkpoint C — the three surfaces work end to end
 
-- [x] SC 13–24 all pass on Chromium and Firefox — 102 smoke assertions across
-      T13, T15 and T17, 43s; hermetic 1933 at T18
+- [x] SC 13–22 and 24 all pass on Chromium and Firefox — 102 smoke assertions
+      across T13, T15 and T17, 43s; hermetic 1933 at T18.
+      **SC 23 is half met and is not ticked** — see the table below and
+      `m7-api-gaps.md` gap 2. The three events are absent from
+      `DEFERRED_EVENTS` as required, but `:dialog` is not in
+      `events_for(::Page)` either, so the criterion's second half is false as
+      written. Found in T19, recorded rather than quietly ticked
 - [x] No test needs a `sleep` to pass (R1 and R5's shared tripwire) — the only
       occurrences of the word in Part C's files are the comments naming the rule
 - [x] `tasks/m7-api-gaps.md` exists, whatever it contains — two entries
@@ -315,16 +320,25 @@ three before any smoke means debugging three new surfaces at once.
         function names, with no `name(`-shaped call to match. Third distinct
         blind spot found in this grep (T6 found `$name(` and `@ref` links) —
         it is a good backstop and not a proof
-- [ ] T21: final verification of all 30 criteria (M) — deps: everything
+- [x] T21: final verification of all 30 criteria (M) — deps: everything
       - a criterion that cannot be met **says so** instead of being ticked —
         M6's Checkpoint A is the precedent
+      - **28 met, 2 partially met and named as such.** SC 7's second half is
+        unreachable *as written* (`UndefKeywordError`, not `MethodError` — the
+        keyword the same criterion requires is what makes it so), and SC 23's
+        second half is **false**: `:dialog` is in no owner's event table
+      - everything re-run at `911e63d` rather than cited from memory: hermetic
+        1933, smoke 2776 both engines, docs build clean, `--check` in sync,
+        `format(".")` true, `Project.toml` diff empty, all 8 example runs pass
 
 ### Checkpoint D — milestone complete
 
-- [ ] All 30 criteria verified, each by running it, in the table below
-- [ ] Gates confirmed still on: `checkdocs = :exports`, `warnonly = false`,
+- [x] All 30 criteria verified, each by running it, in the table below — 28
+      met, SC 7 and SC 23 partially met with the unmet half stated
+- [x] Gates confirmed still on: `checkdocs = :exports`, `warnonly = false`,
       `doctest = true`, both engines in smoke and `runexamples.jl`
-- [ ] `Project.toml` unchanged since M6 — no new dependency (SC 27)
+- [x] `Project.toml` unchanged since M6 — no new dependency (SC 27):
+      `git diff 9d66c21 HEAD -- Project.toml` is 0 lines
 
 ## Success criteria — how each was verified
 
@@ -332,33 +346,33 @@ Filled in by T21. A criterion that cannot be met says so.
 
 | SC | Verified by |
 |---|---|
-| 1 | |
-| 2 | |
-| 3 | |
-| 4 | |
-| 5 | |
-| 6 | |
-| 7 | |
-| 8 | |
-| 9 | |
-| 10 | |
-| 11 | |
-| 12 | |
-| 13 | |
-| 14 | |
-| 15 | |
-| 16 | |
-| 17 | |
-| 18 | |
-| 19 | |
-| 20 | |
-| 21 | |
-| 22 | |
-| 23 | |
-| 24 | |
-| 25 | |
-| 26 | |
-| 27 | |
-| 28 | |
-| 29 | |
-| 30 | |
+| 1 | Run at both commits during T1, not asserted: **red at `e29cf75`** (pre-D1) naming `[:_api_request_context_fetch, :_cdp_session_send]` and `[:params, :result]` rather than reporting a count, **green from `6be2ea9`**. The failure output is recorded verbatim under T1; the green half is re-confirmed by every hermetic run since, including T21's |
+| 2 | Verified during T4 against a local echo server, passing two real `params` entries: `QUERY SEEN BY SERVER: colour=octarine&n=8`. The call that produced `DriverError: params: expected array, got object` succeeds. Not re-run at T21 — it needs a throwaway server, and the wire shape it proves is covered by `test_network.jl` on every hermetic run |
+| 3 | `julia --project=gen gen/generate.jl --check` → `Generated channel layer is in sync with protocol/spec/`. Re-run at T21 |
+| 4 | Scripted diff filter over `src/generated/channels.jl`, run during T3: remainder empty. The only changes are `params` → `_params`, `result` → `_result`, and the JuliaFormatter reflow those renames caused (~12 lines, whitespace-stripped before comparing on purpose) |
+| 5 | `grep -nE 'Dict\{String' src/api/apirequest.jl` — three hits, all header dicts; the fetch goes through the generated `_api_request_context_fetch` at line 292. Hermetic and smoke green, `test_smoke_network.jl` SC 14 unchanged |
+| 6 | `"frame_name" in names(Playwright)` true, `"name" in names(Playwright)` false. The old-name grep in `test_exports.jl` walks `src/`, `test/`, all of `docs/`, `examples/` and `README.md` on every hermetic run and finds no survivor |
+| 7 | One method each for `screenshot`, `screenshot_bytes`, `pdf`, `pdf_bytes`. ⚠️ **Half of this criterion is unreachable as written**: it predicts `screenshot(page)` is a `MethodError`, but `path` is a required *keyword* — which the same criterion demands — so Julia raises `UndefKeywordError`. Asserted what actually happens, with the reasoning in the test. The real error names the missing keyword, which is the better one |
+| 8 | `test_artifacts.jl:707` — `@test save_as!(v; path = dest) \|> isfile`, run over all four family members in one testset so they cannot drift apart silently |
+| 9 | `test_artifacts.jl:227` — `@test_throws MethodError start_tracing!(f.context; sources = true)`. (The spec says `sources = false`; the keyword does not exist, so either value is the same `MethodError`.) `docs/src/guide/artifacts.md:72` explains the absence without claiming it raises |
+| 10 | `test_timeouts.jl:322–360` — all five levels of D7's chain, each proved reachable by overriding exactly one. `set_default_strict!` takes a `Frame` as well as a `Page`/`BrowserContext`, because without a frame setter D7's frame level is unreachable |
+| 11 | `examples/genie_jl.jl`: four per-locator `strict = false` replaced by one `set_default_strict!(page, false)`, 86 → **83 code lines** (`grep -vcE '^\s*(#\|$)'`). Genie rather than Oxygen because every remaining single-element locator there targets an **ID** — unique by HTML spec — so none was leaning on strictness. `http_jl.jl:85` genuinely asserts on `li.greeting` expecting exactly one, and a page-wide default there would have deleted a real check to shorten a diff |
+| 12 | `tasks/m5-api-gaps.md` is gone (`ls` → No such file). All five rationales found by grepping their key phrases: `invisible to .checkdocs` → `docs/src/guide/locators.md`; `missing keyword is the signal` → `src/api/locators.jl`; `argument one for` → `src/api/expect.jl`; `differing only in whether they wait` → `src/api/locators.jl`; `arity depends on what you evaluate` → `src/api/evaluate.jl` |
+| 13 | `test_smoke_files.jl:108`, both engines. The fixture server sets a `Content-Disposition` filename that deliberately **differs** from the URL (`report-2026.csv` from `/download/report.csv`), so the assertion cannot pass on a name derived from the path; `save_as!` bytes compared to what the server sent |
+| 14 | `test_smoke_files.jl:123`, both engines. `isfile` asserted on the line immediately after `path(dl)` returns. `sleep` appears nowhere in the file except in the comments naming R5's rule |
+| 15 | `test_smoke_files.jl:153`, both engines: a download refused by `accept_downloads = false` still arrives with a correct url and suggested filename, `failure(dl)` is a non-empty string, and `@test_throws` on both `path` and `save_as!` — the half users get wrong. Hermetically, `test_downloads.jl` asserts none of the three `accept_downloads` inputs can produce `"internal-browser-default"` |
+| 16 | `test_smoke_files.jl:137`, both engines — `artifact(dl)`'s verbs exercised on the returned `Artifact`, not merely checked for existence |
+| 17 | `test_smoke_files.jl:191`, both engines. Each dialog type asserted through its **effect on the page**: an accepted `confirm` and a dismissed one write different text, so a handler whose answer never reached the browser fails rather than passes |
+| 18 | `test_smoke_files.jl:230`, both engines. Clicked through an alert and a confirm with nothing registered from Julia, checked the registry really was empty first, and checked the DOM moved on. This is the assertion that catches the event-only design's footgun if the design ever drifts |
+| 19 | `test_smoke_files.jl:251`, both engines. A handler that settles nothing warns once per registration and the page proceeds; a handler that throws surfaces out of `with_dialog` with the dialog dismissed anyway; the registry is empty afterwards and the next dialog is the driver's again. The two warnings in the smoke output are this test's, one per engine |
+| 20 | `test_smoke_files.jl:300`, `:311`, `:323`, both engines. The fixture server records every multipart part into a `Ref` and the tests read **that**, not the DOM — filenames and full byte contents, for the single, multi and in-memory forms |
+| 21 | `test_smoke_files.jl:337`, both engines — the `ArgumentError` arrives before the wire, and the page is untouched by the call that never happened. Also hermetic in `test_uploads.jl`, where the assertion is that nothing was sent |
+| 22 | `test_smoke_files.jl:350` and `:365`, both engines. `false` for a plain input, `true` for `multiple`, **`false` for `webkitdirectory`** — asserted on purpose, not by omission: the probe found the engines in exact agreement, so `true` would be wrong on both rather than catching a divergence. `set_files!` through the chooser gets its own server-side leg |
+| 23 | ⚠️ **Half met, and not ticked.** First half holds: `:download`, `:dialog` and `:filechooser` are all absent from `DEFERRED_EVENTS` (`[:bindingcall, :route, :websocket, :worker]`), and the gate in `test_events.jl` is written as a function over its inputs so SC 24 can watch it fail. Second half is **false as written**: `:download` and `:filechooser` are in `events_for(::Page)`, but `:dialog` is in neither `PAGE_EVENTS` nor `CONTEXT_EVENTS`, so `expect_event(page, :dialog)` reports `unknown event` — a false "no such event" for a type that is wrapped and documented. Found in T19, recorded as `m7-api-gaps.md` gap 2, and left unfixed because it is a behaviour change discovered during a docs task. The fix is one `DEFERRED_EVENTS` entry parallel to `:route`'s, plus two test lines |
+| 24 | `DEFERRED_EVENTS[:route]` reads: *Route is wrapped, but interception is `route!`/`with_route`, not an event*. The M4-era claim that `Artifact` was unwrapped is gone with `:download`'s entry |
+| 25 | Hermetic `Pkg.test()`: **1933 passed, 0 failed**, 3m48s. `PLAYWRIGHT_JL_SMOKE=1 Pkg.test()`: **2776 passed, 0 failed**, 11m40s, Chromium and Firefox |
+| 26 | `julia --project=docs docs/make.jl` — zero errors, zero warnings. `checkdocs = :exports`, `warnonly = false` and `doctest = true` all still on in `docs/make.jl`, none weakened; the size thresholds are the only tuned settings and predate M7 |
+| 27 | `gen/generate.jl --check` in sync; `format(".", verbose = false)` → `true` with a clean tree afterwards; `git diff 9d66c21 HEAD -- Project.toml` → **0 lines**, so no dependency was added since M6 |
+| 28 | `julia --project=examples examples/runexamples.jl` — **all 8 runs PASS**, both engines: `http_jl` 24.7s/25.3s, `oxygen_jl` 44.0s/44.5s, `genie_jl` 45.1s/45.6s, `wglmakie_jl` 90.5s/87.7s (chromium/firefox). That includes `wglmakie_jl.jl` on Firefox, which was failing before M7 began — `m7-api-gaps.md` gap 1, fixed on instruction rather than on this file's own authority |
+| 29 | README Status rewritten for milestones 1–7, with M7's renames alongside M6's twelve. The not-covered list checked item by item against the 145 names in `names(Playwright)`: "downloads, file choosers and dialogs" removed; the other seven stand. WebKit stays because `PlaywrightAPI` has only `chromium` and `firefox` fields — there is no `pw.webkit` to launch, whatever `install` accepts |
+| 30 | `tasks/m7-api-gaps.md` opened at `09f34a1`, empty on purpose, **before** T6 was the first line of Part B. It has since earned two entries |
