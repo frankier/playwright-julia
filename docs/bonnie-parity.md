@@ -72,6 +72,28 @@ Neither is a gap closing. Blocker 3's row was already satisfied by
 `locator(…; strict = false)`; what changed is how much of it a caller has to
 repeat.
 
+## Re-scored by milestone 8
+
+**No row changes, and none is added.** M8 shipped HAR recording and replay,
+persistent contexts and WebSocket routing;
+[`tasks/bonnie_needs.md`](../tasks/bonnie_needs.md) asks for none of the three,
+and re-reading it looking for them turns up nothing. This is M7's finding for
+the second time, and it is recorded rather than skipped because a table that
+only ever grows stops being a score.
+
+One of the three is worth a sentence, because it looks like a match and is not.
+Bonnie's WGLMakie tests involve a WebSocket — that is how Makie's frontend
+talks to Julia — so `route_web_socket!` reads like the row this milestone
+finally earns. It is not: Bonnie drives a real server and asserts on what it
+really sends, and mocking that socket would remove the thing under test. The
+capability applies to a suite that wants to test the frontend *without* the
+backend, which is the opposite of what this suite is for.
+
+The same reasoning covers the other two. HAR replay is for a test that must run
+with no backend; Bonnie's backend is the subject. Persistent contexts are for a
+profile that must survive the browser closing; Bonnie's per-test context exists
+to be thrown away.
+
 ## The shim
 
 Bonnie's `test/cdp.jl` is ~100 lines of hand-rolled CDP whose entire surface is

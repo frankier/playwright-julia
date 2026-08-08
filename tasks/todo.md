@@ -88,7 +88,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 - [x] **T23** (L) `guide/har.md`, `network.md`, `events.md`, `api.md` — SC 30
 - [x] **T24** (M) Exports; README Status and the not-covered list, item by
       item — SC 33
-- [ ] **T25** (S) `bonnie-parity.md` re-scored, or explicitly not — SC 34
+- [x] **T25** (S) `bonnie-parity.md` re-scored, or explicitly not — SC 34
 - [ ] **T26** (M) Final verification of all 35 criteria — SC 29, 31, 32, 35
 
 **Checkpoint E** — the milestone. Archive `plan.md` and `todo.md` to
