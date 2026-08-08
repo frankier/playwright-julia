@@ -58,6 +58,33 @@ function with_websocket_server(f::Function)
     end
 end
 
+"What the page has recorded receiving, in order."
+ws_received(page) =
+    [text_content(item) for item in locator(page, "#received li"; strict = false)]
+
+"""
+Open `m8.html` with `route` armed on the context, run `body(page)`, and tear the
+browser down afterwards.
+
+The route is registered **before** the navigation: a pattern armed after the
+page has opened its socket is a pattern that intercepts nothing, and the failure
+looks like a routing bug rather than an ordering one.
+"""
+function with_routed_socket(body, bt, base_url, handler; label = "ws")
+    return within_deadline(label, 120.0) do
+        with_browser(bt) do browser
+            ctx = new_context(browser)
+            page = new_page(ctx)
+            with_web_socket_route(ctx, "**/ws", handler) do
+                goto!(page, "$base_url/m8.html")
+                click!(locator(page, "#open"))
+                expect(locator(page, "#status"); to_have_text = "open")
+                body(page)
+            end
+        end
+    end
+end
+
 @testset "smoke: WebSocket routing" begin
     with_websocket_server() do base_url, connections
         playwright() do pw
@@ -129,6 +156,134 @@ end
                     # server is never contacted. This is the mechanism SC 22
                     # rests on, observed here before any of Part D exists.
                     @test observed.new_connections == 0
+                end
+
+                @testset "$engine: mock mode never contacts the server (T22, SC 22)" begin
+                    # Asserted server-side, which is the only place it can be
+                    # asserted: a client-side check cannot tell "the server was
+                    # never asked" from "it answered and we ignored it".
+                    before = connections[]
+                    received = with_routed_socket(
+                        bt,
+                        base_url,
+                        wsr -> on_message_from_page!(wsr) do msg
+                            msg == "ping" && send_to_page!(wsr, "mocked:pong")
+                        end;
+                        label = "$engine ws mock",
+                    ) do page
+                        click!(locator(page, "#send"))
+                        expect(locator(page, "#received"); to_contain_text = "mocked:pong")
+                        ws_received(page)
+                    end
+
+                    @test received == ["mocked:pong"]
+                    # The socket opened, the page was answered, and the real
+                    # server heard nothing at all.
+                    @test connections[] == before
+                end
+
+                @testset "$engine: proxy mode rewrites a server message (T22, SC 23)" begin
+                    before = connections[]
+                    received = with_routed_socket(
+                        bt,
+                        base_url,
+                        function (wsr)
+                            connect!(wsr)
+                            # No on_message_from_page!, so the page's frame is
+                            # forwarded by the default — this test needs the
+                            # server to actually answer.
+                            on_message_from_server!(wsr) do msg
+                                send_to_page!(wsr, replace(msg, "from-server" => "rewritten"))
+                            end
+                        end;
+                        label = "$engine ws proxy",
+                    ) do page
+                        click!(locator(page, "#send"))
+                        expect(
+                            locator(page, "#received");
+                            to_contain_text = "rewritten:ping",
+                        )
+                        ws_received(page)
+                    end
+
+                    @test received == ["rewritten:ping"]
+                    # The rewrite is only a rewrite if the original came from
+                    # somewhere: proxy mode did reach the server.
+                    @test connections[] == before + 1
+                end
+
+                @testset "$engine: a binary frame survives each way (T22, SC 24)" begin
+                    seen = Ref{Any}(nothing)
+                    bytes = with_routed_socket(
+                        bt,
+                        base_url,
+                        wsr -> on_message_from_page!(wsr) do msg
+                            seen[] = msg
+                            # Reversed so the assertion cannot pass on a frame
+                            # that was echoed by something other than us.
+                            msg isa Vector{UInt8} && send_to_page!(wsr, reverse(msg))
+                        end;
+                        label = "$engine ws binary",
+                    ) do page
+                        click!(locator(page, "#send-binary"))
+                        expect(locator(page, "#binary"); to_have_text = "4,3,2,1")
+                        text_content(locator(page, "#binary"))
+                    end
+
+                    @test bytes == "4,3,2,1"
+                    # The caller named base64 nowhere: bytes in, bytes out.
+                    @test seen[] isa Vector{UInt8}
+                    @test seen[] == UInt8[1, 2, 3, 4]
+                end
+
+                @testset "$engine: close_ws! is what the page's onclose sees (T22, SC 25)" begin
+                    closed = with_routed_socket(
+                        bt,
+                        base_url,
+                        wsr -> on_message_from_page!(
+                            _ -> close_ws!(wsr; code = 4001, reason = "all done"),
+                            wsr,
+                        );
+                        label = "$engine ws close",
+                    ) do page
+                        click!(locator(page, "#send"))
+                        expect(
+                            locator(page, "#closed");
+                            to_have_text = "closed:4001:all done",
+                        )
+                        text_content(locator(page, "#closed"))
+                    end
+
+                    @test closed == "closed:4001:all done"
+                end
+
+                @testset "$engine: a handled server message is swallowed (T22, SC 26)" begin
+                    # D12's sharp edge, pinned as intended on real browsers as
+                    # well as against the fake connection. The callback replaces
+                    # the forwarding, so the echo never reaches the page — and
+                    # the marker it sends instead is what makes that assertable
+                    # rather than a race against a message that may yet arrive.
+                    received = with_routed_socket(
+                        bt,
+                        base_url,
+                        function (wsr)
+                            connect!(wsr)
+                            on_message_from_server!(
+                                _ -> send_to_page!(wsr, "swallowed"),
+                                wsr,
+                            )
+                        end;
+                        label = "$engine ws swallow",
+                    ) do page
+                        click!(locator(page, "#send"))
+                        expect(locator(page, "#received"); to_contain_text = "swallowed")
+                        ws_received(page)
+                    end
+
+                    # Exactly one entry: the marker. The server's echo went
+                    # nowhere, which is Playwright's behaviour and not a bug —
+                    # if it ever changes upstream, this test is what tells us.
+                    @test received == ["swallowed"]
                 end
             end
         end
