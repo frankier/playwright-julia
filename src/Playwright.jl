@@ -84,6 +84,11 @@ export playwright,
     # M8 T4/T7: HAR replay (D2–D5a)
     route_from_har,
     with_har,
+    # M8 T8: HAR recording (D6, D8)
+    HarRecording,
+    start_har_recording!,
+    stop_har_recording!,
+    with_har_recording,
     click!,
     text_content,
     input_value,

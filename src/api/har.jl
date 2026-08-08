@@ -281,3 +281,180 @@ function serve_from_har(route::Route, utils, har_id, archive, not_found::Symbol)
     end
     return nothing
 end
+
+# --- Recording (Part B) -----------------------------------------------------
+#
+# D6: a start!/stop! pair, not a `new_context` keyword. There is no `recordHar`
+# in `ContextOptions` — checked against mixins.yml:98 and browser.yml:62 — so
+# other bindings' `record_har_path` is client-side sugar that calls `harStart`
+# after the context exists. M8 declines the sugar, for three reasons in order of
+# weight:
+#
+#   1. start_tracing!/stop_tracing! already made this decision in M4, for the
+#      identical protocol shape: a Tracing command pair producing an Artifact.
+#      A second feature on the same object with the opposite spelling would be
+#      the package disagreeing with itself.
+#   2. The keyword form hides where the file is written — `new_context(…;
+#      record_har_path = p)` writes p at *context close*, somewhere else
+#      entirely in the source. `stop_har_recording!` returns the path it wrote.
+#   3. `new_context` already carries sixteen keywords and RecordHarOptions has
+#      five more.
+
+"""
+    HarRecording
+
+One live HAR recording, from [`start_har_recording!`](@ref). Hand it to
+[`stop_har_recording!`](@ref), which needs nothing else — it holds the context
+it was started on, so a recording cannot be stopped against the wrong one.
+"""
+struct HarRecording
+    context::BrowserContext
+    har_id::String
+    path::String
+end
+
+const HAR_CONTENT_VALUES = (:embed, :attach, :omit)
+const HAR_MODE_VALUES = (:full, :minimal)
+
+"Validate a Symbol option into the wire's string enum, naming the valid set."
+function har_enum(name::AbstractString, value::Symbol, allowed)
+    value in allowed || throw(
+        ArgumentError(
+            "$name must be one of $(join(map(repr, allowed), ", ")), got $(repr(value))",
+        ),
+    )
+    return String(value)
+end
+
+"""
+    start_har_recording!(ctx; path, content = :embed, mode = :full, url = nothing)
+        -> HarRecording
+
+Begin recording `ctx`'s network into a HAR archive, to be written to `path` by
+[`stop_har_recording!`](@ref).
+
+```julia
+rec = start_har_recording!(ctx; path = "api.har", url = "**/api/**")
+goto!(page, url)
+stop_har_recording!(rec)
+```
+
+Prefer [`with_har_recording`](@ref), which stops the recording even when the
+body throws.
+
+| Option | Meaning |
+|---|---|
+| `content` | `:embed` (bodies inline), `:attach` (bodies beside the JSON, so a `.har.zip`), `:omit` (no bodies) |
+| `mode` | `:full`, or `:minimal` for just enough to replay |
+| `url` | Record only matching requests — a glob string or a `Regex`; `nothing` records everything |
+
+`content` and `mode` are `Symbol`s validated here into the wire's string enums,
+so a typo is an `ArgumentError` naming the valid set rather than a driver error
+much later.
+
+Recording is a `start!`/`stop!` pair rather than a [`new_context`](@ref)
+keyword (D6), matching [`start_tracing!`](@ref) — the same protocol shape, so
+the same spelling. It also keeps the write visible: `stop_har_recording!`
+returns the path it wrote, where a context-close keyword would write somewhere
+else in the source entirely.
+"""
+function start_har_recording!(
+    ctx::BrowserContext;
+    path::AbstractString,
+    content::Symbol = :embed,
+    mode::Symbol = :full,
+    url::Union{AbstractString,Regex,Nothing} = nothing,
+)
+    options = Dict{String,Any}(
+        "content" => har_enum("content", content, HAR_CONTENT_VALUES),
+        "mode" => har_enum("mode", mode, HAR_MODE_VALUES),
+        "path" => String(path),
+    )
+    if url isa AbstractString
+        options["urlGlob"] = String(url)
+    elseif url isa Regex
+        # The driver does its own matching, so a Regex crosses as source plus
+        # flags rather than as anything Julia-shaped.
+        options["urlRegexSource"] = url.pattern
+        options["urlRegexFlags"] = regex_flag_string(url)
+    end
+
+    har_id = _tracing_har_start(tracing_channel(ctx); options)
+    return HarRecording(ctx, har_id, String(path))
+end
+
+"The JS-style flag letters of a Regex, for the driver's own RegExp."
+function regex_flag_string(re::Regex)
+    flags = ""
+    (re.compile_options & Base.PCRE.CASELESS) != 0 && (flags *= "i")
+    (re.compile_options & Base.PCRE.MULTILINE) != 0 && (flags *= "m")
+    (re.compile_options & Base.PCRE.DOTALL) != 0 && (flags *= "s")
+    return flags
+end
+
+"""
+    stop_har_recording!(rec::HarRecording) -> String
+
+Stop `rec` and write its archive, returning the path it was written to.
+
+```julia
+path = stop_har_recording!(rec)
+route_from_har(other_ctx, path)
+```
+
+`harExport` hands back an `Artifact`, exactly as tracing's stop does, so
+[`save_as!`](@ref) is already the writer (D8) — including its guard: an export
+that produced no artifact raises naming the path that was *not* written, rather
+than returning quietly and leaving the caller to find an absent file later.
+"""
+function stop_har_recording!(rec::HarRecording)
+    result = _tracing_har_export(
+        tracing_channel(rec.context);
+        harId = rec.har_id,
+        mode = "archive",
+    )
+    artifact = result.artifact
+    artifact === nothing && throw(
+        DriverError(
+            "the HAR recording stopped without producing an artifact, so there " *
+            "is nothing to write to $(rec.path)";
+            name = "Error",
+        ),
+    )
+    save_as!(artifact; path = rec.path)
+    return rec.path
+end
+
+"""
+    with_har_recording(body, ctx; path, content = :embed, mode = :full, url = nothing)
+
+Record `ctx`'s network around `body()` and write the archive to `path`,
+returning whatever `body()` returned.
+
+```julia
+with_har_recording(ctx; path = "api.har", url = "**/api/**") do
+    goto!(page, "https://app.example.com")
+    click!(locator(page, "#refresh"))
+end
+```
+
+The archive is written **however the block exits**, which is the same reason
+[`with_tracing`](@ref) exists: a recording abandoned by an exception is a
+recording of exactly the run you wanted to look at. Keywords are
+[`start_har_recording!`](@ref)'s.
+"""
+function with_har_recording(
+    body,
+    ctx::BrowserContext;
+    path::AbstractString,
+    content::Symbol = :embed,
+    mode::Symbol = :full,
+    url::Union{AbstractString,Regex,Nothing} = nothing,
+)
+    rec = start_har_recording!(ctx; path, content, mode, url)
+    try
+        return body()
+    finally
+        stop_har_recording!(rec)
+    end
+end

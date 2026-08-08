@@ -47,10 +47,10 @@ ask about Part D — not at T20 (R1, Assumption 10).
 
 ## Phase 2: Part B — recording
 
-- [ ] **T8** (L) `HarRecording`, `start_har_recording!`,
+- [x] **T8** (L) `HarRecording`, `start_har_recording!`,
       `stop_har_recording!`; symbol validation; the no-artifact guard
       (D6, D8) — SC 9, 10, 11
-- [ ] **T9** (S) `with_har_recording` (D6)
+- [x] **T9** (S) `with_har_recording` (D6)
 - [ ] **T10** (M) `update = true` implemented; T7's refusal removed (D7)
 - [ ] **T11** (L) The round trip, both engines: record, **stop the server**,
       replay — SC 12, 13

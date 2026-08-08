@@ -262,6 +262,19 @@ route_from_har
 with_har
 ```
 
+### HAR recording
+
+The other direction, and where the archive above came from. A `start!`/`stop!`
+pair rather than a [`new_context`](@ref) keyword (D6), matching
+[`start_tracing!`](@ref) — the same protocol shape, so the same spelling.
+
+```@docs
+HarRecording
+start_har_recording!
+stop_har_recording!
+with_har_recording
+```
+
 ### Network events
 
 `expect_request` and `expect_response` are sugar over

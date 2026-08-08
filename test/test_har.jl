@@ -10,10 +10,20 @@
 
 using Base64: base64encode, base64decode
 
-using Playwright: route_from_har, with_har, route!, unroute!, unroute_all!
+using Playwright:
+    route_from_har,
+    with_har,
+    start_har_recording!,
+    stop_har_recording!,
+    with_har_recording,
+    route!,
+    unroute!,
+    unroute_all!
 
 const HAR_FIXTURE = joinpath(@__DIR__, "fixtures", "api.har")
 const HAR_ZIP_FIXTURE = joinpath(@__DIR__, "fixtures", "api.har.zip")
+
+const HAR_ARTIFACT_SEQ = Ref(0)
 
 """
 A FakeDriver whose replies are chosen by method, so one test can hand
@@ -21,12 +31,18 @@ A FakeDriver whose replies are chosen by method, so one test can hand
 
 `lookup` is a zero-argument callable returning the reply body; it is a callable
 rather than a value so a test can change the answer between requests.
+`export_artifact` is what `harExport` answers with — an `Artifact`, or nothing
+at all, which is the case D8's guard exists for.
 """
-function har_fixture(; lookup = () -> Dict{String,Any}("action" => "noentry"))
+function har_fixture(;
+    lookup = () -> Dict{String,Any}("action" => "noentry"),
+    export_artifact::Bool = true,
+)
     fake = FakeDriver()
     conn = fake.connection
     requests = Vector{Any}()
     reply_for = Ref{Any}(lookup)
+    exports_artifact = Ref(export_artifact)
     @async try
         while true
             msg = take!(fake.client_messages)
@@ -36,6 +52,29 @@ function har_fixture(; lookup = () -> Dict{String,Any}("action" => "noentry"))
                 reply_ok(fake, msg["id"], Dict{String,Any}("harId" => "har@1"))
             elseif method == "harLookup"
                 reply_ok(fake, msg["id"], reply_for[]())
+            elseif method == "harStart"
+                reply_ok(fake, msg["id"], Dict{String,Any}("harId" => "harrec@1"))
+            elseif method == "harExport"
+                if exports_artifact[]
+                    # An Artifact, exactly as tracingStopChunk answers with one,
+                    # which is why save_as! is already the writer (D8). A fresh
+                    # guid per export so no test can settle another's artifact.
+                    guid = "artifact@har-$(HAR_ARTIFACT_SEQ[] += 1)"
+                    send_create(
+                        fake,
+                        "context@1",
+                        "Artifact",
+                        guid,
+                        Dict("absolutePath" => "/tmp/pw/$guid"),
+                    )
+                    reply_ok(
+                        fake,
+                        msg["id"],
+                        Dict{String,Any}("artifact" => Dict("guid" => guid)),
+                    )
+                else
+                    reply_ok(fake, msg["id"], Dict{String,Any}())
+                end
             else
                 reply_ok(fake, msg["id"], Dict{String,Any}())
             end
@@ -563,6 +602,215 @@ end
         @test reg isa Playwright.RouteRegistration
         unroute!(f.context, reg)
 
+        close(f.conn)
+    end
+
+    # --- Recording: HarRecording, start/stop (T8, Part B) -------------------
+    #
+    # D6 makes this a start!/stop! pair rather than a new_context keyword,
+    # because start_tracing!/stop_tracing! already made that decision in M4 for
+    # the identical protocol shape — a Tracing command pair producing an
+    # Artifact. A second feature on the same object with the opposite spelling
+    # would be the package disagreeing with itself.
+
+    "Give the HAR fixture's context a Tracing channel, as the real driver does."
+    function har_tracing(f)
+        send_create(f.fake, "context@1", "Tracing", "tracing@1")
+        @test timedwait(
+            () -> Playwright.lookup_object(f.conn, "tracing@1") !== nothing,
+            5.0,
+        ) === :ok
+        f.context.initializer["tracing"] = Dict("guid" => "tracing@1")
+        return nothing
+    end
+
+    @testset "start_har_recording! sends the RecordHarOptions (T8, SC 9)" begin
+        f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "out.har")
+
+        rec = start_har_recording!(f.context, path = dest, url = "**/api/**")
+        @test rec isa Playwright.HarRecording
+
+        start = only(filter(m -> get(m, "method", "") == "harStart", f.requests))
+        @test start["guid"] == "tracing@1"
+        options = start["params"]["options"]
+        # Symbols on the Julia side, the wire's string enums on the wire.
+        @test options["content"] == "embed"
+        @test options["mode"] == "full"
+        @test options["urlGlob"] == "**/api/**"
+        @test options["path"] == dest
+        # A glob is not also sent as a regex.
+        @test !haskey(options, "urlRegexSource")
+
+        close(f.conn)
+    end
+
+    @testset "a Regex url goes out as source and flags, not as a glob (T8)" begin
+        f = har_fixture()
+        har_tracing(f)
+        start_har_recording!(
+            f.context,
+            path = joinpath(mktempdir(), "o.har"),
+            url = r"api/\d+"i,
+        )
+
+        options =
+            only(filter(m -> get(m, "method", "") == "harStart", f.requests))["params"]["options"]
+        @test options["urlRegexSource"] == "api/\\d+"
+        @test occursin("i", options["urlRegexFlags"])
+        @test !haskey(options, "urlGlob")
+
+        close(f.conn)
+    end
+
+    @testset "no url records everything (T8)" begin
+        f = har_fixture()
+        har_tracing(f)
+        start_har_recording!(f.context, path = joinpath(mktempdir(), "o.har"))
+        options =
+            only(filter(m -> get(m, "method", "") == "harStart", f.requests))["params"]["options"]
+        @test !haskey(options, "urlGlob")
+        @test !haskey(options, "urlRegexSource")
+        close(f.conn)
+    end
+
+    @testset "content and mode reject a bad Symbol, naming the set (T8, SC 10)" begin
+        f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "o.har")
+
+        err = try
+            start_har_recording!(f.context, path = dest, content = :inline)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("content", err.msg)
+        @test occursin(":embed", err.msg)
+        @test occursin(":attach", err.msg)
+        @test occursin(":omit", err.msg)
+
+        err2 = try
+            start_har_recording!(f.context, path = dest, mode = :partial)
+            nothing
+        catch e
+            e
+        end
+        @test err2 isa ArgumentError
+        @test occursin("mode", err2.msg)
+        @test occursin(":full", err2.msg)
+        @test occursin(":minimal", err2.msg)
+
+        # Before the wire, both of them: a typo must not start a recording.
+        @test isempty(filter(m -> get(m, "method", "") == "harStart", f.requests))
+
+        # ...and the valid values are accepted.
+        @test start_har_recording!(
+            f.context,
+            path = dest,
+            content = :attach,
+            mode = :minimal,
+        ) isa Playwright.HarRecording
+        options =
+            only(filter(m -> get(m, "method", "") == "harStart", f.requests))["params"]["options"]
+        @test options["content"] == "attach"
+        @test options["mode"] == "minimal"
+
+        close(f.conn)
+    end
+
+    @testset "stop_har_recording! exports, saves, and returns the path (T8, SC 9)" begin
+        f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "out.har")
+
+        rec = start_har_recording!(f.context, path = dest)
+        @test rec.path == dest
+
+        @test stop_har_recording!(rec) == dest
+
+        export_msg = only(filter(m -> get(m, "method", "") == "harExport", f.requests))
+        # "archive" and not "entries": this package does not parse HAR, so the
+        # inline-entries mode is not wrapped (D8).
+        @test export_msg["params"]["mode"] == "archive"
+        @test export_msg["params"]["harId"] == rec.har_id
+
+        # The artifact is written by save_as!, the writer M4 already had.
+        save = only(filter(m -> get(m, "method", "") == "saveAs", f.requests))
+        @test startswith(save["guid"], "artifact@har-")
+        @test save["params"]["path"] == dest
+
+        close(f.conn)
+    end
+
+    @testset "an export with no artifact names the unwritten path (T8, SC 11)" begin
+        # The guard stop_tracing! already has (D8). Without it an export that
+        # produced nothing is a silent no-op and the caller finds an absent file
+        # much later.
+        f = har_fixture(export_artifact = false)
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "never-written.har")
+        rec = start_har_recording!(f.context, path = dest)
+
+        err = try
+            stop_har_recording!(rec)
+            nothing
+        catch e
+            e
+        end
+        @test err isa Playwright.DriverError
+        @test occursin(dest, err.message)
+        @test !isfile(dest)
+
+        close(f.conn)
+    end
+
+    @testset "with_har_recording writes the archive when the body throws (T9)" begin
+        # The mirror of with_route's throwing test, and the reason the block
+        # form exists: a recording abandoned by an exception is a recording of
+        # exactly the run worth looking at.
+        f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "thrown.har")
+
+        @test_throws ErrorException with_har_recording(f.context; path = dest) do
+            error("the body failed")
+        end
+
+        @test length(filter(m -> get(m, "method", "") == "harStart", f.requests)) == 1
+        @test length(filter(m -> get(m, "method", "") == "harExport", f.requests)) == 1
+        @test only(filter(m -> get(m, "method", "") == "saveAs", f.requests))["params"]["path"] ==
+              dest
+
+        close(f.conn)
+    end
+
+    @testset "with_har_recording returns the body's value (T9)" begin
+        f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "ok.har")
+        @test with_har_recording(f.context; path = dest, url = "**/api/**") do
+            42
+        end == 42
+        @test length(filter(m -> get(m, "method", "") == "harExport", f.requests)) == 1
+        close(f.conn)
+    end
+
+    @testset "with_har_recording validates before it starts anything (T9)" begin
+        f = har_fixture()
+        har_tracing(f)
+        ran = Ref(false)
+        @test_throws ArgumentError with_har_recording(
+            f.context;
+            path = joinpath(mktempdir(), "x.har"),
+            content = :inline,
+        ) do
+            ran[] = true
+        end
+        @test !ran[]
+        @test isempty(filter(m -> get(m, "method", "") == "harStart", f.requests))
         close(f.conn)
     end
 
