@@ -96,15 +96,15 @@ $ PLAYWRIGHT_JL_SMOKE=1 julia --project=. -e 'using Pkg; Pkg.test()' # + real br
 The hermetic suite needs no Node.js and no browsers. The smoke suite launches
 headless Chromium and Firefox against local HTML fixtures served in-process.
 
-Build the docs locally with `julia --project=docs docs/make.jl`; the build
+Build the docs locally with `julia --project=docs docs/make.jl`. That build
 never launches a browser.
 
 ## The channel layer is generated
 
 `src/generated/channels.jl` — one type per protocol interface, one function per
 protocol command — is generated from Playwright's own protocol spec, vendored
-under `protocol/spec/` at the pinned version. The generated code is checked in;
-the generator never runs at build or load time and adds no runtime dependency.
+under `protocol/spec/` at the pinned version. The generated code is checked in.
+The generator never runs at build or load time, and adds no runtime dependency.
 
 ```console
 $ julia --project=gen gen/fetch_spec.jl        # re-vendor protocol/spec/*.yml
