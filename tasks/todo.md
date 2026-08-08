@@ -297,9 +297,24 @@ three before any smoke means debugging three new surfaces at once.
       - docs build: zero errors, zero warnings, with `checkdocs = :exports`,
         `warnonly = false` and `doctest = true` all still on (SC 26); hermetic
         1933 unchanged; `format(".")` clean
-- [ ] T20: README status, `bonnie-parity.md` re-score (S) — SC 29, deps: T19
+- [x] T20: README status, `bonnie-parity.md` re-score (S) — SC 29, deps: T19
       - check the not-covered list item by item against `names(Playwright)`,
         not against memory
+      - all eight items checked against the 145 exported names. One leaves the
+        list — "downloads, file choosers and dialogs". The other seven stand,
+        and **WebKit is the one worth stating**: `install` accepts `"webkit"`,
+        but `PlaywrightAPI` has only `chromium` and `firefox` fields, so there
+        is no `pw.webkit` to launch. Not covered, confirmed by the struct
+      - the parity re-score is **"no row changes", and that is the finding**:
+        `bonnie_needs.md` asks for nothing about files in either direction, so
+        a row scoring M7's surfaces against it would be inventing the need.
+        Two smaller M7 changes do touch it — `frame_name` in blocker 2, and
+        `set_default_strict!` easing rather than closing blocker 3
+      - the rename grep **did not catch** `` `name` `` in
+        `docs/bonnie-parity.md:18`: it sat in a comma-separated list of
+        function names, with no `name(`-shaped call to match. Third distinct
+        blind spot found in this grep (T6 found `$name(` and `@ref` links) —
+        it is a good backstop and not a proof
 - [ ] T21: final verification of all 30 criteria (M) — deps: everything
       - a criterion that cannot be met **says so** instead of being ticked —
         M6's Checkpoint A is the precedent

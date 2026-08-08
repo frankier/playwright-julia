@@ -15,7 +15,7 @@ API. The port itself happens in Bonnie's repo.
 | # | Gap | Satisfied by | Tested in |
 |---|---|---|---|
 | 1 | `evaluate` — arbitrary JS returning a value, plus the tagged value codec | `evaluate`, `evaluate_handle`, `eval_on_selector`, `eval_on_selector_all`, `dispose!` | `test_serializers.jl` (codec, hermetic), `test_evaluate.jl` (both browsers) |
-| 2 | Frame access / iframes — `iframe.contentDocument` for the oxygen-template test | `frames`, `frame_locator`, `content_frame`, `owner_frame`, `parent_frame`, `url`, `name`, frame-scoped `locator` | `test_frames.jl` |
+| 2 | Frame access / iframes — `iframe.contentDocument` for the oxygen-template test | `frames`, `frame_locator`, `content_frame`, `owner_frame`, `parent_frame`, `url`, `frame_name`, frame-scoped `locator` | `test_frames.jl` |
 | 3 | Non-strict locators and `count` — `embed_raw` asserts two sliders, drives the first | `locator(…; strict=false)`, `count`, `nth`, `first`, `last`, iteration/indexing | `test_smoke.jl` |
 | 4 | Driving `input[type=range]` to an exact value of 7 | `dispatch_event!` (with `evaluate` as the general escape hatch) | `test_smoke.jl`, `test_parity.jl` |
 
@@ -51,6 +51,26 @@ What this does *not* change: Bonnie's suite drives a real server and asserts on
 real responses, so interception is an option it gains rather than a gap it had.
 The value is in the cases a live backend makes awkward — the 500, the empty
 state, the slow response — which are one line each now.
+
+## Re-scored by milestone 7
+
+**No row above changes, and that is the finding.** M7 shipped downloads, file
+choosers and JavaScript dialogs; the audit in
+[`tasks/bonnie_needs.md`](../tasks/bonnie_needs.md) asks for none of the three,
+and re-reading it for them turns up nothing — Bonnie's suite renders pages and
+asserts on them, and never moves a file in either direction. Writing a row here
+anyway would be scoring a capability against a need that does not exist.
+
+Two smaller M7 changes do touch the table, one in each direction:
+
+| Row | Change |
+|---|---|
+| Blocker 2 | `name` is spelled `frame_name` now, and the row above says so. The rename is the whole change — same call, same meaning |
+| Blocker 3 | `set_default_strict!` makes non-strict the page, context or frame default, so a suite that wants it in more than one place sets it once rather than per locator |
+
+Neither is a gap closing. Blocker 3's row was already satisfied by
+`locator(…; strict = false)`; what changed is how much of it a caller has to
+repeat.
 
 ## The shim
 

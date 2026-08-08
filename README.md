@@ -119,19 +119,24 @@ generated API would be a transliteration of TypeScript rather than Julia.
 
 ## Status
 
-Chromium and Firefox, on Linux, synchronous API. Milestones 1–6 are complete:
+Chromium and Firefox, on Linux, synchronous API. Milestones 1–7 are complete:
 the protocol and driver layer, the broad API, driver-side waiting and retrying
-assertions, artifacts and the failure path, the documentation site, and the
+assertions, artifacts and the failure path, the documentation site, the
 network — route interception, the four network events, and enough of
-`APIRequestContext` to fulfil a route from a real upstream response.
+`APIRequestContext` to fulfil a route from a real upstream response — and the
+file surfaces: downloads, JavaScript dialogs and uploads.
 
-Milestone 6 also renamed twelve calls: every call that changes what the page
-can observe now ends in `!` — `goto!`, `click!`, `close!`, `set_value!` and so
-on. There are no deprecation shims; the old spellings simply stop existing.
+Two rounds of renaming, both without deprecation shims — the old spellings
+simply stop existing. Milestone 6 renamed twelve calls, so that every call
+changing what the page can observe ends in `!`: `goto!`, `click!`, `close!`,
+`set_value!` and so on. Milestone 7 took the remaining names that shadowed
+`Base` or read as something they were not: `name` → `frame_name`,
+`screenshot`/`pdf` split from `screenshot_bytes`/`pdf_bytes`, and `save_as!`
+takes its destination as a keyword.
 
-Not yet covered: WebKit; downloads, file choosers and dialogs; HAR recording
-and `route_from_har`; WebSocket routing; service workers; persistent contexts;
-a Julia trace *viewer* or any trace parsing; an async API.
+Not yet covered: WebKit; HAR recording and `route_from_har`; WebSocket routing;
+service workers; persistent contexts; a Julia trace *viewer* or any trace
+parsing; an async API.
 
 [`docs/bonnie-parity.md`](docs/bonnie-parity.md) records the driving use case:
 replacing a hand-rolled CDP test harness with public API, row by row.
