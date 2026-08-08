@@ -79,7 +79,7 @@ function start_playwright()
     firefox = from_channel(conn, root.initializer["firefox"])::BrowserType
     # `utils` is LocalUtils? in the protocol, so the key can be absent as well
     # as null — get, not indexing. The absent case is answered once, by
-    # local_utils (D1), rather than at each of HAR replay's call sites.
+    # local_utils, rather than at each of HAR replay's call sites.
     utils = from_channel(
         conn,
         get(root.initializer, "utils", nothing),
@@ -120,7 +120,7 @@ function record_video_option(opt)
     return out
 end
 
-# --- Shared option builders (D10) ------------------------------------------
+# --- Shared option builders ------------------------------------------
 #
 # `launchPersistentContext` takes LaunchOptions *and* ContextOptions, so a third
 # entry point written by hand would be the union of `launch`'s twelve keywords
@@ -320,7 +320,7 @@ ctx = new_context(browser; record_video = (dir = "artifacts/video",))
 ```
 
 `accept_downloads` is a convenience rather than boilerplate: **downloads
-already work with it unset**, on both engines (probed). Pass `false` to make
+already work with it unset**, on both engines. Pass `false` to make
 the browser refuse them — which does not stop the [`Download`](@ref) arriving,
 only makes [`failure`](@ref) non-`nothing`. Leaving it unset omits the
 parameter from the wire entirely; see [`Download`](@ref).
@@ -347,7 +347,7 @@ what a real browser does.
 ```julia
 ctx = launch_persistent_context(pw.chromium, "/tmp/profile"; headless = true)
 # A persistent context arrives with a page already open — use it rather than
-# calling new_page, which would open a blank second one (D9).
+# calling new_page, which would open a blank second one.
 page = first(pages(ctx))
 goto!(page, url)
 click!(locator(page, "#accept-cookies"))
@@ -366,10 +366,9 @@ meaning a temporary profile; this package raises instead, because a *persistent*
 context whose profile evaporates is a call nobody meant to make.
 
 !!! note "It comes with a page, and `close!` takes the browser with it"
-    `length(pages(ctx)) == 1` immediately after this returns — probed on both
-    engines — which is the one way this function differs from every other
-    context in the package. Reach for `first(pages(ctx))`, not
-    [`new_page`](@ref).
+    `length(pages(ctx)) == 1` immediately after this returns, on both engines.
+    That is the one way this function differs from every other context in the
+    package. Reach for `first(pages(ctx))`, not [`new_page`](@ref).
 
     [`close!`](@ref) on the returned context takes the browser down with it —
     the *driver* does that, not this package, verified on both engines. So
@@ -434,7 +433,7 @@ end
 # doing this is a test failure here rather than a leak in the wild.
 
 # Pages opened by new_page(::Browser) own the context created for them, so
-# close!(page) can tear it down (D7). A Page is a generated struct with a fixed
+# close!(page) can tear it down. A Page is a generated struct with a fixed
 # field layout, so the association lives here rather than on the object.
 const IMPLICIT_CONTEXTS = Dict{String,BrowserContext}()
 const IMPLICIT_CONTEXTS_LOCK = ReentrantLock()
@@ -525,11 +524,10 @@ end
     close!(browser::Browser)
 
 Close a page, a context and all of its pages, or a browser and everything in
-it. This is Playwright's `close`; the bang is D1's rule — it changes what the
+it. This is Playwright's `close`. It takes the bang because it changes what the
 page can observe, in the most final way available.
 
-Unlike the `close` it replaces, this extends nothing in `Base`, so it is an
-ordinary export: `names(Playwright)` sees it and `checkdocs` covers it.
+It extends nothing in `Base`, so it is an ordinary export.
 `close(sub)` on a `Subscription` keeps its old spelling, because detaching a
 client-side buffer changes nothing the browser can see. Closing a page that `new_page(browser)` created also closes the context
 that was created to hold it.

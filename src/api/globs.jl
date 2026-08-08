@@ -56,7 +56,7 @@ A malformed group raises `ArgumentError` rather than compiling to something
 that quietly matches the wrong thing: `{` cannot nest, and both braces must be
 matched.
 
-See the network guide for the full case table. `route!` (M6 T10) is the main
+See the network guide for the full case table. [`route!`](@ref) is the main
 consumer of this.
 """
 function glob_to_regex(glob::AbstractString)
@@ -150,11 +150,10 @@ Left alone: a glob starting with `*` (it is already origin-agnostic), one with
 its own scheme, and the opaque schemes (`about:`, `data:`, …). `base_url` of
 `nothing` or `""` is a no-op.
 
-Upstream also normalises dot segments and lower-cases the origin through a
-real URL parser. This does neither — the package has no URL dependency
-(SPEC-M6 assumption 9) — so it joins origin and path and leaves the rest. The
-cases it does not cover resolve to themselves rather than to something subtly
-different.
+Upstream also normalises dot segments and lower-cases the origin through a real
+URL parser. This does neither, because the package depends on no URL library.
+It joins origin and path and leaves the rest. The cases it does not cover
+resolve to themselves rather than to something subtly different.
 """
 function resolve_glob_base(base_url, glob::AbstractString)
     (base_url === nothing || isempty(base_url)) && return String(glob)
@@ -178,7 +177,7 @@ function resolve_glob_base(base_url, glob::AbstractString)
     return origin * dir * glob
 end
 
-# --- The matcher union (D9) ------------------------------------------------
+# --- The matcher union ------------------------------------------------
 
 """
     UrlMatcher
@@ -217,7 +216,7 @@ end
 """
     driver_pattern(matcher) -> String
 
-The glob this matcher contributes to the union sent to the driver (D9).
+The glob this matcher contributes to the union sent to the driver.
 
 A `Regex` or a predicate cannot be expressed as a driver glob, so either one
 widens the union to `"**/*"` — every request is then delivered to the client
@@ -233,9 +232,9 @@ driver_pattern(::Function) = "**/*"
 """
     GLOB_CASES
 
-The glob dialect's behaviour, as data. Read by `test/test_globs.jl` and by
-`docs/src/guide/network.md`, so that a case which is documented but untested —
-or tested but undocumented — cannot exist (SPEC-M6 SC 17).
+The glob dialect's behaviour, as data. Both `test/test_globs.jl` and
+`docs/src/guide/network.md` read it, so the tests and the documented case table
+cannot disagree.
 
 Each entry is `(glob, url, matches, note)`.
 """

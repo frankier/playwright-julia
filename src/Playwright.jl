@@ -45,7 +45,7 @@ export playwright,
     title,
     locator,
     glob_to_regex,
-    # M6 T9: the network surface — Request and Response (D10)
+    # M6 T9: the network surface — Request and Response
     Request,
     Response,
     headers,
@@ -95,12 +95,12 @@ export playwright,
     route_web_socket!,
     unroute_web_socket!,
     with_web_socket_route,
-    # M8 T19: mock or proxy, and the messages (D12)
+    # M8 T19: mock or proxy, and the messages
     connect!,
     send_to_page!,
     send_to_server!,
     close_ws!,
-    # M8 T20: the route's own events (D13)
+    # M8 T20: the route's own events
     on_message_from_page!,
     on_message_from_server!,
     on_close!,
@@ -113,14 +113,14 @@ export playwright,
     pdf,
     pdf_bytes,
     save_as!,
-    # M7 T16: uploads (D13)
+    # M7 T16: uploads
     set_input_files!,
     FileChooser,
     expect_file_chooser,
     element,
     is_multiple,
     set_files!,
-    # M7 T14: dialogs (D12)
+    # M7 T14: dialogs
     Dialog,
     dialog_type,
     message,
@@ -231,7 +231,7 @@ include("api/routing.jl")
 include("api/har.jl")
 # After routing.jl: reuses its raise_collected, and its dispatcher pattern.
 # After routing.jl: third use of its registry + dispatcher shape, and it
-# reuses raise_collected and driver_pattern (D11).
+# reuses raise_collected and driver_pattern.
 include("api/websockets.jl")
 include("api/dialogs.jl")
 include("api/uploads.jl")

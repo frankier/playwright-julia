@@ -265,8 +265,8 @@ with_har
 
 ### HAR recording
 
-The other direction, and where the archive above came from. A `start!`/`stop!`
-pair rather than a [`new_context`](@ref) keyword (D6), matching
+The other direction, and where the archive above came from. Recording is a
+`start!`/`stop!` pair rather than a [`new_context`](@ref) keyword, matching
 [`start_tracing!`](@ref) — the same protocol shape, so the same spelling.
 
 ```@docs
@@ -332,9 +332,9 @@ expect_response
 
 ## Fetching outside the page
 
-`Playwright.fetch` is **not exported** (D14) and so is written qualified. That
-also keeps it out of `checkdocs`' reach, which is why its entry here is
-explicit and why a test asserts it has a docstring.
+`Playwright.fetch` is **not exported**, so write it qualified. `Base.fetch`
+means something else, and shadowing it for every script that says
+`using Playwright` is not worth the shorter name.
 
 ```@docs
 Playwright.fetch

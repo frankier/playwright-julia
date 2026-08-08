@@ -178,8 +178,8 @@ page appears to do nothing and the caller waits out a full timeout with no
 diagnostic. It is the value a "default" keyword is most likely to be mapped
 onto by someone being helpful, so the mapping refuses to produce it.
 
-Omitting the parameter already means accept: probed on both engines, an
-unset `acceptDownloads` downloads normally.
+Omitting the parameter already means accept. On both engines, an unset
+`acceptDownloads` downloads normally.
 """
 accept_downloads_option(::Nothing) = nothing
 accept_downloads_option(accept::Bool) = accept ? "accept" : "deny"

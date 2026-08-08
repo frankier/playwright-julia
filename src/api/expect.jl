@@ -1,4 +1,4 @@
-# Retrying assertions, driver-side (D3).
+# Retrying assertions, driver-side.
 #
 # `frame.expect` re-checks the condition in the browser until it holds or the
 # timeout runs out, so a value that is merely late passes without the test
@@ -102,7 +102,7 @@ const MATCHERS = Dict{Symbol,Any}(
     ),
 )
 
-# Document-level matchers (D2). Same protocol command, same table shape — the
+# Document-level matchers. Same protocol command, same table shape — the
 # only difference is what they run against.
 #
 # The selector for these is the **empty string**, which is the one thing here

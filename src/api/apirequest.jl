@@ -1,4 +1,4 @@
-# APIRequestContext, exactly as far as fulfil-from-upstream needs (D12).
+# APIRequestContext, exactly as far as fulfil-from-upstream needs.
 #
 # The line is drawn at *routing needs it*: intercept a request, perform it for
 # real, hand the response back to the page with something changed. A general
@@ -150,7 +150,7 @@ request_context(ctx::BrowserContext) =
 Perform an HTTP request over the browser's own network stack — its cookies, its
 proxy — without a page being involved.
 
-**Unexported, and called qualified: `Playwright.fetch(…)`** (D14). `Base.fetch`
+**Unexported, and called qualified: `Playwright.fetch(…)`**. `Base.fetch`
 on a `Task` and `Distributed.fetch` both exist, so exporting this name would
 make `using Playwright` alongside either of them ambiguous, and extending
 `Base.fetch` would tie together two unrelated ideas. The qualification also

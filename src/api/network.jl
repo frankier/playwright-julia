@@ -6,7 +6,7 @@
 # wire, and each of those says so in its docstring — a round trip inside a
 # routing handler is a cost worth being able to see at the call site.
 
-# --- Headers (D10) ---------------------------------------------------------
+# --- Headers ---------------------------------------------------------
 #
 # Three functions, because there are genuinely three questions: what is the
 # value of this header, what did the wire literally carry, and what did the
@@ -288,7 +288,7 @@ error_text(f::RequestFailure) = f.error_text
 Base.show(io::IO, f::RequestFailure) =
     print(io, "RequestFailure(", repr(url(f.request)), ", ", repr(f.error_text), ")")
 
-# --- expect_request / expect_response (D11) --------------------------------
+# --- expect_request / expect_response --------------------------------
 #
 # Sugar over expect_event with a matcher-derived predicate. They exist because
 # the predicate spelling is the part users get wrong, and because these two are
@@ -312,7 +312,7 @@ method(request)      # "GET"
 ```
 
 `target` may be a [`BrowserContext`](@ref) or a [`Page`](@ref). The page form
-watches the page's *context* and keeps only that page's traffic (D11), so with
+watches the page's *context* and keeps only that page's traffic, so with
 two pages open each sees its own.
 """
 function expect_request(

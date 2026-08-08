@@ -257,7 +257,7 @@ end
 The dispatcher loop: one per registered page, handlers run sequentially in
 arrival order.
 
-Sequential for M6's reasons — deterministic ordering, no interleaving between
+Sequential buys three things: deterministic ordering, no interleaving between
 one dialog's answer and the next one's handler, and no lock needed inside a
 user closure that touches shared state.
 """

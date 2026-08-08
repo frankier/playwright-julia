@@ -2,7 +2,7 @@
 #
 # This is the plumbing beneath expect_event / wait_for_event: it routes named
 # driver events to buffers and, above all, makes sure those buffers die when
-# they stop being needed. Buffers are unbounded by design (D1) — no event is
+# they stop being needed. Buffers are unbounded by design — no event is
 # ever dropped — which makes lifetime load-bearing rather than cosmetic: an
 # unbounded buffer left attached to a chatty page is an unbounded leak.
 #
@@ -114,7 +114,7 @@ Detach `sub` from the registry **without** draining its buffer. Idempotent.
 
 `close` does both, which is right when the channel belongs to the subscription
 alone. It is wrong when the channel is *shared*: a `WebSocketRoute`'s four
-subscriptions feed their owner's dispatcher queue rather than one each (D13), so
+subscriptions feed their owner's dispatcher queue rather than one each, so
 draining on release would throw away another socket's pending messages — and,
 worse, the route arrivals the dispatcher has not handled yet.
 """
@@ -339,7 +339,7 @@ const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
         "pageError",
         (_owner, params) -> page_error(get(params, "error", params)),
     ),
-    # M6 T12 (D11). All four are opt-in: the driver stays silent until the
+    # M6 T12. All four are opt-in: the driver stays silent until the
     # client asks, and the existing ref-counted enable/disable already handles
     # overlapping blocks.
     :request => EventSpec("request", channel_payload("request", Request), true),
@@ -395,13 +395,13 @@ const DEFERRED_EVENTS = Dict(
     # documented type with "unknown event". It cannot become an event either:
     # subscribing to `dialog` is WHAT disables the driver's auto-dismiss, so the
     # registry owns the subscription and an expect_event form would disarm the
-    # safety net by being used (D12).
+    # safety net by being used.
     :dialog => "Dialog is wrapped, but dialogs are answered with `on_dialog!`/`with_dialog`, not an event",
 )
 
 """
 Whether `table` names only events that are genuinely absent from `owner`'s
-event table (D14).
+event table.
 
 Written as a function over its inputs so the gate can be tested *both* ways:
 against the real table, which must pass, and against a table with a supported
@@ -415,7 +415,7 @@ deferred_table_is_honest(table, owner) =
 
 """
 The four network events as seen from a `Page`: subscribed on the page's
-context, filtered down to that page's own traffic (D11).
+context, filtered down to that page's own traffic.
 
 Built from the context table so the payload mapping cannot drift between the
 two spellings of the same event.

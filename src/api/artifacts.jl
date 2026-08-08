@@ -16,7 +16,7 @@
 # The distinction that makes this a wrapper rather than three field reads: the
 # initializer's `absolutePath` says where the file *will* be, and is there
 # before the file is. `pathAfterFinished` is the call that waits for it. Video
-# in particular does not finish until the page closes (D6), so reading the
+# in particular does not finish until the page closes, so reading the
 # initializer would hand back a path to a file that does not exist yet.
 
 """
@@ -61,10 +61,9 @@ close!(page)
 
 a test rather than a race.
 
-The path is on the machine running the driver. That is this machine — the
-driver is a child process (`SPEC-M4.md` assumption 7) — so the file is readable
-from Julia directly. Use [`save_as!`](@ref) to put a copy somewhere of your own
-choosing instead.
+The path is on the machine running the driver. The driver runs as a child
+process of this one, so the file is readable from Julia directly. Use
+[`save_as!`](@ref) to put a copy somewhere of your own choosing instead.
 """
 path(a::Artifact) = _artifact_path_after_finished(a)::String
 
@@ -139,17 +138,15 @@ opened. `stop_tracing!` closes the chunk, and a stop with no chunk open has
 nothing to archive.
 
 !!! note "`sources` is not accepted"
-    A reader coming from `playwright-python` will look for it, so its absence
-    is documented rather than left to be discovered. Upstream clients embed
-    calling source files by passing `includeSources` to `localUtils.zip`, which
-    they use because they assemble the zip themselves. This package lets the
-    driver assemble it (`tracingStopChunk(mode="archive")` — see D1), and the
-    1.61.1 `tracingStart` protocol carries no `sources` flag.
+    `playwright-python` takes it, so a reader coming from there will look for
+    it. Upstream clients embed calling source files by passing `includeSources`
+    to `localUtils.zip`, which they can do because they assemble the zip
+    themselves. This package lets the driver assemble it, through
+    `tracingStopChunk(mode="archive")`, and the 1.61.1 `tracingStart` protocol
+    carries no `sources` flag.
 
-    The keyword is therefore not in the signature at all. It used to be
-    accepted and rejected at runtime with an `ArgumentError`; not accepting it
-    is a `MethodError` from the same call, which is the same answer delivered
-    earlier and by the language rather than by a hand-written check.
+    The keyword is not in the signature at all, so passing it raises a
+    `MethodError`.
 """
 function start_tracing!(
     ctx::BrowserContext;

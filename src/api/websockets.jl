@@ -6,12 +6,12 @@
 # and the differences from routing.jl are few enough to list:
 #
 #   - There is no unsettled-route warning, because a WebSocket route has no
-#     settle (D11). A handler that registers nothing is a socket that mocks
+#     settle. A handler that registers nothing is a socket that mocks
 #     everything and answers nothing, which is a legitimate thing to want.
 #   - The handler *sets up* a conversation and returns; the messages arrive
 #     afterwards, on the dispatcher. It is not a loop and it does not block.
 #   - The events belong to the route object itself rather than to a Page or a
-#     BrowserContext (D13), and the route is short-lived — so its subscriptions
+#     BrowserContext, and the route is short-lived — so its subscriptions
 #     must be dropped when it goes, or the table grows for the process lifetime.
 #
 # It lives apart from routing.jl despite the shared shape because routing.jl is
@@ -106,7 +106,7 @@ loop's exit. No sentinel, no polling, and no `sleep`.
 function stop_ws_dispatcher!(registry::WebSocketRouteRegistry)
     # Before the queue closes, not after: a live socket's subscriptions feed
     # this very channel, and one left attached is one that outlives the thing
-    # that could have consumed it (D13).
+    # that could have consumed it.
     disarm_registry_routes!(registry)
     task = registry.task
     sub = registry.subscription
@@ -123,8 +123,8 @@ end
 The dispatcher loop: one per routed owner, handlers run sequentially in arrival
 order.
 
-Sequential for M6's reasons — deterministic ordering, and a user closure
-touching shared state needs no lock of its own.
+Sequential buys two things: deterministic ordering, and a user closure touching
+shared state needs no lock of its own.
 """
 function dispatch_web_socket_routes(registry::WebSocketRouteRegistry, sub::Subscription)
     while true
@@ -134,7 +134,7 @@ function dispatch_web_socket_routes(registry::WebSocketRouteRegistry, sub::Subsc
             break            # channel closed: stop_ws_dispatcher! was called
         end
         # Two kinds of thing arrive on this queue: sockets to intercept, and
-        # frames on sockets already intercepted (D13). Sharing one queue is what
+        # frames on sockets already intercepted. Sharing one queue is what
         # keeps this to one task per routed owner rather than one per socket,
         # and it is what makes a socket's frames arrive in order behind the
         # handler that set it up.
@@ -186,7 +186,7 @@ function handle_web_socket_route(registry::WebSocketRouteRegistry, route::WebSoc
 
             # Armed *before* the handler runs, and for every intercepted socket
             # rather than only for one that registers a callback: in proxy mode
-            # the default forwarding is ours to do (D12), so a route with no
+            # the default forwarding is ours to do, so a route with no
             # callbacks at all still has to be listening.
             arm_ws_route_events!(registry, route, reg)
 
@@ -228,7 +228,7 @@ ws_matches(matcher::AbstractString, target::AbstractString) =
 ws_matches(matcher::Regex, target::AbstractString) = occursin(matcher, target)
 ws_matches(matcher, target::AbstractString) = matcher(target)::Bool
 
-# --- The registration API (D11) --------------------------------------------
+# --- The registration API --------------------------------------------
 
 """
     route_web_socket!(handler, target, matcher) -> WebSocketRouteRegistration
@@ -413,7 +413,7 @@ The URL the page asked to connect to.
 """
 url(route::WebSocketRoute) = route.initializer["url"]::String
 
-# --- Mock or proxy (D12) ---------------------------------------------------
+# --- Mock or proxy ---------------------------------------------------
 #
 # `WebSocketRoute` is a generated struct with a fixed field layout, so "has this
 # route connected?" lives beside it rather than on it — the same shape as
@@ -570,7 +570,7 @@ function close_ws!(
     return nothing
 end
 
-# --- Per-object events (D13) -----------------------------------------------
+# --- Per-object events -----------------------------------------------
 #
 # Every other event in this package belongs to a Page or a BrowserContext, both
 # of which outlive the things they report. A WebSocketRoute's four events
@@ -706,9 +706,9 @@ end
 Deliver one frame to its callback, or do the forwarding the callback replaced.
 
 The defaults are Playwright's, and they are what make proxy mode a proxy: a
-message nobody claimed goes on to the other side. Registering a callback takes
-that over — including the right to drop the message, which D12 calls the sharp
-edge and SC 26 pins as intended rather than fixing.
+message nobody claimed goes on to the other side. A registered callback owns
+that decision instead, and dropping the message is one of the choices it owns.
+That is intended behaviour, not an oversight.
 """
 function deliver_ws_route_event(ev::WebSocketRouteEvent)
     state = ws_state_for(ev.route)
@@ -807,7 +807,7 @@ message types as [`on_message_from_page!`](@ref).
 
 **This replaces the forwarding to the page.** A callback that does not call
 [`send_to_page!`](@ref) swallows the message and the page never sees it — the
-one behaviour of this API worth reading twice (D12).
+one behaviour of this API worth reading twice.
 
 Only meaningful in proxy mode: in mock mode there is no server to hear from.
 """

@@ -13,10 +13,10 @@
 """
 Turn the user-facing forms into the protocol's `localPaths` / `payloads` pair.
 
-Paths and the in-memory form are mutually exclusive, and saying so here — at
-the call site, before anything reaches the driver — is the treatment M6 D15
-gave `fulfill!`'s body sources. The driver's own complaint about the same
-mistake arrives later and names the wire spelling rather than the keyword.
+Paths and the in-memory form are mutually exclusive, and this says so at the
+call site, before anything reaches the driver — the same treatment `fulfill!`
+gives its body sources. The driver's own complaint about the same mistake
+arrives later and names the wire spelling rather than the keyword.
 
 Returns `(localPaths, payloads)`, at most one of which is non-`nothing`.
 """
@@ -166,9 +166,8 @@ Whether the chooser accepts more than one file.
 
 !!! note "`webkitdirectory` is `false`, on both engines"
     A directory picker reports `false`, not `true` — selecting a directory is
-    one selection, not many. Probed on Chromium and Firefox, which agree
-    exactly (`tasks/m7-probe.md`), so a test asserting `true` there would be
-    asserting the wrong thing on both rather than catching a difference.
+    one selection, not many. Chromium and Firefox agree exactly here, so this
+    is the value to expect on both.
 """
 is_multiple(fc::FileChooser) = fc.is_multiple
 

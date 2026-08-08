@@ -17,7 +17,7 @@ const DEFAULT_NAVIGATION_TIMEOUT = 30_000
 # playwright() session inherit the first one's settings; and it puts the
 # settings under the connection's own lock, so pruning them from dispose_locked
 # needs no second lock and cannot invert a lock order.
-# One non-timeout setting shares this table: `strict` (D7). It cascades the
+# One non-timeout setting shares this table: `strict`. It cascades the
 # same way, prunes the same way, and lives under the same lock, so giving it a
 # second table would be duplication rather than separation.
 const NO_SETTINGS = (action = nothing, navigation = nothing, strict = nothing)
@@ -155,7 +155,7 @@ resolve_timeout(loc::Locator, kwarg) = resolve_timeout(loc.frame, kwarg)
 resolve_navigation_timeout(loc::Locator, kwarg) =
     resolve_navigation_timeout(loc.frame, kwarg)
 
-# --- strictness (D7) --------------------------------------------------------
+# --- strictness --------------------------------------------------------
 
 """
     set_default_strict!(target, strict::Bool)
