@@ -1,12 +1,12 @@
-# WebSocket routing (SPEC-M8 Part D), against the fake connection.
+# WebSocket routing, against the fake connection.
 #
-# The lifetime comes before the behaviour, which is the ordering M6's routing
-# and M7's dialogs both used and both benefited from: a dispatcher that leaks,
+# The lifetime comes before the behaviour, as it does in routing.jl and
+# dialogs.jl, and for the same reason: a dispatcher that leaks,
 # dies or deadlocks presents to a user as a page that hangs, metres from the
 # cause.
 #
 # This is the *third* use of the registry + dispatcher-task shape. The rule from
-# tasks/todo.md: it is a reuse, not an invention — if it starts diverging from
+# a reuse, not an invention — if it starts diverging from
 # routing.jl's shape, stop and say why in the spec.
 #
 # Every wait here is bounded. A socket nobody answers blocks its page, and a
@@ -312,8 +312,8 @@ end
     end
 
     @testset "a Page target arms the page's own channel" begin
-        # The registry keys on the target the caller named — the probe found
-        # delivery is symmetric, so no filtering step is needed (T17, OQ2).
+        # The registry keys on the target the caller named, because
+        # delivery is symmetric, so no filtering step is needed.
         f = har_fixture()
         reg = route_web_socket!(_ -> nothing, f.page, "**/ws")
 
@@ -370,7 +370,7 @@ end
         close(f.conn)
     end
 
-    # --- T19: connect!, the send verbs, binary ---------------------------------
+    # --- connect!, the send verbs, binary --------------------------------------
 
     @testset "connect! switches the route from mock to proxy" begin
         # Whether connect! was called is the entire mode switch. Nothing else
@@ -562,7 +562,7 @@ end
         close(f.conn)
     end
 
-    # --- T20: callbacks, and the subscriptions that must not leak --------------
+    # --- Callbacks, and the subscriptions that must not leak -------------------
 
     @testset "a page message reaches on_message_from_page!" begin
         f = har_fixture()
@@ -581,7 +581,7 @@ end
 
     @testset "a binary page message arrives as bytes" begin
         # The caller never names base64 — in this direction the decode is the
-        # half T19 could only test through its helper.
+        # half the send verbs could only test through their helper.
         f = har_fixture()
         got = Ref{Any}(nothing)
         bytes = UInt8[0x01, 0x02, 0x03, 0x04]
@@ -630,7 +630,7 @@ end
     end
 
     @testset "a handled server message is swallowed, as intended" begin
-        # D12's sharp edge, pinned rather than fixed: a callback *replaces* the
+        # the sharp edge, pinned rather than fixed: a callback *replaces* the
         # forwarding for its direction, so a callback that does not forward
         # silently drops every server message. It is Playwright's semantics; if
         # they ever change upstream, this test is what tells us.
@@ -703,7 +703,7 @@ end
     end
 
     @testset "the route's subscriptions are gone once it closes" begin
-        # R3, as a test failure rather than a memory profile. The route object
+        # The leak, as a test failure rather than a memory profile. The route object
         # is short-lived and its subscriptions belong to it, so a table that
         # keeps them grows one entry per socket for the life of the process —
         # invisible in a suite, obvious in a long-running scrape.

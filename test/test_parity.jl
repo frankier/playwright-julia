@@ -108,7 +108,7 @@ include("bonnie_shim.jl")
                 close!(browser)
             end
 
-            @test true   # every assertion above is an @assert, as in the spec
+            @test true   # every assertion above is an @assert
         end
     end
 end
@@ -123,14 +123,14 @@ end
 
                 playwright() do pw
                     browser = launch(getfield(pw, Symbol(engine)); headless = true)
-                    @assert browser_name(browser) == engine          # gap 6
+                    @assert browser_name(browser) == engine
 
                     ctx = new_context(browser)
-                    set_default_timeout!(ctx, 2_000)                     # gap 3
+                    set_default_timeout!(ctx, 2_000)
                     page = new_page(ctx)
                     goto!(page, url)
 
-                    # gap 1 — real auto-waiting, no hand-rolled polling
+                    # Real auto-waiting, no hand-rolled polling
                     wait_for_selector(page, "#late")
                     wait_for_function(page, "() => window.ready === true")
 
@@ -142,7 +142,7 @@ end
                     )
                     expect(locator(page, "#late"); to_be_visible = true)
 
-                    # gap 2 — evaluate against a Locator, no private fields
+                    # evaluate against a Locator, no private fields
                     slider = first(locator(page, "input[type=range]"; strict = false))
                     evaluate(
                         slider,
@@ -156,7 +156,7 @@ end
                     end
                     @assert popup isa Page
 
-                    # gap 4 — branch precisely on failure kind
+                    # Branch precisely on failure kind
                     try
                         wait_for_selector(page, "#never"; timeout = 200)
                     catch e
@@ -211,18 +211,18 @@ end
                         set_default_timeout!(page, 2_000)
                         goto!(page, "file://" * fixture)
 
-                        # B6: assertions about the document, not just an element
+                        # assertions about the document, not just an element
                         expect(page; to_have_title = "Dashboard")
-                        expect(page; to_have_url = r"m4\.html$")
+                        expect(page; to_have_url = r"late-title\.html$")
 
-                        # B1/B2/B3: reports a Fail, inherits the page's 2 s
+                        # reports a Fail, inherits the page's 2 s
                         # timeout, retries through a predicate that throws
                         # while the server warms up
                         @test retry_until(page; on_timeout = :false, on_error = :retry) do
                             HTTP.get(probe_url).status == 200
                         end
 
-                        # A3 — Chromium only, by design (D7)
+                        # A3 — Chromium only, by design
                         if engine == "chromium"
                             dest = joinpath(artifacts, "page.pdf")
                             @test pdf(page; path = dest, format = "A4") == dest
@@ -232,11 +232,11 @@ end
                         end
 
                         close!(page)
-                        # A2: the video only exists once the page is closed
+                        # the video only exists once the page is closed
                         @test isfile(path(video(page)))
                     end
 
-                    # B5: teardown after the context is gone must not throw
+                    # teardown after the context is gone must not throw
                     close!(ctx)
                     @test isempty(page_errors(page))
 

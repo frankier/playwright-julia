@@ -1,9 +1,9 @@
 # The package's public surface, pinned.
 #
-# This exists to fence refactors: splitting src/api.jl into src/api/* (T4) must
-# not move, drop or accidentally add a single exported name. When the API grows
-# deliberately, add the name here in the same commit — the diff is then a
-# visible record of a public-surface change rather than a silent one.
+# This exists to fence refactors: moving code between files must not move, drop
+# or accidentally add a single exported name. When the API grows deliberately,
+# add the name here in the same commit — the diff is then a visible record of a
+# public-surface change rather than a silent one.
 
 @testset "exports" begin
     expected = [
@@ -17,22 +17,21 @@
         :TimeoutError,
         :clear_console_messages!,
         :clear_page_errors!,
-        # M6 T1 (D3): the renames that could not take the obvious bang, because
-        # `Base.fill!` and `Base.delete!` are exported and would be ambiguous
-        # rather than extended. These are first-class exports for the first
-        # time, so `checkdocs = :exports` now covers them.
+        # The names that could not take the obvious bang, because `Base.fill!`
+        # and `Base.delete!` are exported and would be ambiguous rather than
+        # extended.
         :set_value!,
         :close!,
         :set_default_strict!,
         :set_default_timeout!,
         :set_default_navigation_timeout!,
-        # T7: locator ergonomics
+        # locator ergonomics
         :evaluate_all,
         :element_handle,
         :frame,
         :selector,
         :is_strict,
-        # T10: the channel-owner types callers name
+        # the channel-owner types callers name
         :Browser,
         :BrowserContext,
         :BrowserType,
@@ -41,16 +40,16 @@
         :Locator,
         :ElementHandle,
         :JSHandle,
-        # T8: engine metadata
+        # engine metadata
         :browser_name,
-        # T6: retrying assertions
+        # retrying assertions
         :expect,
         :Not,
         :retry_until,
-        # T5: driver-side waiting
+        # driver-side waiting
         :wait_for_selector,
         :wait_for_function,
-        # T4: the event surface
+        # the event surface
         :EventStream,
         :expect_event,
         :wait_for_event,
@@ -80,10 +79,10 @@
         :install,
         :launch,
         :locator,
-        # M6 T8: the glob dialect, exported because a user debugging a route
+        # the glob dialect, exported because a user debugging a route
         # needs to be able to ask what their glob actually matches.
         :glob_to_regex,
-        # M6 T9: Request and Response (D10)
+        # Request and Response
         :Request,
         :Response,
         :headers,
@@ -109,7 +108,7 @@
         :fetch_uid,
         :expect_request,
         :expect_response,
-        # M6 T10: route interception (D5–D9)
+        # route interception
         :Route,
         :RouteRegistration,
         :route!,
@@ -119,32 +118,32 @@
         :abort!,
         :continue!,
         :fulfill!,
-        # M8 T4/T7: HAR replay (D2–D5a)
+        # HAR replay
         :route_from_har,
         :with_har,
-        # M8 T8: HAR recording (D6, D8)
+        # HAR recording
         :HarRecording,
         :start_har_recording!,
         :stop_har_recording!,
         :with_har_recording,
-        # M8 T18: WebSocket routing (D11-D13)
+        # WebSocket routing
         :WebSocketRoute,
         :WebSocketRouteRegistration,
         :route_web_socket!,
         :unroute_web_socket!,
         :with_web_socket_route,
-        # M8 T19: mock or proxy, and the messages (D12)
+        # mock or proxy, and the messages
         :connect!,
         :send_to_page!,
         :send_to_server!,
         :close_ws!,
-        # M8 T20: the route's own events (D13)
+        # the route's own events
         :on_message_from_page!,
         :on_message_from_server!,
         :on_close!,
         :frame_name,
         :new_context,
-        # M8 T14: persistent contexts (D9, D10)
+        # persistent contexts
         :launch_persistent_context,
         :new_page,
         :nth,
@@ -153,30 +152,30 @@
         :pages,
         :parent_frame,
         :playwright,
-        # M4 T7/T4: artifact capture and the Artifact surface
+        # artifact capture and the Artifact surface
         :pdf,
         :pdf_bytes,
         :save_as!,
         :path,
         :delete_file!,
-        # M4 T5: tracing
+        # tracing
         :start_tracing!,
         :stop_tracing!,
         :with_tracing,
-        # M4 T6: video
+        # video
         :video,
         :Artifact,
-        # M4 T9: the with_page fixture
+        # the with_page fixture
         :with_page,
         :report_diagnostics,
-        # M7 T16: uploads (D13)
+        # uploads
         :set_input_files!,
         :FileChooser,
         :expect_file_chooser,
         :element,
         :is_multiple,
         :set_files!,
-        # M7 T14: dialogs (D12)
+        # dialogs
         :Dialog,
         :dialog_type,
         :message,
@@ -186,7 +185,7 @@
         :on_dialog!,
         :off_dialog!,
         :with_dialog,
-        # M7 T12: downloads (D10, D11)
+        # downloads
         :Download,
         :expect_download,
         :suggested_filename,
@@ -207,12 +206,11 @@
         @test isdefined(Playwright, name)
     end
 
-    # D14: `Playwright.fetch` is deliberately NOT exported — Base.fetch and
+    # `Playwright.fetch` is deliberately NOT exported — Base.fetch and
     # Distributed.fetch both exist, and exporting this name would make `using
     # Playwright` alongside either of them ambiguous. The cost is that
-    # `checkdocs = :exports` cannot see its docstring, which is gap 1's shape
-    # arrived at on purpose this time. So the gate the export list would have
-    # given is replaced by this test rather than dropped.
+    # `checkdocs = :exports` cannot see its docstring, so this test stands in for
+    # the gate the export list would otherwise have given.
     @testset "Playwright.fetch is unexported but documented" begin
         @test !(:fetch in names(Playwright))
         @test isdefined(Playwright, :fetch)
@@ -220,18 +218,14 @@
         @test haskey(documented, Base.Docs.Binding(Playwright, :fetch))
     end
 
-    # M8 T24: the README's "not yet covered" list, checked against the export
-    # set rather than against memory.
+    # The README's "not yet covered" list, checked against the export set.
     #
-    # The failure this prevents has happened twice in this repo already, in
-    # different files: guide/network.md called `route_from_har` unwrapped for
-    # two milestones after it was wrapped, and DEFERRED_EVENTS[:dialog] told
-    # readers a documented type was unusable. A list of absences is the one
-    # kind of documentation that rots silently — nothing breaks when it goes
-    # stale, it just misinforms.
+    # A list of absences is the one kind of documentation that rots silently.
+    # Nothing breaks when it goes stale, it only misinforms. So this asserts that
+    # nothing the list calls uncovered is in fact exported.
     #
-    # Written as a function over its inputs, the shape `deferred_table_is_honest`
-    # uses, so the gate can be watched failing as well as passing.
+    # Written as a function over its inputs, so the gate can be watched failing
+    # as well as passing.
     @testset "the README's not-covered list is still true" begin
         # The phrase the list would use, and the exported name that exists if
         # the thing is in fact covered.
@@ -282,19 +276,19 @@
     end
 end
 
-# --- Part A's two safety nets ----------------------------------------------
+# --- Two safety nets for the naming rules ----------------------------------
 #
-# The renames in SPEC-M6 D1–D3 are mechanical, and mechanical changes are
-# exactly the ones that regress quietly. These two testsets are what stop that:
-# the first guards the D3 trap, the second guards the substitution being total.
+# Renames are mechanical, and mechanical changes are exactly the ones that
+# regress quietly. The first testset guards the `Base`-shadowing trap. The second
+# checks that no old spelling survives anywhere.
 
 @testset "using Playwright shadows nothing in Base" begin
-    # D3's trap, made permanent. `fill!` and `delete!` are exported by Base, so
-    # a Playwright export of the same name would not extend Base — it would
-    # make both ambiguous and break `fill!` on arrays for anyone who writes
-    # `using Playwright`. That is why the renames are `set_value!` and
-    # `delete_file!`. If either ever comes back as the obvious spelling, the
-    # identity assertions below fail before any user sees an UndefVarError.
+    # `fill!` and `delete!` are exported by Base, so a Playwright export of the
+    # same name would not extend Base — it would make both ambiguous and break
+    # `fill!` on arrays for anyone who writes `using Playwright`. That is why the
+    # names are `set_value!` and `delete_file!`. If either ever comes back as the
+    # obvious spelling, the identity assertions below fail before any user sees
+    # an UndefVarError.
     #
     # This file is included after `using Playwright` in runtests.jl, so these
     # names resolve here exactly as they would in a user's script.
@@ -321,8 +315,8 @@ end
     @test first([10, 20, 30]) == 10
 
     # `count` and `first` are extended for Locator and so are the same function
-    # objects as Base's — which is the point of D3's "these keep extending
-    # Base" half. Extending is fine; exporting a second binding is not.
+    # objects as Base's. Extending Base is fine. Exporting a second binding
+    # under the same name is not.
     @test Locator in [
         m.sig.parameters[2] for
         m in methods(count) if m.module === Playwright && length(m.sig.parameters) == 2
@@ -330,9 +324,8 @@ end
 end
 
 @testset "no old spelling survives anywhere" begin
-    # SPEC-M6 D4: the claim that Part A is complete is a grep, not a habit.
-    # Each old name is searched for *as a call*, across every hand-written
-    # source in the repo.
+    # Each old name is searched for *as a call*, across every hand-written source
+    # in the repo, so "no old spelling survives" is a grep rather than a habit.
     root = dirname(@__DIR__)
 
     # Hand-written sources only. src/generated/ is codegen output whose wire
@@ -360,14 +353,15 @@ end
     files = hand_written_files()
     @test length(files) > 30      # the walk found something, i.e. it is not vacuous
 
-    # A leading `.` means a JavaScript method call inside an `evaluate` string
-    # — `document.getElementById("x").click()` is not this package's `click`,
-    # and rewriting it would break only inside the browser. A leading word
-    # character means a generated channel function. A leading `$` means a
-    # variable interpolated into a string: `"function $name("` in
-    # test_codegen.jl builds the name of a *generated* function and has nothing
-    # to do with the export — the first version of this walk flagged it, which
-    # is a false positive rather than a survivor.
+    # Three prefixes are excluded, because each marks something that is not this
+    # package's export:
+    #
+    #   * a leading `.` is a JavaScript method call inside an `evaluate` string —
+    #     `document.getElementById("x").click()` is not this package's `click`;
+    #   * a leading word character is a generated channel function;
+    #   * a leading `$` is a variable interpolated into a string, as in
+    #     `"function $name("` in test_codegen.jl, which builds the name of a
+    #     *generated* function.
     old_call(name) = Regex("(?<![.\\w\$])" * name * "\\(")
 
     renamed = [
@@ -382,9 +376,9 @@ end
         "clear_console_messages" => "clear_console_messages!",
         "clear_page_errors" => "clear_page_errors!",
         "dispatch_event" => "dispatch_event!",
-        # M7 D4: `name` was the package's single worst export -- a word so
-        # generic that `using Playwright` shadowed it in any script that had
-        # its own. `frame_name` says which name it means.
+        # `name` was the package's single worst export -- a word so generic that
+        # `using Playwright` shadowed it in any script that had its own.
+        # `frame_name` says which name it means.
         "name" => "frame_name",
     ]
 
@@ -403,8 +397,8 @@ end
     end
 
     # `close` cannot join that list: `close(sub)`, `close(conn)`, `close(io)`
-    # and `close(server)` are all still correct — only the three channel-owner
-    # methods were renamed. So it is checked by what it is applied to.
+    # and `close(server)` are all correct. Only the three channel-owner methods
+    # take the bang, so this checks `close` by what it is applied to.
     close_offenders = String[]
     for path in files
         for (i, line) in enumerate(eachline(path))

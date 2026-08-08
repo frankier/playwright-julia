@@ -7,7 +7,7 @@
   <body>
     <h1 id="heading">Files</h1>
 
-    <!-- Downloads (T13). The server sets Content-Disposition, so the
+    <!-- Downloads. The server sets Content-Disposition, so the
          suggested filename comes from the header rather than the URL --
          which is what makes suggested_filename worth asserting on. -->
     <p>
@@ -15,7 +15,7 @@
       <a id="download-named" href="/download/anything">named by header</a>
     </p>
 
-    <!-- Dialogs (T15). Each button records what the dialog returned into
+    <!-- Dialogs. Each button records what the dialog returned into
          #dialog-result, so an accepted confirm and a dismissed one are
          distinguishable in the DOM rather than only in Julia. -->
     <p>
@@ -32,7 +32,7 @@
     </p>
     <p id="dialog-result">none</p>
 
-    <!-- Uploads (T17). Three inputs, because isMultiple is the thing under
+    <!-- Uploads. Three inputs, because isMultiple is the thing under
          test and webkitdirectory is the case the probe corrected. -->
     <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
       <input id="file-single" name="single" type="file" />

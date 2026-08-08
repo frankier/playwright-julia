@@ -1,4 +1,4 @@
-# Downloads, dialogs and uploads against real browsers (SPEC-M7.md Part C).
+# Downloads, dialogs and uploads against real browsers.
 # Gated behind PLAYWRIGHT_JL_SMOKE=1, and run on Chromium and Firefox alike.
 #
 # The server here is richer than test_smoke.jl's static one because two of the
@@ -13,7 +13,7 @@
 #
 # Every test here is time-boxed. A dialog nobody answers blocks its page until
 # the driver's own timeout, which is ten wasted CI minutes and no diagnostic
-# (R1); an explicit budget turns that into a failure with a name.
+# forever. An explicit budget turns that into a failure with a name.
 
 using HTTP
 using Base64: base64encode
@@ -23,7 +23,7 @@ const M7_REPORT_BYTES = Vector{UInt8}("id,value\n1,octarine\n2,ultraviolet\n")
 const M7_REPORT_FILENAME = "report-2026.csv"
 
 """
-Serve `test/fixtures/` plus the three dynamic routes Part C needs, and hand
+Serve `test/fixtures/` plus the three dynamic routes these tests need, and hand
 `f` the base URL.
 
 `uploads` is a `Ref` holding what the last POST to `/upload` contained, as
@@ -97,7 +97,7 @@ function on_both_engines(body::Function, label::AbstractString)
     end
 end
 
-# --- T13: downloads (SC 13-16) ---------------------------------------------
+# --- Downloads -------------------------------------------------------------
 
 @testset "downloads, both engines" begin
     on_both_engines("downloads") do browser, base_url, _uploads, engine
@@ -124,7 +124,7 @@ end
             dl = expect_download(page; timeout = 15_000) do
                 click!(locator(page, "#download-report"))
             end
-            # R5's tripwire. `isfile` is asserted on the very next line after
+            # the tripwire. `isfile` is asserted on the very next line after
             # `path` returns, with no sleep anywhere in this file. If the
             # blocking semantics were not inherited correctly this fails
             # rather than flaking, because there is nothing to paper it over.
@@ -151,7 +151,7 @@ end
         close!(ctx)
 
         @testset "a refused download still arrives, and then throws" begin
-            # The probe's least guessable finding. `deny` does not suppress the
+            # The least guessable behaviour. `deny` does not suppress the
             # event: it arrives with a correct url and filename, and the
             # refusal surfaces only when the artifact is asked for something.
             denied_ctx = new_context(browser; accept_downloads = false)
@@ -180,7 +180,7 @@ end
     end
 end
 
-# --- T15: dialogs (SC 17-19) -----------------------------------------------
+# --- Dialogs ---------------------------------------------------------------
 
 @testset "dialogs, both engines" begin
     on_both_engines("dialogs") do browser, base_url, _uploads, engine
@@ -228,7 +228,7 @@ end
         end
 
         @testset "with no handler, the dialog is auto-dismissed" begin
-            # The single most important assertion in Part C. With nothing
+            # The single most important assertion here. With nothing
             # registered the driver dismisses dialogs itself and the page
             # proceeds -- which is what makes the registry design safe and the
             # event-only design a footgun. If this ever fails, the package has
@@ -280,7 +280,7 @@ end
     end
 end
 
-# --- T17: uploads, asserted server-side (SC 20-22) -------------------------
+# --- Uploads, asserted server-side -----------------------------------------
 
 @testset "uploads, both engines" begin
     on_both_engines("uploads") do browser, base_url, uploads, engine

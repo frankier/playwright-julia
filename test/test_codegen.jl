@@ -92,8 +92,8 @@ end
         @test occursin("gen/generate.jl", header)
         @test occursin(Playwright.PLAYWRIGHT_VERSION, header)
 
-        # Milestone-1 types must survive the move out of src/objects.jl, and
-        # the generated set is much wider than what milestone 1 hand-wrote.
+        # The hand-written types must survive the move out of src/objects.jl, and
+        # the generated set is much wider than what was hand-written.
         for type in [
             :PlaywrightRoot,
             :BrowserType,
@@ -113,7 +113,7 @@ end
         @test Playwright.CHANNEL_TYPES["Playwright"] === Playwright.PlaywrightRoot
         @test Playwright.CHANNEL_TYPES["Page"] === Playwright.Page
 
-        # Commands the milestone-2 API is built on.
+        # Commands the API is built on.
         for fn in [
             :_frame_goto,
             :_frame_title,
@@ -136,7 +136,7 @@ end
         @test !(Playwright.Page <: Playwright.JSHandleChannel)
     end
 
-    # D1/D2: an emitted local is spelled with a leading underscore; a protocol
+    # an emitted local is spelled with a leading underscore; a protocol
     # parameter is spelled exactly as the spec spells it. The two namespaces
     # cannot intersect, because no protocol parameter leads with an underscore.
     # Without that rule a parameter silently shadows the local — which is what

@@ -1,7 +1,7 @@
 # Persistent contexts against real browsers, both engines. Gated behind
 # PLAYWRIGHT_JL_SMOKE=1.
 #
-# **The second launch is the criterion, not the first** (SC 18). Wrapping
+# **The second launch is the criterion, not the first.** Wrapping
 # launchPersistentContext and asserting you got a usable context proves nothing
 # about persistence — the whole feature is that the profile outlives the
 # process, so the test closes the context, relaunches on the same directory in a
@@ -27,7 +27,7 @@ using Playwright: launch_persistent_context
                         ctx = launch_persistent_context(bt, profile; headless = true)
                         try
                             # first(pages(ctx)), not new_page: a persistent
-                            # context arrives with a page already open (D9), and
+                            # context arrives with a page already open, and
                             # new_page would leave that one blank and in the way.
                             page = first(pages(ctx))
                             goto!(page, "$base_url/index.html")
@@ -40,14 +40,14 @@ using Playwright: launch_persistent_context
                             evaluate(
                                 page,
                                 """() => {
-                                    document.cookie = "m8=survived; path=/; max-age=3600";
-                                    localStorage.setItem("m8", "survived");
+                                    document.cookie = "persisted=survived; path=/; max-age=3600";
+                                    localStorage.setItem("persisted", "survived");
                                 }""",
                             )
                             # Read it back inside this process first, so a
                             # failure after the relaunch is unambiguously about
                             # persistence rather than about the write.
-                            evaluate(page, "() => localStorage.getItem('m8')")
+                            evaluate(page, "() => localStorage.getItem('persisted')")
                         finally
                             close!(ctx)
                         end
@@ -63,7 +63,7 @@ using Playwright: launch_persistent_context
                             (
                                 storage = evaluate(
                                     page,
-                                    "() => localStorage.getItem('m8')",
+                                    "() => localStorage.getItem('persisted')",
                                 ),
                                 cookie = evaluate(page, "() => document.cookie"),
                             )
@@ -73,7 +73,7 @@ using Playwright: launch_persistent_context
                     end
 
                     @test reopened.storage == "survived"
-                    @test occursin("m8=survived", reopened.cookie)
+                    @test occursin("persisted=survived", reopened.cookie)
                 end
 
                 @testset "$engine: it arrives with exactly one page" begin
@@ -100,7 +100,7 @@ using Playwright: launch_persistent_context
                 end
 
                 @testset "$engine: close! leaves no browser process" begin
-                    # The process-level half of SC 20. T15 asserted the close on
+                    # The process-level half. The hermetic tests assert the close on
                     # the wire; this asserts nothing is actually left running,
                     # which is the claim that matters and the one the wire
                     # assertion cannot make.

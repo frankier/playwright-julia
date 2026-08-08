@@ -1,4 +1,4 @@
-# Artifact capture: tracing, video and PDF (SPEC-M4.md part A).
+# Artifact capture: tracing, video and PDF.
 #
 # Everything that can be asserted without a browser is asserted without one —
 # wire params, argument validation, repo hygiene. The browser legs live behind
@@ -53,7 +53,7 @@ end
 """
 A page under a second, **Firefox-named** browser on the same fake connection.
 
-D7 decides `pdf`'s Chromium-only restriction client-side, from the engine name
+`pdf`'s Chromium-only restriction is decided client-side, from the engine name
 on the owning browser — so testing the refusal needs a page whose ancestry says
 "firefox", and needs no driver at all.
 """
@@ -91,7 +91,7 @@ function fixture_artifact(f, guid = "artifact@1"; absolute_path = "/tmp/pw/thing
     return Playwright.lookup_object(f.fake.connection, guid)
 end
 
-# --- T4: the Artifact wrapper (SPEC-M4.md A4) -----------------------------
+# --- The Artifact wrapper --------------------------------------------------
 #
 # The shared surface under tracing and video. The generated _artifact_* calls
 # already exist; this is the hand-written layer over them, and its whole job is
@@ -121,8 +121,8 @@ end
         close(f.fake.connection)
     end
 
-    # D6/SC 8. The last member of the family still taking `path` positionally.
-    # Called out on its own because M7's Download extends this exact signature,
+    # The last member of the family still taking `path` positionally.
+    # Called out on its own because Download extends this exact signature,
     # and a new name should be born with the right shape rather than renamed a
     # week later.
     @testset "the artifact family agrees on one calling convention" begin
@@ -171,11 +171,11 @@ end
     end
 end
 
-# --- T5: tracing (SPEC-M4.md A1, D1) --------------------------------------
+# --- Tracing ---------------------------------------------------------------
 #
-# The stop path follows T1's probe: tracingStopChunk(mode="archive") returns a
+# The stop path: tracingStopChunk(mode="archive") returns a
 # real Artifact whose saveAs writes the zip. No localUtils.zip, no Julia zip
-# dependency. See tasks/m4-probe.md.
+# dependency.
 
 """
 Give the fixture's context a Tracing channel, the way the real driver does —
@@ -195,7 +195,7 @@ end
     @testset "start_tracing! starts a recording and opens a chunk" begin
         # Both calls are needed: tracingStart configures the recording,
         # tracingStartChunk opens the span that tracingStopChunk closes. A
-        # stop with no chunk open has nothing to archive (probed, T1).
+        # stop with no chunk open has nothing to archive.
         f = timeout_fixture()
         fixture_tracing(f)
         sent = Vector{Any}()
@@ -218,7 +218,7 @@ end
 
     @testset "sources is not a keyword at all" begin
         # Inverted rather than deleted. It used to be accepted and refused at
-        # runtime with an ArgumentError; M7 removes it from the signature, so
+        # runtime with an ArgumentError. It is out of the signature now, so
         # the same call is a MethodError. Same answer, delivered earlier and by
         # the language instead of by a hand-written check -- and, as before,
         # nothing reaches the driver.
@@ -238,7 +238,7 @@ end
 
         stop = take!(f.fake.client_messages)
         @test stop["method"] == "tracingStopChunk"
-        # D1: archive mode is what makes the driver assemble the zip.
+        # archive mode is what makes the driver assemble the zip.
         @test stop["params"]["mode"] == "archive"
         # Announce the artifact, then hand it back as the reply.
         send_create(
@@ -284,7 +284,7 @@ end
     end
 
     @testset "the zip is written when the block THROWS, and the block's error wins" begin
-        # SC 2, and the milestone's whole point: the run worth tracing is the
+        # The whole point of the block form: the run worth tracing is the
         # one that failed. The trace must still be written, and the caller must
         # still see their own exception rather than a tracing one.
         f = timeout_fixture()
@@ -326,8 +326,8 @@ end
     end
 
     @testset "a failure to save the trace is a warning, not an exception" begin
-        # The code-style rule SPEC-M4.md adds this milestone: a teardown-path
-        # function never throws. Otherwise with_tracing re-creates B5 in new
+        # The rule for teardown-path functions: they never throw. Otherwise
+        # with_tracing masks the caller's failure in new
         # clothes -- replacing the caller's real failure with a worse one.
         f = timeout_fixture()
         fixture_tracing(f)
@@ -380,7 +380,7 @@ end
     end
 end
 
-# --- T6: video (SPEC-M4.md A2, D6) ----------------------------------------
+# --- Video -----------------------------------------------------------------
 
 @testset "video" begin
     @testset "record_video marshals to the recordVideo object" begin
@@ -456,7 +456,7 @@ end
 
         v = video(f.page)
         @test v isa Playwright.Artifact
-        # ...and it is the Artifact surface, so T4's verbs work on it.
+        # ...and it is the Artifact surface, so the three verbs work on it.
         task = @async path(v)
         msg = take!(f.fake.client_messages)
         @test msg["method"] == "pathAfterFinished"
@@ -466,7 +466,7 @@ end
     end
 end
 
-# --- T7: pdf (SPEC-M4.md A3, D7) ------------------------------------------
+# --- PDF -------------------------------------------------------------------
 
 @testset "pdf" begin
     "Reply to a pdf request with `bytes`, the way the driver does (base64)."
@@ -524,13 +524,13 @@ end
         msg = take!(f.fake.client_messages)
         pdf_reply(f.fake, msg["id"], bytes)
         got = fetch(task)
-        @test got == dest          # D5: you named a destination, you get it back
+        @test got == dest          # you named a destination, you get it back
         @test isfile(dest)
         @test read(dest) == bytes
         close(f.fake.connection)
     end
 
-    # D5. The split is the point: one convention for the return value, one for
+    # The split is the point: one convention for the return value, one for
     # the argument, and every function type-stable. `screenshot(page)` used to
     # be the in-memory form and is now nothing at all — a MethodError rather
     # than a silent change of return type, which is the whole reason `path`
@@ -538,9 +538,9 @@ end
     @testset "capture and export are separate functions" begin
         f = timeout_fixture()
 
-        # SPEC-M7 D5 predicts a MethodError here. It is an UndefKeywordError,
+        # A MethodError might be expected here. It is an UndefKeywordError,
         # and it could not have been anything else: `path` is a *keyword*,
-        # which D5 also requires, and Julia raises UndefKeywordError for a
+        # because Julia raises UndefKeywordError for a
         # missing required keyword. The prediction was wrong about the type,
         # not about the behaviour — and the error it actually raises is the
         # better one, because it names the keyword you forgot.
@@ -564,7 +564,7 @@ end
     end
 
     @testset "off Chromium it is an ArgumentError, decided without a round trip" begin
-        # D7 / SC 5. The answer is knowable client-side, so asking the driver
+        # The answer is knowable client-side, so asking the driver
         # only to be told no is a wasted trip — and the driver's own error is
         # far less clear than one that names the engine and the restriction.
         f = timeout_fixture()
@@ -590,13 +590,13 @@ end
     @test isfile(fixture)
 
     html = read(fixture, String)
-    # The target snippet asserts `to_have_title = "Dashboard"`, and SC 6 wants that
+    # The walkthrough asserts `to_have_title = "Dashboard"`, and wants that
     # value to arrive *late* — a title that is already correct at parse proves
     # nothing about retrying. So the document starts under a different title
     # and renames itself.
     @test occursin("document.title", html)
-    @test !occursin("<title>M4</title>", html)
-    # Something for report_diagnostics to find (T9).
+    @test !occursin("<title>Dashboard</title>", html)
+    # Something for report_diagnostics to find.
     @test occursin("console.log", html)
 end
 
@@ -634,7 +634,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         @test result == :done
                         @test isfile(dest)
                         @test filesize(dest) > 0
-                        # SC 1: it is a real zip. Asserted on the magic bytes
+                        # it is a real zip. Asserted on the magic bytes
                         # rather than by unzipping, because reading the entry
                         # list would need a Julia zip dependency and the trace
                         # is an opaque artifact for upstream's viewer.
@@ -644,7 +644,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                     end
 
                     @testset "$engine: the trace survives a throwing block" begin
-                        # The case the milestone exists for: the run worth
+                        # The case this exists for: the run worth
                         # tracing is the one that failed.
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
@@ -691,7 +691,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         v = video(page)
                         @test v isa Playwright.Artifact
 
-                        # D6's sharp edge, stated as an assertion: the file is
+                        # the sharp edge, stated as an assertion: the file is
                         # not finished until the page closes. Closing first is
                         # what makes `path` return rather than block.
                         close!(page)
@@ -702,7 +702,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         # ...and save_as! puts a copy where the caller wants it.
                         dest = joinpath(ARTIFACT_DIR, "run-$engine.webm")
                         isfile(dest) && rm(dest)
-                        # D6: `path` is a keyword and comes back, so the call
+                        # `path` is a keyword and comes back, so the call
                         # chains into anything that takes a path.
                         @test save_as!(v; path = dest) |> isfile
                         @test filesize(dest) > 0
@@ -738,7 +738,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                             @test bytes[1:4] == Vector{UInt8}("%PDF")
                         else
                             # The Firefox leg asserting a *clean* failure is a
-                            # required test, not an omission (SC 5).
+                            # required test, not an omission.
                             err = try
                                 pdf_bytes(page)
                                 nothing

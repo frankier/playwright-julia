@@ -1,7 +1,7 @@
-# Unit tests for src/serializers.jl — the SerializedValue codec (SPEC-M2.md D3).
+# Unit tests for src/serializers.jl — the SerializedValue codec.
 #
 # Fully hermetic: no browser, no Node. This is where evaluate's correctness is
-# actually decided, so every row of the D3 table is asserted in both
+# actually decided, so every row of the codec table is asserted in both
 # directions, along with nesting, circular references and handle hoisting.
 
 using Dates

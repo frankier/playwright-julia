@@ -1,12 +1,11 @@
-# T8: engine metadata. Hermetic — the initializer is canned, so no browser.
+# Engine metadata. Hermetic — the initializer is canned, so no browser.
 #
-# The launch-option half of T8 is a docstring claim, and a claim about what the
+# The launch-option half is a docstring claim, and a claim about what the
 # *driver* does cannot be checked without one: it lives in the smoke suite.
 
 @testset "engine metadata" begin
     @testset "browser_name reads the Browser initializer" begin
-        # `name` and `browserName` are identical on both engines (probed, see
-        # T8 in tasks/plan.md), so `name` is what is read — matching the
+        # `name` and `browserName` are identical on both engines, so `name` is what is read — matching the
         # existing BrowserType method, one name with one return type.
         fake = FakeDriver()
         send_create(

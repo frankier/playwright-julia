@@ -1,13 +1,13 @@
-# T6: retrying assertions over frame.expect.
+# Retrying assertions over frame.expect.
 #
 # Hermetic half. What the driver *does* with each expression is the smoke
 # suite's business; what matters here is that the right protocol frame goes out
 # and that a failure reply is turned into an AssertionFailure carrying both the
-# expected and the received value (SC 7).
+# expected and the received value.
 #
 # The expression strings and the error shape below are not guesses — they were
-# probed against the live 1.61.1 driver before this was written, and the
-# findings are recorded under T6 in tasks/plan.md.
+# measured against the live 1.61.1 driver before this was written, and the
+# findings shape the assertions below.
 
 using Playwright: Not, retry_until
 
@@ -147,7 +147,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
     end
 
     @testset "a failure raises AssertionFailure carrying expected AND received" begin
-        # SC 7. The received value comes from the errorDetails the driver sends
+        # The received value comes from the errorDetails the driver sends
         # alongside the error, decoded through the ordinary value codec.
         f = timeout_fixture()
         loc = Playwright.locator(f.frame, "#title")
@@ -211,7 +211,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
 
     @testset "expect rejects a matcher it does not know" begin
         # A bogus expression fails identically to a real mismatch on the wire
-        # (probed), so a typo has to be caught here or not at all.
+        #, so a typo has to be caught here or not at all.
         f = timeout_fixture()
         loc = Playwright.locator(f.frame, "#title")
         @test_throws ArgumentError expect(loc; to_have_texture = "Hello")
@@ -275,10 +275,10 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
     end
 end
 
-# --- T8: document-level assertions (SPEC-M4.md B6, D2) --------------------
+# --- Document-level assertions ---------------------------------------------
 #
 # The selector and expression strings are not guesses. Probed against the live
-# 1.61.1 driver on both engines (T1, tasks/m4-probe.md): the selector for a
+# 1.61.1 driver on both engines: the selector for a
 # document-level assertion is the **empty string**, and ":root" or "html" fail
 # with the same generic ExpectFailure a real mismatch produces.
 
@@ -292,7 +292,7 @@ end
         @test sent["guid"] == "frame@1"
         @test sent["method"] == "expect"
         @test sent["params"]["expression"] == "to.have.title"
-        # ...with the empty selector. This is the probed value, and the one
+        # ...with the empty selector. This is the measured value, and the one
         # thing here that cannot be guessed from the yml.
         @test sent["params"]["selector"] == ""
         @test sent["params"]["expectedText"] == [Dict("string" => "Dashboard")]
@@ -315,9 +315,9 @@ end
 
     @testset "a Regex expectation works, as it does for locators" begin
         f = timeout_fixture()
-        sent = waiting_request(f.fake, () -> expect(f.page; to_have_url = r"m4\.html$"))
+        sent = waiting_request(f.fake, () -> expect(f.page; to_have_url = r"late-title\.html$"))
         expected = sent["params"]["expectedText"][1]
-        @test expected["regexSource"] == "m4\\.html\$"
+        @test expected["regexSource"] == "late-title\\.html\$"
         @test !haskey(expected, "string")
         close(f.fake.connection)
     end
@@ -378,7 +378,7 @@ end
     end
 
     @testset "matchers stay type-partitioned, both ways" begin
-        # SC 6. A document matcher on a Locator, or an element matcher on a
+        # A document matcher on a Locator, or an element matcher on a
         # Page, is a mistake worth catching here — sent to the driver it would
         # come back as the same generic "Expect failed" a real mismatch gives.
         f = timeout_fixture()
@@ -439,16 +439,16 @@ end
     end
 end
 
-# --- T2: retry_until's three knobs (SPEC-M4.md B1-B3, D5) -----------------
+# --- retry_until's three knobs ---------------------------------------------
 #
 # All hermetic: the predicates are pure Julia, so none of this needs a driver.
-# Every default is the M3 behaviour, and the tests above still pass unchanged —
+# The defaults keep the plain behaviour, and the tests above pass unchanged —
 # that is the "purely additive" claim, asserted rather than asserted-to.
 
 """
 A testset that keeps its results instead of reporting them, so a test can
 assert on what stdlib `Test` *recorded* — the difference between a `Fail` and
-an `Error` is the whole of SC 7, and it cannot be seen from inside a normal
+an `Error` is the whole point, and it cannot be seen from inside a normal
 testset.
 """
 struct RecordingTestSet <: Test.AbstractTestSet
@@ -461,7 +461,7 @@ Test.finish(ts::RecordingTestSet) = ts
 
 @testset "retry_until knobs" begin
     @testset "on_timeout = :false returns false instead of raising" begin
-        # B1. The whole point: a value @test can render as a Fail.
+        # The whole point: a value @test can render as a Fail.
         result = retry_until(() -> false; timeout = 200, interval = 10, on_timeout = :false)
         @test result === false
     end
@@ -472,7 +472,7 @@ Test.finish(ts::RecordingTestSet) = ts
 
     @testset ":false and false are the same knob" begin
         # `:false` is not a Symbol — Julia parses it as the boolean `false`,
-        # unlike `:throw` and `:retry`. SPEC-M4.md spells it `:false`
+        # unlike `:throw` and `:retry`. The documented spelling is `:false`
         # throughout, so both spellings have to work and mean one thing.
         @test :false === false
         @test retry_until(() -> false; timeout = 100, interval = 10, on_timeout = false) ===
@@ -480,7 +480,7 @@ Test.finish(ts::RecordingTestSet) = ts
     end
 
     @testset "@test retry_until(…; on_timeout = :false) records a Fail, not an Error" begin
-        # SC 7, asserted with a recording testset rather than eyeballed.
+        # Asserted with a recording testset rather than eyeballed.
         #
         # Precisely what changes: stdlib Test records a *throwing* @test as a
         # Test.Error and a false one as a Test.Fail. Both fail the suite, so
@@ -499,7 +499,7 @@ Test.finish(ts::RecordingTestSet) = ts
         @test !(results[1] isa Test.Error)
         @test results[2] isa Test.Pass
 
-        # ...and the M3 default is the Error case, which is what B1 reported.
+        # ...and the default is the Error case.
         under_default = @testset RecordingTestSet "recording" begin
             @test retry_until(() -> false; timeout = 200, interval = 10)
         end
@@ -507,7 +507,7 @@ Test.finish(ts::RecordingTestSet) = ts
     end
 
     @testset "on_error = :retry treats a throwing predicate as 'not yet'" begin
-        # B3: the HTTP-against-a-warming-server shape.
+        # the HTTP-against-a-warming-server shape.
         n = Ref(0)
         ok = retry_until(; timeout = 2_000, interval = 10, on_error = :retry) do
             n[] += 1
@@ -554,7 +554,7 @@ Test.finish(ts::RecordingTestSet) = ts
         never = () -> false
         always_throws = () -> error("nope")
 
-        # :throw × :throw — the M3 behaviour, unchanged
+        # :throw × :throw — the default behaviour
         @test_throws Playwright.AssertionFailure retry_until(
             never;
             timeout = 100,
@@ -616,7 +616,7 @@ Test.finish(ts::RecordingTestSet) = ts
     end
 
     @testset "the target form joins the timeout cascade" begin
-        # B2. Under M3 this fell back to DEFAULT_TIMEOUT regardless.
+        # Without the keyword this falls back to DEFAULT_TIMEOUT.
         f = timeout_fixture()
         set_default_timeout!(f.page, 300)
 
@@ -626,7 +626,7 @@ Test.finish(ts::RecordingTestSet) = ts
             interval = 10,
             on_timeout = :false,
         ) === false
-        # SC 8: it honoured 300ms, not the 30s package default.
+        # it honoured 300ms, not the 30s package default.
         @test elapsed < 5.0
 
         err = try

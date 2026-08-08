@@ -55,7 +55,7 @@
           }
         });
 
-        // The code and reason are the assertion for close_ws! (SC 25), so both
+        // The code and reason are the assertion for close_ws!, so both
         // are reported rather than just the fact of closing.
         socket.addEventListener("close", (event) => {
           closed.textContent = "closed:" + event.code + ":" + event.reason;

@@ -1,7 +1,7 @@
-# T1: error taxonomy. Hermetic — classification is driven by canned protocol
+# Error taxonomy. Hermetic — classification is driven by canned protocol
 # payloads, so no driver and no browser are needed.
 #
-# The payload shapes below were probed against the live 1.61.1 driver
+# The payload shapes below were measured against the live 1.61.1 driver
 # (chromium): a locator timeout arrives as name="TimeoutError", a call against a
 # closed page/context as name="TargetClosedError", and a JS exception or a
 # navigation failure as name="Error".
@@ -67,7 +67,7 @@ using Playwright:
     end
 
     @testset "a JS exception classifies as DriverError, not TimeoutError" begin
-        # SC 4: a thrown JS error and a never-appearing selector must be
+        # a thrown JS error and a never-appearing selector must be
         # distinguishable by type.
         e = Playwright.driver_error(
             Dict("message" => "Error: boom", "name" => "Error", "stack" => "at eval"),

@@ -1,7 +1,7 @@
 # Route interception against real browsers. Gated behind PLAYWRIGHT_JL_SMOKE=1
 # like the rest of the smoke suite, and run on both engines.
 #
-# R3: routing failures hang rather than fail. A request nobody settles stops
+# routing failures hang rather than fail. A request nobody settles stops
 # dead and surfaces as an unrelated 30-second timeout, which in CI costs ten
 # minutes and produces no diagnostic. **Every browser interaction here runs
 # under an explicit deadline**, so a hang becomes a named failure inside a
@@ -14,8 +14,8 @@
 # reports, and a whole file of them can pass silently while proving nothing.
 # This file did exactly that before it was restructured.
 #
-# The server here is not test_smoke.jl's static one: SC 7 needs a route that
-# counts hits and SC 8 needs one that echoes the headers it really received,
+# The server here is not test_smoke.jl's static one. `abort!` needs a route that
+# counts hits, and `continue!` needs one that echoes the headers it received,
 # and neither can be asserted from the client side alone.
 
 using HTTP
@@ -82,9 +82,9 @@ end
 A fixture server with behaviour, not just files.
 
 `hits` counts requests that actually reached it — the only way to prove
-`abort!` stopped one (SC 7) — and `/echo` reflects the request's headers back,
+`abort!` stopped one — and `/echo` reflects the request's headers back,
 which is the only way to prove `continue!`'s rewrite reached the server rather
-than merely being sent (SC 8).
+than merely being sent.
 """
 function with_network_server(f::Function)
     dir = joinpath(@__DIR__, "fixtures")
@@ -157,7 +157,7 @@ todo_texts(page) =
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: with_route fulfils with no server behind it" begin
-                    seen = within_deadline("$engine SC 1") do
+                    seen = within_deadline("$engine with_route fulfils") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -191,7 +191,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: page routes are page-scoped, context routes are not" begin
-                    seen = within_deadline("$engine SC 2") do
+                    seen = within_deadline("$engine route scope") do
                         with_browser(bt) do browser
                             ctx = new_context(browser)
                             routed = new_page(ctx)
@@ -245,16 +245,16 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: unmatched requests are continued, page loads" begin
-                    seen = within_deadline("$engine SC 3") do
+                    seen = within_deadline("$engine unmatched continue") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
 
                             # A *predicate* that never matches, deliberately —
-                            # not a glob. D9 widens the driver's pattern union
+                            # not a glob, which widens the driver's pattern union
                             # to `**/*` for a predicate, so every request on this
                             # page really is delivered to the client and really
-                            # does reach D6's "nothing matched" path: the
+                            # does reach the "nothing matched" path: the
                             # document, /missing.css, /missing.png and the API
                             # call alike. With a glob matcher the driver filters
                             # them out first and the auto-continue is never
@@ -287,7 +287,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: a throwing handler surfaces out of with_route" begin
-                    seen = within_deadline("$engine SC 4") do
+                    seen = within_deadline("$engine throwing handler") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -301,7 +301,7 @@ todo_texts(page) =
                                     route -> error("the handler is broken"),
                                 ) do
                                     click!(locator(page, "#load"))
-                                    # D7: the route is continued despite the
+                                    # the route is continued despite the
                                     # throw, so the page still gets its answer.
                                     expect(
                                         locator(page, "#status");
@@ -324,13 +324,13 @@ todo_texts(page) =
                     # handler, which is where a Julia user looks for it.
                     @test seen.thrown !== nothing
                     @test occursin("the handler is broken", sprint(showerror, seen.thrown))
-                    # ...and the page underneath still completed (D7).
+                    # ...and the page underneath still completed.
                     @test seen.heading == "Network"
                     @test seen.todos == ["from the server"]
                 end
 
                 @testset "$engine: a handler that settles nothing warns once, no hang" begin
-                    seen = within_deadline("$engine SC 5") do
+                    seen = within_deadline("$engine unsettled warns once") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -340,7 +340,7 @@ todo_texts(page) =
                             todos = CoreLogging.with_logger(logger) do
                                 with_route(ctx, "**/api/todos", route -> nothing) do
                                     # Two matching requests through one
-                                    # registration: D6 says one warning total,
+                                    # registration: one warning total,
                                     # not one per request.
                                     click!(locator(page, "#load"))
                                     expect(
@@ -377,7 +377,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: expect_request returns the real request" begin
-                    seen = within_deadline("$engine SC 9") do
+                    seen = within_deadline("$engine expect_request") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -408,7 +408,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: expect_response reads status, headers and body" begin
-                    seen = within_deadline("$engine SC 10") do
+                    seen = within_deadline("$engine expect_response") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -455,7 +455,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: :requestfailed fires with the engine's text" begin
-                    seen = within_deadline("$engine SC 11") do
+                    seen = within_deadline("$engine requestfailed") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -490,7 +490,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: page-scoped events see only their page" begin
-                    seen = within_deadline("$engine SC 12") do
+                    seen = within_deadline("$engine page-scoped events") do
                         with_browser(bt) do browser
                             ctx = new_context(browser)
                             watched = new_page(ctx)
@@ -500,7 +500,7 @@ todo_texts(page) =
 
                             # Both pages call the same URL inside the block. The
                             # page-scoped subscription must return the watched
-                            # page's request, never the other one's — D11's
+                            # page's request, never the other one's — the
                             # filter is the whole of this test.
                             got = expect_request(watched, "**/api/todos") do
                                 click!(locator(noisy, "#load"))
@@ -522,7 +522,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: the four network events are no longer deferred" begin
-                    seen = within_deadline("$engine SC 13") do
+                    seen = within_deadline("$engine events not deferred") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -545,7 +545,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: fulfil from a real upstream response" begin
-                    seen = within_deadline("$engine SC 14") do
+                    seen = within_deadline("$engine fulfil from upstream") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -555,7 +555,7 @@ todo_texts(page) =
                             upstream_body = Ref("")
 
                             # Intercept, forward, modify — the whole reason
-                            # APIRequestContext ships at all (D12).
+                            # APIRequestContext ships at all.
                             with_route(
                                 ctx,
                                 "**/api/todos",
@@ -589,7 +589,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: an APIResponse is disposed after its handler" begin
-                    seen = within_deadline("$engine SC 15") do
+                    seen = within_deadline("$engine APIResponse disposal") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -646,7 +646,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: raw_headers differs from headers" begin
-                    seen = within_deadline("$engine SC 16") do
+                    seen = within_deadline("$engine raw_headers") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -684,7 +684,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: overlapping registrations resolve newest-first" begin
-                    seen = within_deadline("$engine SC 6") do
+                    seen = within_deadline("$engine overlapping registrations") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -729,7 +729,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: abort! stops the request reaching the server" begin
-                    seen = within_deadline("$engine SC 7") do
+                    seen = within_deadline("$engine abort!") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -760,7 +760,7 @@ todo_texts(page) =
                 end
 
                 @testset "$engine: continue! reaches the server modified" begin
-                    seen = within_deadline("$engine SC 8") do
+                    seen = within_deadline("$engine continue! rewrite") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))

@@ -7,7 +7,7 @@
   <body>
     <h1>Events</h1>
 
-    <!-- #shout is the race regression fixture (SC 6): its handler logs
+    <!-- #shout is the race regression fixture: its handler logs
          *synchronously*, so the console message is emitted before the call that
          triggered it returns. An expect_event body that clicks this must still
          catch the event — a subscription set up after the body ran would miss

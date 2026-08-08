@@ -28,7 +28,7 @@
         @test words[3] == "run-driver"
     end
 
-    # --- T9: install ergonomics -------------------------------------------
+    # --- Install ergonomics -----------------------------------------------
 
     @testset "browser names default, and typos are caught before downloading" begin
         @test Playwright.browsers_from_args(String[]) == ["chromium", "firefox"]

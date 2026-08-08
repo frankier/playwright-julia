@@ -1,14 +1,14 @@
 # Route interception, hermetically: the registry, the pattern union, the
 # settle verbs' parameter building, and — first — the dispatcher's lifetime.
 #
-# R1 is why the lifetime tests come first and get their own section. A
+# The lifetime tests come first and get their own section. A
 # dispatcher that leaks, dies or deadlocks presents to a user identically:
 # requests hang and an unrelated `goto!` times out thirty seconds later. The
 # tests therefore assert on the task and the registry directly rather than
 # inferring from behaviour — "no route arrived" is also what a silently broken
 # dispatcher looks like.
 #
-# R1's tripwire: no test here may use `sleep` to pass. Where a test must wait
+# the tripwire: no test here may use `sleep` to pass. Where a test must wait
 # for the dispatcher to get to something, it waits on a condition with
 # `timedwait`, never on a duration.
 
@@ -86,7 +86,7 @@ unbounded SETTLED_ROUTES leak first showed itself.
 
 `navigation` sets `isNavigationRequest`, which HAR replay needs: the driver
 answers a redirecting archive entry with `redirect` for a navigation and
-`fulfill` for a sub-resource, and those are different code paths (M8 D5).
+`fulfill` for a sub-resource, and those are different code paths.
 """
 function send_route(fake, owner_guid, guid, target; navigation::Bool = false)
     guid = "$(guid)-$(ROUTE_GUID_SEQ[] += 1)"
@@ -146,7 +146,7 @@ end
         @test registry.subscription !== nothing
 
         # A second registration reuses the task rather than spawning another:
-        # one per owner, not one per route (D5).
+        # one per owner, not one per route.
         task = registry.task
         reg2 = route!(f.context, "**/other/*", route -> abort!(route))
         @test routing_registry(f.context).task === task
@@ -195,7 +195,7 @@ end
         @test take!(seen) == "https://x.test/two"
         @test !istaskdone(task)
 
-        # ...and the exceptions surface on the caller's task at release (D7).
+        # ...and the exceptions surface on the caller's task at release.
         @test_throws CompositeException unroute!(f.context, reg)
 
         close(f.conn)
@@ -480,9 +480,9 @@ end
         close(f.conn)
     end
 
-    # --- The release hook (T3, for D3) -------------------------------------
+    # --- The release hook --------------------------------------------------
     #
-    # A registration can own a resource — Part A's open HAR and its temp
+    # A registration can own a resource — HAR replay's open archive and its temp
     # directory — whose lifetime is the registration's. The hook is what makes
     # `unroute!` the owner of that lifetime, so these tests are about *when* it
     # runs and how many times, not about what it does.
@@ -553,7 +553,7 @@ end
     end
 
     @testset "the release hook runs after the handler's exception is collected" begin
-        # Ordering matters for D3: the hook releases what the handler was using,
+        # Ordering matters: the hook releases what the handler was using,
         # so it must run after the last dispatch and not before. Asserted through
         # the exception path because that is where an early release would show
         # up as a resource freed under a running handler.

@@ -2,7 +2,7 @@
 # PLAYWRIGHT_JL_SMOKE=1.
 #
 # The server here is its own, not test_smoke.jl's: proving that mock mode never
-# contacts the real server (SC 22) can only be done server-side, by a server
+# contacts the real server can only be done server-side, by a server
 # that counts the connections it accepted. A client-side assertion cannot tell
 # "the server was never asked" from "the server answered and we ignored it".
 #
@@ -15,7 +15,7 @@ using Sockets
 """
 A fixture server that also speaks WebSocket at `/ws`, and counts connections.
 
-`connections` is the only way to assert SC 22 — a mock-mode route must leave it
+`connections` is the only way to assert that a mock-mode route leaves it
 at zero. `echo` makes proxy mode observable: the server prefixes what it is
 sent, so a message the page receives unprefixed did not come from the server.
 """
@@ -92,14 +92,14 @@ end
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: a context-armed pattern delivers on the context" begin
-                    # The half the spec-phase probe left open, and the reason
-                    # this is Part D's *first* task: if webSocketRoute came back
-                    # page-scoped for a context-armed pattern, D11's registry
+                    # Delivery scope has to be established first: if
+                    # webSocketRoute came back page-scoped for a context-armed
+                    # pattern, the registry
                     # would need a filtering step — a design change, to be
                     # caught before the registry was written rather than after.
                     #
                     # Asserted on the wire rather than through the wrapper,
-                    # because at T17 there is no wrapper yet. That is the point:
+                    # rather than through the wrapper. That is the point:
                     # the assertion is about the driver's addressing, not about
                     # our code.
                     observed = within_deadline("$engine ws addressing", 120.0) do
@@ -153,8 +153,8 @@ end
                     @test observed.guids[1] != observed.page_guid
 
                     # ...and with a pattern armed and nobody connecting, the real
-                    # server is never contacted. This is the mechanism SC 22
-                    # rests on, observed here before any of Part D exists.
+                    # nothing reaches the real server. This is the mechanism the
+                    # mock-mode assertions rest on.
                     @test observed.new_connections == 0
                 end
 
@@ -258,7 +258,7 @@ end
                 end
 
                 @testset "$engine: a handled server message is swallowed" begin
-                    # D12's sharp edge, pinned as intended on real browsers as
+                    # the sharp edge, pinned as intended on real browsers as
                     # well as against the fake connection. The callback replaces
                     # the forwarding, so the echo never reaches the page — and
                     # the marker it sends instead is what makes that assertable

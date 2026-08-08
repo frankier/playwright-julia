@@ -1,9 +1,9 @@
 # The glob dialect, hermetically. No driver, no browser, no connection.
 #
-# R2 in tasks/plan.md: "* does not cross / while ** does" is the kind of rule
+# "* does not cross / while ** does" is the kind of rule
 # that passes six hand-written tests and fails on the seventh real URL. So the
 # cases are not invented here — they live in Playwright.GLOB_CASES, are shared
-# with the guide (SC 17), and were checked against playwright-core 1.61.1's own
+# with the guide, and were checked against playwright-core 1.61.1's own
 # globToRegexPattern rather than against memory.
 
 using Playwright:

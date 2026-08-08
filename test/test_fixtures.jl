@@ -1,8 +1,8 @@
-# T0 fixtures: pages exercising waiting, events and assertions.
+# Fixture pages exercising waiting, events and assertions.
 #
-# These assert the *fixtures* behave as the milestone-3 tasks assume — before the
+# These assert the *fixtures* behave as the tests below assume — before the
 # APIs that consume them exist. Waiting here is done driver-side with a JS promise
-# rather than `sleep`, so the tests stay honest about SC 2 (no sleeping for the
+# rather than `sleep`, so the tests stay honest about never sleeping for the
 # DOM) even though `wait_for_selector` is not written yet.
 
 "Resolve once `predicate` (a JS expression string) is truthy, driver-side."
@@ -27,7 +27,7 @@ function js_wait(page, predicate; timeout_ms = 5_000)
     )
 end
 
-# --- T8: engine metadata and launch options -------------------------------
+# --- Engine metadata and launch options ------------------------------------
 
 @testset "engine metadata" begin
     playwright() do pw
@@ -44,7 +44,7 @@ end
         end
 
         @testset "one shared option set launches both engines" begin
-            # The docstring branch D5 selected: engine-irrelevant options are
+            # The documented rule: engine-irrelevant options are
             # ignored rather than rejected, so this option set — half of which
             # applies to neither engine — must work on both. If a future driver
             # starts rejecting them, this is what says so.
@@ -67,7 +67,7 @@ end
     end
 end
 
-# --- T6: retrying assertions against real browsers ------------------------
+# --- Retrying assertions against real browsers -----------------------------
 
 @testset "expect" begin
     with_fixture_server() do base_url
@@ -127,7 +127,7 @@ end
                 end
 
                 @testset "$engine: a failure names expected AND received" begin
-                    # SC 7. Without the received value the reader has to re-run
+                    # Without the received value the reader has to re-run
                     # the test by hand to find out what was actually there.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
@@ -221,7 +221,7 @@ end
                     @test expect(page; to_have_title = "Dashboard") === page
                     @test evaluate(page, "() => window.__titleAt > window.__parsedAt")
 
-                    expect(page; to_have_url = r"m4\.html$")
+                    expect(page; to_have_url = r"late-title\.html$")
                     expect(page; to_have_url = "$base_url/late-title.html")
                     expect(page; to_have_title = Not("something else"))
 
@@ -236,7 +236,7 @@ end
                     @test occursin("Not The Title", err.message)  # expected
                     @test occursin("Dashboard", err.message)             # received
 
-                    # And the wrong-target matcher is refused locally (SC 6).
+                    # And the wrong-target matcher is refused locally.
                     @test_throws ArgumentError expect(page; to_have_text = "Dashboard")
 
                     close!(browser)
@@ -266,7 +266,7 @@ end
     end
 end
 
-# --- T11: calls on a closed page ------------------------------------------
+# --- Calls on a closed page ------------------------------------------------
 
 @testset "closed pages" begin
     with_fixture_server() do base_url
@@ -318,7 +318,7 @@ end
                 end
 
                 @testset "$engine: the postmortem readers survive a closed context" begin
-                    # SC 10, against a real driver. This is the regression B5
+                    # Against a real driver. This is the regression
                     # reported: these two are what a `finally` block calls, and
                     # a throw here masks the failure that sent it there.
                     browser = launch(bt; headless = true)
@@ -346,7 +346,7 @@ end
     end
 end
 
-# --- T7: Locator ergonomics against real browsers -------------------------
+# --- Locator ergonomics against real browsers ------------------------------
 
 @testset "locator ergonomics" begin
     with_fixture_server() do base_url
@@ -355,9 +355,9 @@ end
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: evaluate on a Locator drives a range input" begin
-                    # SC 5. A range input cannot be clicked to an exact value,
+                    # A range input cannot be clicked to an exact value,
                     # so this is the case that forced private-field access
-                    # before T7.
+                    # without it.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -461,7 +461,7 @@ end
     end
 end
 
-# --- T5: driver-side waiting against real browsers ------------------------
+# --- Driver-side waiting against real browsers -----------------------------
 
 @testset "waiting" begin
     with_fixture_server() do base_url
@@ -476,7 +476,7 @@ end
                     goto!(page, "$base_url/waiting.html")
 
                     # #late is appended 300ms after parse. No sleep here: the
-                    # driver holds the call open until it lands (SC 2).
+                    # driver holds the call open until it lands.
                     el = wait_for_selector(page, "#late")
                     @test el isa Playwright.ElementHandle
                     @test text_content(locator(page, "#late")) == "late arrival"
@@ -516,7 +516,7 @@ end
                 end
 
                 @testset "$engine: a missing selector raises TimeoutError, not DriverError" begin
-                    # SC 4. Branching on "is my element late?" versus "did the
+                    # Branching on "is my element late?" versus "did the
                     # page break?" is the whole point of the taxonomy.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
@@ -566,7 +566,7 @@ end
                 end
 
                 @testset "$engine: a throwing predicate raises DriverError, not TimeoutError" begin
-                    # The other half of SC 4: a predicate that can never
+                    # The other half: a predicate that can never
                     # succeed must not masquerade as one that is merely late.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
@@ -611,7 +611,7 @@ end
     end
 end
 
-# --- T4: the event surface against real browsers --------------------------
+# --- The event surface against real browsers -------------------------------
 
 @testset "events" begin
     with_fixture_server() do base_url
@@ -639,7 +639,7 @@ end
                 end
 
                 @testset "$engine: a synchronously-fired console event is caught" begin
-                    # SC 6, the regression this fixture exists for: #shout logs
+                    # The regression this fixture exists for: #shout logs
                     # inside its click handler, so the message is emitted before
                     # `click!` returns. Subscribing after the click would miss it.
                     browser = launch(bt; headless = true)
@@ -737,7 +737,7 @@ end
                 @testset "$engine: an unsupported event is refused, not faked" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
-                    # `:request` used to be here. M6 T12 shipped it, so the
+                    # `:request` is supported now, so the
                     # examples are now events that really are still deferred —
                     # the ones whose payload types have no accessors.
                     @test_throws ArgumentError expect_event(ctx, :download) do
@@ -818,14 +818,14 @@ end
                     # The title is wrong at parse and right later. Asserted from
                     # the page's own clock, as waiting.html's late element is, rather
                     # than by racing goto to observe the absence.
-                    @test js_wait(page, "document.title === 'M4'")
+                    @test js_wait(page, "document.title === 'Dashboard'")
                     @test evaluate(page, "() => window.__titleAt > window.__parsedAt")
 
-                    # T9's report_diagnostics dumps both of these, so the
+                    # report_diagnostics dumps both of these, so the
                     # fixture has to produce both.
                     @test js_wait(page, "window.__threwAt !== undefined")
                     @test !isempty(console_messages(page))
-                    @test any(e -> occursin("m4 fixture", e.message), page_errors(page))
+                    @test any(e -> occursin("late-title fixture", e.message), page_errors(page))
 
                     # Enough rendered content that a screenshot and a PDF are
                     # more than a blank sheet.

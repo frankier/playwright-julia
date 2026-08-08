@@ -1,4 +1,4 @@
-# T9: with_page and report_diagnostics (SPEC-M4.md B4, D3).
+# with_page and report_diagnostics.
 #
 # Named test_fixtures_api.jl rather than test_fixtures.jl, which already exists
 # and tests the HTML fixtures — a different thing entirely.
@@ -84,7 +84,7 @@ end
 
 @testset "report_diagnostics" begin
     @testset "a dead target yields no files and no exception" begin
-        # B5's shape, one level up: every reader fails, and the dump still
+        # the shape, one level up: every reader fails, and the dump still
         # returns rather than throwing into a `finally` block.
         f = timeout_fixture()
         dir = mktempdir()
@@ -275,11 +275,11 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         @test filesize(joinpath(dir, "screenshot.png")) > 0
                         # The fixture's own console output and uncaught error.
                         @test occursin(
-                            "m4 fixture",
+                            "late-title fixture",
                             read(joinpath(dir, "console.log"), String),
                         )
                         @test occursin(
-                            "m4 fixture",
+                            "late-title fixture",
                             read(joinpath(dir, "errors.log"), String),
                         )
 
@@ -337,7 +337,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                     end
 
                     @testset "$engine: report_diagnostics after close!(ctx)" begin
-                        # The B5 regression test in full: close the context,
+                        # The masked-failure regression in full: close the context,
                         # then dump. Nothing throws.
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)

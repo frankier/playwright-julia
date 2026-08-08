@@ -30,11 +30,11 @@
     </style>
   </head>
   <body>
-    <!-- The page the milestone-4 target snippet runs against. It has to be
-         three things at once: a document whose title arrives late (T8), a
-         source of console output and an uncaught error (T9's diagnostics
+    <!-- The page the artifacts walkthrough runs against. It has to be three
+         things at once: a document whose title arrives late, a source of
+         console output and an uncaught error (the diagnostics
          dump), and tall enough with enough ink that a screenshot and a PDF
-         are more than a blank sheet (T7). -->
+         are more than a blank sheet. -->
     <h1>Dashboard</h1>
 
     <p>
@@ -73,11 +73,11 @@
 
       // Console output for report_diagnostics to collect. One of each level,
       // so a dump that only captures errors is visibly wrong.
-      console.log("m4 fixture loaded");
-      console.info("m4 fixture info");
-      console.warn("m4 fixture warning");
+      console.log("late-title fixture loaded");
+      console.info("late-title fixture info");
+      console.warn("late-title fixture warning");
 
-      // The late title (T8 / SC 6). Timestamped so a test can prove it landed
+      // The late title. Timestamped so a test can prove it landed
       // after parse instead of racing goto to observe the old value.
       setTimeout(() => {
         document.title = "Dashboard";
@@ -88,7 +88,7 @@
       // escapes as a page error rather than being caught by the parser.
       setTimeout(() => {
         window.__threwAt = performance.now();
-        throw new Error("m4 fixture: deliberate uncaught error");
+        throw new Error("late-title fixture: deliberate uncaught error");
       }, 50);
     </script>
   </body>

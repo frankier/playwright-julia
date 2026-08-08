@@ -8,7 +8,7 @@
 
 using Playwright
 
-# Milestone 4 gave the package its own `with_page` (B4), which takes a browser
+# The package has its own `with_page`, which takes a browser
 # or context to open the page in. cdp.jl's takes none and launches its own
 # browser, so the two do not overlap and this is an added *method* rather than
 # a second function — otherwise the shim would shadow the export and every
@@ -51,8 +51,8 @@ Keeps cdp.jl's signature (seconds, and an `error` on timeout) because that is
 what callers of the old harness expect, but the waiting itself is now
 [`wait_for_function`](@ref) — the driver re-checks the predicate in the
 browser. `interval` is passed through as the polling interval; the original
-Julia-side `sleep` loop is gone, which is the whole point of milestone 3
-(SC 2: no test sleeps for the DOM).
+Julia-side `sleep` loop is gone, which is the whole point: no test sleeps for
+the DOM.
 """
 function poll_js(page, expression; timeout::Real = 10.0, interval::Real = 0.1)
     try

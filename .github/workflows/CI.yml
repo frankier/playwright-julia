@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # D6: Linux only, oldest supported and current stable.
+        # Linux only, oldest supported and current stable.
         version: ["1.10", "1"]
     steps:
       - uses: actions/checkout@v7
@@ -36,7 +36,7 @@ jobs:
 
   smoke:
     # The job that makes CI mean something for this package: real Chromium and
-    # real Firefox, in one job (D7), against the local fixture server.
+    # real Firefox, in one job, against the local fixture server.
     name: Smoke (chromium + firefox)
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -87,7 +87,7 @@ jobs:
         run: julia --project=. -e 'using Pkg; Pkg.test()'
 
   examples:
-    # The four Part B examples, on the committed Manifest (D2), on both
+    # The four examples, on the committed Manifest, on both
     # engines. Slow by nature: it loads Genie and Makie, and WGLMakie's first
     # render costs about a minute on a cold runner while SwiftShader compiles
     # shaders on the CPU.

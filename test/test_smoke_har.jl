@@ -8,7 +8,7 @@
 # empty. So the server going down is part of the test, and that it is really
 # down is asserted rather than assumed.
 #
-# R2's division of labour: replay is already known-good against the hand-written
+# The division of labour: replay is already known-good against the hand-written
 # fixture (test_har.jl), so a failure here is a *recording* failure by
 # elimination.
 #
@@ -25,7 +25,7 @@ using Playwright:
 """
 A fixture server whose `/api/todos` body can be changed between runs.
 
-`body` is a Ref the test writes to, which is what makes T12 possible: `update =
+`body` is a Ref the test writes to, which is what makes the refresh test possible: `update =
 true` is only meaningful against a backend that has moved on since the archive
 was recorded.
 """
@@ -89,7 +89,7 @@ end
                 #
                 # No url filter: the document itself has to be in the archive or
                 # there is nothing to navigate to in phase 2. The filtered case
-                # is SC 13, below, and it is a different test on purpose.
+                # is the `url`-filter test below, and it is separate on purpose.
                 recorded, base_url = within_deadline("$engine record") do
                     with_har_server() do url, _body, _hits, stop_server
                         texts = with_browser(bt) do browser
@@ -136,7 +136,7 @@ end
             end
 
             @testset "$engine: a url filter leaves the document out" begin
-                # SC 13 asserts the *absence* of something from the archive,
+                # This asserts the *absence* of something from the archive,
                 # which cannot be read off the file without parsing HAR — and
                 # this package does not parse HAR. So it is asserted the way a
                 # user would notice it: replay with :abort, and the document
@@ -185,7 +185,7 @@ end
             @testset "$engine: update = true refreshes a stale archive" begin
                 # The leg that closes the loop. Unlike every other replay test
                 # this one needs a backend to record *from*, which is why it
-                # does not share a fixture with them (D7 says so up front).
+                # does not share a fixture with them.
                 #
                 # Three phases: record against the server, change the server's
                 # answer, refresh the archive with update = true — then stop the
@@ -210,7 +210,7 @@ end
                         body[] = ["updated one", "updated two"]
 
                         # Phase 3: refresh. route_from_har's name says "route"
-                        # and its behaviour here is "record" — the whole of D7.
+                        # and its behaviour here is "record".
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -230,7 +230,7 @@ end
 
                 # Phase 4: replay the refreshed archive with nothing behind it.
                 # The new body is the assertion — the old one would mean update
-                # had quietly done nothing, which is the failure D7's refusal
+                # had quietly done nothing, which is the failure the refusal
                 # existed to prevent in the first place.
                 replayed = within_deadline("$engine update replay") do
                     with_browser(bt) do browser

@@ -1,12 +1,12 @@
 # HAR replay, hermetically: the action table, `not_found`, and the archive's
 # lifetime. No Node, no browser — `harLookup`'s replies are canned, which is the
-# point. Each of the driver's four actions has to produce the settle verb D2's
+# point. Each of the driver's four actions has to produce the settle verb the
 # table names, and a canned reply is the only way to drive all four from one
 # test file without a network to break.
 #
 # The archive itself (test/fixtures/api.har) is hand-written on purpose, per
-# SPEC-M8 R2: replay must be known-good against known input before any
-# *recorded* archive exists, or T11's round trip fails for two reasons at once.
+# Replay must be known-good against known input before any *recorded* archive
+# exists, or a record-then-replay round trip can fail for two reasons at once.
 
 using Base64: base64encode, base64decode
 
@@ -32,7 +32,7 @@ A FakeDriver whose replies are chosen by method, so one test can hand
 `lookup` is a zero-argument callable returning the reply body; it is a callable
 rather than a value so a test can change the answer between requests.
 `export_artifact` is what `harExport` answers with — an `Artifact`, or nothing
-at all, which is the case D8's guard exists for.
+at all, which is the case the guard exists for.
 """
 function har_fixture(;
     lookup = () -> Dict{String,Any}("action" => "noentry"),
@@ -57,7 +57,7 @@ function har_fixture(;
             elseif method == "harExport"
                 if exports_artifact[]
                     # An Artifact, exactly as tracingStopChunk answers with one,
-                    # which is why save_as! is already the writer (D8). A fresh
+                    # which is why save_as! is already the writer. A fresh
                     # guid per export so no test can settle another's artifact.
                     guid = "artifact@har-$(HAR_ARTIFACT_SEQ[] += 1)"
                     send_create(
@@ -129,7 +129,7 @@ end
 """
 Give the HAR fixture's context a Tracing channel, the way the real driver does —
 via the context initializer rather than a generated accessor. Recording hangs
-off Tracing (D6), so every start_har_recording! test needs this first.
+off Tracing, so every start_har_recording! test needs this first.
 """
 function har_tracing(f)
     send_create(f.fake, "context@1", "Tracing", "tracing@1")
@@ -141,7 +141,7 @@ function har_tracing(f)
     return nothing
 end
 
-"The settle verb a route reached, waiting rather than sleeping (R1's tripwire)."
+"The settle verb a route reached, waiting rather than sleeping (the tripwire)."
 function settled_with(requests, guid; seconds = 10.0)
     found = Ref{Any}(nothing)
     ok = timedwait(seconds) do
@@ -172,7 +172,7 @@ end
         @test opens[1]["guid"] == "localUtils"
 
         # It is a route registration like any other, so unroute! already works
-        # on it and no new handle type was invented (D2).
+        # on it and no new handle type was invented.
         @test reg isa Playwright.RouteRegistration
         unroute!(f.context, reg)
         close(f.conn)
@@ -256,7 +256,7 @@ end
     end
 
     @testset "`noentry` under :fallback reaches the real network" begin
-        # SC 3 is that the *same* reply produces different observable outcomes.
+        # The *same* reply must produce different observable outcomes.
         # A test that changed the reply as well as the keyword would prove
         # nothing about the keyword, so the lookup answer here is identical to
         # the one above and only `not_found` differs.
@@ -312,8 +312,7 @@ end
     @testset "`redirect` is one continue! at redirectURL" begin
         # A navigation whose archive entry is a 302. The driver asks for the
         # navigation to be re-issued at the new URL, which is one continue! —
-        # not a re-lookup and not a hop counter. D5 said otherwise until the
-        # probe; see tasks/m8-probe.md OQ1.
+        # not a re-lookup and not a hop counter.
         f = har_fixture(
             lookup = () -> Dict{String,Any}(
                 "action" => "redirect",
@@ -402,7 +401,7 @@ end
         # The driver's own text for a file that is not a HAR is a raw JS
         # TypeError — "Cannot read properties of undefined (reading 'entries')"
         # — which names neither the archive nor the request. Pinned live in the
-        # driver-gated testset at the bottom of this file. That is the case D5a
+        # driver-gated testset at the bottom of this file. That is the case
         # is about, and the `error` branch is where it lands, so this is where
         # both names have to be added.
         f = har_fixture(
@@ -425,13 +424,13 @@ end
     end
 
     @testset "an aborted noentry names the archive and the URL" begin
-        # The trap D5a found: harOpen succeeds on a file that is not a HAR, so a
+        # The trap: harOpen succeeds on a file that is not a HAR, so a
         # typo'd archive is indistinguishable at open time and then misses
         # everything. Under :abort that is a page whose every request fails with
         # no clue why — unless the abort says which archive it consulted.
         #
         # Asserted on the message a user actually sees, not only on the fact
-        # that something was logged — the distinction m7-api-gaps.md gap 2 paid
+        # that something was logged — the distinction that already cost
         # for.
         f = har_fixture()
         logger = Test.TestLogger(; min_level = Base.CoreLogging.Warn)
@@ -501,7 +500,7 @@ end
     end
 
     @testset "the caller's .zip is copied, never handed to harUnzip" begin
-        # harUnzip *deletes the zip it is given* — probed, and it cost the
+        # harUnzip *deletes the zip it is given*, and that cost the
         # fixture once. Replaying an archive must not consume it, so what the
         # driver gets is a copy inside the temp directory.
         f = har_fixture()
@@ -530,7 +529,7 @@ end
         @test isdir(tmp)
 
         unroute!(f.context, reg)
-        # The registration owned two lifetimes and released both (D3, R5).
+        # The registration owned two lifetimes and released both.
         @test !isdir(tmp)
         @test any(m -> get(m, "method", "") == "harClose", f.requests)
 
@@ -609,8 +608,7 @@ end
 
     # --- update = true: a recording behind a replay's name ---------------------
     #
-    # T7 shipped this keyword as an explicit refusal, and this is the commit
-    # that removes it — the point of D7's two-task split. The name says "route"
+    # The name says "route"
     # and the behaviour is "trace", which is confusing enough that the spec says
     # it twice and so does this comment.
 
@@ -716,8 +714,8 @@ end
 
     # --- Recording: HarRecording, start/stop -----------------------------------
     #
-    # D6 makes this a start!/stop! pair rather than a new_context keyword,
-    # because start_tracing!/stop_tracing! already made that decision in M4 for
+    # This is a start!/stop! pair rather than a new_context keyword, because
+    # start_tracing!/stop_tracing! already made that decision for
     # the identical protocol shape — a Tracing command pair producing an
     # Artifact. A second feature on the same object with the opposite spelling
     # would be the package disagreeing with itself.
@@ -831,13 +829,13 @@ end
 
         export_msg = only(filter(m -> get(m, "method", "") == "harExport", f.requests))
         # "archive" and not "entries": this package does not parse HAR, so the
-        # inline-entries mode is not wrapped (D8).
+        # inline-entries mode is not wrapped.
         @test export_msg["params"]["mode"] == "archive"
         @test export_msg["params"]["harId"] == rec.har_id
 
-        # The artifact is written by save_as!, the writer M4 already had — but
+        # save_as! writes the artifact, as it does for tracing — but
         # to a staging zip, because harExport(mode = "archive") always produces
-        # one whatever `content` was. T11 found that the hard way: the replay
+        # one whatever `content` was, which surfaces late: the replay
         # met `Unexpected token 'P', "PK…" is not valid JSON`.
         save = only(filter(m -> get(m, "method", "") == "saveAs", f.requests))
         @test startswith(save["guid"], "artifact@har-")
@@ -893,7 +891,7 @@ end
     end
 
     @testset "an export with no artifact names the unwritten path" begin
-        # The guard stop_tracing! already has (D8). Without it an export that
+        # The guard stop_tracing! already has. Without it an export that
         # produced nothing is a silent no-op and the caller finds an absent file
         # much later.
         f = har_fixture(export_artifact = false)
@@ -1007,7 +1005,7 @@ end
             e
         end
         # harOpen on a missing file raises DriverError: ENOENT rather than
-        # returning the declared `error` field (D5a), so the check that matters
+        # returning the declared `error` field, so the check that matters
         # is that *something* names the file — which is cheapest to guarantee
         # by looking before asking.
         @test err !== nothing
@@ -1017,7 +1015,7 @@ end
 end
 
 # The tests above canned every harLookup reply, which proves the mapping and
-# nothing about what the driver actually answers. SC 4 asks for the driver's own
+# nothing about what the driver actually answers. This asks for the driver's own
 # behaviour — that a redirect entry is `redirect` for a navigation and `fulfill`
 # for a sub-resource, and that a cycle comes back as the driver's own message.
 #
@@ -1064,10 +1062,10 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                 @test ask("http://probe.test/nope").action == "noentry"
             end
 
-            # D5a predicted that a file which is not a HAR opens successfully and
+            # A file which is not a HAR might be expected to open successfully and
             # then answers `noentry` to everything. The first half holds; the
             # second does not, and the three tests below pin what the driver
-            # really does. See the T5 addendum in tasks/m8-probe.md — the
+            # really does — the
             # conclusion is unchanged (the caller must be told which archive and
             # which URL) but it is the `error` branch that has to say so, not the
             # `noentry` one.
@@ -1089,9 +1087,9 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                 path = joinpath(mktempdir(), "not-a.har")
                 write(path, """{"this": "is not a har"}""")
                 opened, got = lookup_against(path)
-                @test opened.error === nothing      # D5a's first half: it opens
+                @test opened.error === nothing      # first half: it opens
                 @test opened.harId !== nothing
-                @test got.action == "error"         # D5a's second half: not noentry
+                @test got.action == "error"         # second half: not noentry
                 # The driver's message is a raw JS TypeError naming neither the
                 # archive nor the URL, which is why the `error` branch wraps it
                 # with both rather than passing it through.

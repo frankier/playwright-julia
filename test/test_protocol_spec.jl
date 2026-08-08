@@ -20,7 +20,7 @@
         files = filter(f -> endswith(f, ".yml"), readdir(specdir))
         # The generator resolves $mixin inclusions and SerializedValue across
         # files, so a partial vendoring is worse than none — assert the ones
-        # milestone 2 actually reads are all here.
+        # this package actually reads are all here.
         for required in [
             "serialized.yml",
             "frame.yml",

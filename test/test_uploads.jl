@@ -1,8 +1,8 @@
-# Uploads (SPEC-M7.md D13), against the fake connection.
+# Uploads, against the fake connection.
 #
 # The validation is the interesting half, and it is asserted where it belongs:
 # an ArgumentError raised at the call site, with nothing reaching the driver.
-# The real-transfer legs are T17's, and they are asserted server-side because
+# The real-transfer legs are in the smoke suite, asserted server-side because
 # nothing observed from the client proves a byte moved.
 #
 # `timeout_fixture`, not `event_fixture` -- see test_downloads.jl's header.
@@ -21,7 +21,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
     # --- Validation, in exactly one place -----------------------------------
 
     @testset "paths and the in-memory form are mutually exclusive" begin
-        # D13: raised at the call site, before any message reaches the driver.
+        # raised at the call site, before any message reaches the driver.
         # The driver's own complaint arrives later and names the wire spelling.
         f = timeout_fixture()
         loc = locator(f.page, "#file")
