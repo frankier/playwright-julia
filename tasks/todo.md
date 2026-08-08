@@ -26,7 +26,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 
 ## Phase 0: before any code
 
-- [ ] **T1** (S) Open `tasks/m8-api-gaps.md`, empty on purpose. Fourth turn of
+- [x] **T1** (S) Open `tasks/m8-api-gaps.md`, empty on purpose. Fourth turn of
       the instrument. Must be committed before the first `src/` change.
 
 ## Phase 1: Part A — replay
