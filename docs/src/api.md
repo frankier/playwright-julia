@@ -291,6 +291,33 @@ unroute_web_socket!
 with_web_socket_route
 ```
 
+#### Driving a socket
+
+[`connect!`](@ref) is the mode switch: mock until it is called, proxy
+afterwards. The send verbs take a `String` for a text frame or a
+`Vector{UInt8}` for a binary one, in both directions; base64 is the protocol's
+business and never the caller's.
+
+```@docs
+connect!
+send_to_page!
+send_to_server!
+close_ws!
+```
+
+#### The route's own events
+
+These belong to the route object rather than to a [`Page`](@ref) or a
+[`BrowserContext`](@ref), and they are consumed by these callbacks rather than
+by [`expect_event`](@ref). **Each one replaces the default forwarding for its
+direction** — see [The network](@ref) for what that costs if you forget.
+
+```@docs
+on_message_from_page!
+on_message_from_server!
+on_close!
+```
+
 ### Network events
 
 `expect_request` and `expect_response` are sugar over

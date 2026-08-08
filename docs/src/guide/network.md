@@ -212,7 +212,73 @@ the failure it would catch — a handler that never returns — is a bug in the
 handler that its own test should catch first. If a handler does I/O that can
 hang, give that I/O a timeout.
 
-## WebSocket routing is not covered
+## Serving the whole network from an archive
 
-`route_from_har`, `WebSocketRoute` and service workers are not wrapped. See the
-README's status section for what else is outstanding.
+[`route_from_har`](@ref) is a route handler like any other — it returns a
+[`RouteRegistration`](@ref), and [`unroute!`](@ref) closes the archive — but it
+answers from a recording rather than from a closure. It is the tool for "this
+test needs the real API's answers and no API", and it has a guide of its own:
+[HAR: recording and replaying the network](@ref).
+
+## WebSockets are intercepted, not observed
+
+A socket is a conversation, not a request with a response, so it has no
+settle and nothing to fulfill. [`route_web_socket!`](@ref) hands your handler a
+[`WebSocketRoute`](@ref); the handler *sets the conversation up* — registers
+callbacks, optionally connects — and returns. The messages arrive afterwards.
+
+```julia
+# Mock: the real server is never contacted.
+with_web_socket_route(ctx, "**/ws", wsr -> on_message_from_page!(wsr) do msg
+    msg == "ping" && send_to_page!(wsr, "pong")
+end) do
+    goto!(page, url)
+    click!(locator(page, "#connect"))
+end
+```
+
+**[`connect!`](@ref) is the entire mode switch.** Without it the route is in
+*mock* mode: the server is never contacted, and [`send_to_server!`](@ref)
+raises. With it the route is a *proxy*: both directions flow, and you can
+rewrite what passes through.
+
+```julia
+route_web_socket!(ctx, "**/ws") do wsr
+    connect!(wsr)
+    on_message_from_server!(wsr) do msg
+        send_to_page!(wsr, replace(msg, "live" => "mocked"))
+    end
+end
+```
+
+!!! warning "A callback replaces the forwarding it intercepts"
+    In proxy mode, registering [`on_message_from_server!`](@ref) and not
+    calling [`send_to_page!`](@ref) **silently swallows every server message**.
+    The same is true of [`on_message_from_page!`](@ref) and
+    [`send_to_server!`](@ref), and of [`on_close!`](@ref), which replaces the
+    default of closing the other side.
+
+    This is Playwright's behaviour rather than this package's choice, and it is
+    the one edge of this API worth reading twice. If a page stops receiving
+    anything the moment you add a callback, this is why.
+
+Messages are `String` for text frames and `Vector{UInt8}` for binary ones, in
+both directions. The base64 the protocol uses for binary is handled for you —
+bytes in, bytes out, and the flag is never yours to set.
+
+[`close_ws!`](@ref) closes the page's socket, with an optional `code` and
+`reason` the page's `onclose` will see. It is not spelled `close!` because the
+`close!` family closes *owners* — a page, a context, a browser — and a route is
+not an owner.
+
+Registrations behave exactly like [`route!`](@ref)'s: newest matching handler
+wins, handlers run sequentially on one dispatcher task per routed owner, and an
+exception a handler or callback throws is collected and rethrown at
+[`unroute_web_socket!`](@ref). The one difference is that there is no unsettled
+warning — a handler that registers nothing is a socket that mocks everything and
+answers nothing, which is a legitimate thing to want if what you are testing is
+that a page survives a dead socket.
+
+## What is still not covered
+
+Service workers. See the README's status section for what else is outstanding.

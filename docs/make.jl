@@ -47,6 +47,7 @@ makedocs(;
             "guide/assertions.md",
             "guide/events.md",
             "guide/network.md",
+            "guide/har.md",
             "guide/files.md",
             "guide/artifacts.md",
             "guide/errors.md",

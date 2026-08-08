@@ -35,12 +35,18 @@ event. Nothing the block does can be missed.
 | `BrowserContext` or `Page` | `:requestfailed` | [`RequestFailure`](@ref) |
 
 Anything else raises `ArgumentError`, and the message says which of two things
-went wrong. `:worker`, `:websocket` and `:bindingcall` are **deferred**: the
-payload types exist in the generated layer but have no accessors yet, so the
-event would hand you back nothing usable. `:route` is deferred for the opposite
-reason — [`Route`](@ref) is wrapped and fully usable, but interception is
+went wrong. `:worker` and `:bindingcall` are **deferred**: the payload types
+exist in the generated layer but have no accessors yet, so the event would hand
+you back nothing usable. `:route` is deferred for the opposite reason —
+[`Route`](@ref) is wrapped and fully usable, but interception is
 [`route!`](@ref)/[`with_route`](@ref), and an event would hand you a route with
 no guarantee anyone settles it.
+
+`:websocket` is deferred for a bit of both, and the distinction matters because
+the wrong half is easy to read into it. Observing a socket yields a `WebSocket`
+with no accessors, so that event stays deferred — but sockets themselves are
+fully supported, through [`route_web_socket!`](@ref) rather than through an
+event. "No accessors yet" is about the observation, not about WebSockets.
 
 `:dialog` is deferred for `:route`'s reason and permanently: dialogs are
 answered through [`with_dialog`](@ref) and the handler registry, because on the
