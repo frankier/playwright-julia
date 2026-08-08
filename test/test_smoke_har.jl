@@ -181,6 +181,72 @@ end
                 end
                 @test navigation_failed
             end
+
+            @testset "$engine: update = true refreshes a stale archive (T12, SC 14)" begin
+                # The leg that closes the loop. Unlike every other replay test
+                # this one needs a backend to record *from*, which is why it
+                # does not share a fixture with them (D7 says so up front).
+                #
+                # Three phases: record against the server, change the server's
+                # answer, refresh the archive with update = true — then stop the
+                # server and prove the refreshed archive serves the *new* body.
+                workdir = mktempdir()
+                archive = joinpath(workdir, "stale.har")
+
+                base_url = within_deadline("$engine update", 180.0) do
+                    with_har_server() do url, body, _hits, stop_server
+                        # Phase 1: the archive as originally recorded.
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            with_har_recording(ctx; path = archive) do
+                                goto!(page, "$url/m6.html")
+                                click!(locator(page, "#load"))
+                                expect(locator(page, "#status"); to_have_text = "loaded")
+                            end
+                        end
+
+                        # Phase 2: the backend moves on.
+                        body[] = ["updated one", "updated two"]
+
+                        # Phase 3: refresh. route_from_har's name says "route"
+                        # and its behaviour here is "record" — the whole of D7.
+                        with_browser(bt) do browser
+                            page = new_page(browser)
+                            ctx = first(contexts(browser))
+                            with_har(ctx, archive; update = true) do
+                                goto!(page, "$url/m6.html")
+                                click!(locator(page, "#load"))
+                                expect(locator(page, "#status"); to_have_text = "loaded")
+                            end
+                        end
+
+                        stop_server()
+                        url
+                    end
+                end
+
+                @test !server_is_up(base_url)
+
+                # Phase 4: replay the refreshed archive with nothing behind it.
+                # The new body is the assertion — the old one would mean update
+                # had quietly done nothing, which is the failure D7's refusal
+                # existed to prevent in the first place.
+                replayed = within_deadline("$engine update replay") do
+                    with_browser(bt) do browser
+                        page = new_page(browser)
+                        ctx = first(contexts(browser))
+                        with_har(ctx, archive) do
+                            goto!(page, "$base_url/m6.html")
+                            click!(locator(page, "#load"))
+                            expect(locator(page, "#status"); to_have_text = "loaded")
+                            todo_texts(page)
+                        end
+                    end
+                end
+
+                @test replayed == ["updated one", "updated two"]
+            end
         end
     end
 end
