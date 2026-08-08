@@ -38,3 +38,21 @@ Recorded 2026-08-08, before T2.
 ---
 
 *(empty)*
+
+## Closed at T26, still empty
+
+Four surfaces, twenty-six tasks, and nothing was found that M8 declined to fix.
+That is the honest result rather than a claim of restraint: the two things this
+milestone did notice about neighbouring code were both fixed in the task that
+found them, so neither belongs here.
+
+- T19 found `handle_web_socket_route` calling `ensureOpened` unconditionally.
+  That was correct when T18 wrote it — there was no `connect!` yet — and became
+  wrong in the commit that added one, so it was fixed there.
+- T24 found the README's not-covered list stale in four entries. Fixing it was
+  the task; what came out of it is a test, so the next stale entry fails the
+  suite rather than waiting to be re-read.
+
+R6 predicted the opposite — four new surfaces meaning four new chances to "just
+fix" something adjacent — and the file being empty is not evidence the risk was
+imaginary. It is evidence that the boundary held for one milestone.

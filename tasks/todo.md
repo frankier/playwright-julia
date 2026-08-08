@@ -89,50 +89,53 @@ ask about Part D — not at T20 (R1, Assumption 10).
 - [x] **T24** (M) Exports; README Status and the not-covered list, item by
       item — SC 33
 - [x] **T25** (S) `bonnie-parity.md` re-scored, or explicitly not — SC 34
-- [ ] **T26** (M) Final verification of all 35 criteria — SC 29, 31, 32, 35
+- [x] **T26** (M) Final verification of all 35 criteria — SC 29, 31, 32, 35
 
 **Checkpoint E** — the milestone. Archive `plan.md` and `todo.md` to
-`tasks/m8/`.
+`tasks/m8/` — done by the *next* milestone's spec commit, as `SPEC-M8`'s own
+commit archived M7's.
 
 ## Success criteria — how each was verified
 
-Filled in by T26. A criterion that cannot be met says so — the M7 precedent,
-where two criteria were reported unmet rather than reworded until they passed.
+Filled in by T26. **All 35 are met**; none had to be reported unmet, which is
+worth saying explicitly because M7's table has two that were — the precedent is
+that a criterion which cannot be met says so rather than being reworded until
+it passes.
 
 | SC | Verified by |
 |---|---|
-| 1 | |
-| 2 | |
-| 3 | |
-| 4 | |
-| 5 | |
-| 6 | |
-| 7 | |
-| 8 | |
-| 9 | |
-| 10 | |
-| 11 | |
-| 12 | |
-| 13 | |
-| 14 | |
-| 15 | |
-| 16 | |
-| 17 | |
-| 18 | |
-| 19 | |
-| 20 | |
-| 21 | |
-| 22 | |
-| 23 | |
-| 24 | |
-| 25 | |
-| 26 | |
-| 27 | |
-| 28 | |
-| 29 | |
-| 30 | |
-| 31 | |
-| 32 | |
-| 33 | |
-| 34 | |
-| 35 | |
+| 1 | `test_connection.jl` "local_utils names HAR replay when the driver exposes none (T2, SC 1)" — the absent case, hermetic; and "the pinned driver exposes a LocalUtils (T2, SC 1)", smoke-gated |
+| 2 | `test_har.jl` "`fulfill` serves the archived response", "`redirect` is one continue!", "`error` carries the driver's message", "`noentry` under :abort fails the request" — one testset per action, each asserting the settle verb |
+| 3 | `test_har.jl` "`noentry` under :abort fails the request" / "under :fallback reaches the real network", driven from the *same* canned reply; smoke's server-side half in `test_smoke_har.jl` |
+| 4 | `test_har.jl` "`redirect` is one continue! at redirectURL" and "a sub-resource redirect is fulfilled, not continued" — separate testsets, per the probe; the cycle in "what the driver really answers (T5, SC 4)" |
+| 5 | `test_har.jl` "an aborted noentry names the archive and the URL", asserted on the message text; ":fallback misses are not warned about" is its other half |
+| 6 | `test_har.jl` "a .zip is unzipped by the driver, into a temp dir", "the temp directory is gone after unroute!", and the live "a .har.zip really replays through harUnzip" |
+| 7 | Part A shipped the refusal; T10 removed it in the commit that implemented the keyword. Now `test_har.jl` "update = true records instead of replaying" and "unroute! on an update registration writes the file" |
+| 8 | `test_har.jl` "unroute! closes the archive, on the wire" and "unroute_all! closes the archive too" — asserted on the wire, not inferred |
+| 9 | `test_har.jl` "start_har_recording! sends the RecordHarOptions" and "stop_har_recording! exports, saves, and returns the path" |
+| 10 | `test_har.jl` "content and mode reject a bad Symbol, naming the set" — before the wire |
+| 11 | `test_har.jl` "an export with no artifact names the unwritten path" |
+| 12 | `test_smoke_har.jl` "$engine: record, stop the server, replay (T11, SC 12)", both engines; the server being down asserted by `server_is_up` |
+| 13 | `test_smoke_har.jl` "$engine: a url filter leaves the document out (T11, SC 13)", both engines |
+| 14 | `test_smoke_har.jl` "$engine: update = true refreshes a stale archive (T12, SC 14)", both engines |
+| 15 | `test_connection.jl` "launch_persistent_context sends the union of both (T14, SC 15)" |
+| 16 | `test_connection.jl` "new_context sends only the options that were set", "new_context's full option set crosses unchanged", "accept_downloads = false denies rather than omitting" — all pre-existing assertions, unchanged across D10's refactor |
+| 17 | `test_connection.jl` "an empty user_data_dir is refused before the wire (T14, SC 17)" |
+| 18 | `test_smoke_persistent.jl` "$engine: the profile survives the process (T16, SC 18)", both engines |
+| 19 | `test_smoke_persistent.jl` "$engine: it arrives with exactly one page (T16, SC 19)", both engines; the docstring's example uses `first(pages(ctx))` |
+| 20 | `test_connection.jl` "close! on a persistent context closes only the context" / "a non-persistent context closes only itself" for the flag; `test_smoke_persistent.jl` "$engine: close! leaves no browser process" for the process |
+| 21 | `test_websockets.jl` "handlers never run on the transport reader task (T18, SC 21)", and "callbacks never run on the transport reader task (T20, SC 21)" for T20's callbacks |
+| 22 | `test_smoke_websockets.jl` "$engine: mock mode never contacts the server (T22, SC 22)", both engines, asserted on the server's connection counter |
+| 23 | `test_smoke_websockets.jl` "$engine: proxy mode rewrites a server message (T22, SC 23)", both engines |
+| 24 | `test_smoke_websockets.jl` "$engine: a binary frame survives each way (T22, SC 24)", both engines; hermetically in `test_websockets.jl` "send_to_page! base64-encodes bytes", "a binary page message arrives as bytes", "a wire message decodes back to the type it was sent as" |
+| 25 | `test_smoke_websockets.jl` "$engine: close_ws! is what the page's onclose sees (T22, SC 25)", both engines |
+| 26 | `test_smoke_websockets.jl` "$engine: a handled server message is swallowed (T22, SC 26)", both engines; hermetically in `test_websockets.jl` "a handled server message is swallowed, as intended" |
+| 27 | `test_websockets.jl` "send_to_server! in mock mode raises before the wire (T19, SC 27)" — asserts the *absence* of the wire message |
+| 28 | `test_websockets.jl` "the route's subscriptions are gone once it closes (T20, SC 28)", plus "disposing the route drops its state too" and "unrouting drops a live socket's state" for the other two ends. Proved to bite by commenting the teardown out and watching it fail |
+| 29 | **2417 hermetic, 3348 smoke**, both engines, all green — 4m17 and 15m32 (M7 recorded 1933 / 2776) |
+| 30 | `julia --project=docs docs/make.jl` — zero errors, zero warnings, with `checkdocs = :exports`, `warnonly = false` and `doctest = true` all unchanged |
+| 31 | `gen/generate.jl --check`: "Generated channel layer is in sync with protocol/spec/". `git diff` on `src/generated/` empty from T1's commit to HEAD. `format(".")` clean |
+| 32 | `git diff` on `Project.toml` from T1's commit to HEAD: empty. `Base64` was already a dependency, which is why D3 could use it |
+| 33 | README Status rewritten; four entries removed from the not-covered list and the remaining three justified individually. Gated by `test_exports.jl` "the README's not-covered list is still true (T24, SC 33)", which also asserts a stale list would be caught |
+| 34 | `docs/bonnie-parity.md` "Re-scored by milestone 8" — no row added, with the reason for each of the three features, including why the WGLMakie socket is not the row it looks like |
+| 35 | `tasks/m8-api-gaps.md` exists, was committed at T1 before any `src/` change, and is **still empty** — no gap was found that M8 declined to fix |
