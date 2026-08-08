@@ -293,7 +293,7 @@ end
 
 Open a fresh browser context — an isolated profile with its own cookies,
 storage and permissions, and the unit of isolation between tests. Contexts are
-cheap; a new browser is not.
+cheap. A new browser is not.
 
 Options (all optional, omitted from the wire when unset): `viewport` (a `Dict`
 or `NamedTuple` of `width`/`height`), `user_agent`, `locale`, `timezone_id`,
@@ -321,7 +321,7 @@ ctx = new_context(browser; record_video = (dir = "artifacts/video",))
 already work with it unset**, on both engines. Pass `false` to make
 the browser refuse them — which does not stop the [`Download`](@ref) arriving,
 only makes [`failure`](@ref) non-`nothing`. Leaving it unset omits the
-parameter from the wire entirely; see [`Download`](@ref).
+parameter from the wire entirely. See [`Download`](@ref).
 
 To choose where the driver puts downloaded files, pass `downloads_path` to
 [`launch`](@ref) — the protocol carries it as a launch option, not a context
@@ -355,12 +355,12 @@ close!(ctx)
 ctx = launch_persistent_context(pw.chromium, "/tmp/profile"; headless = true)
 ```
 
-Takes the keywords of [`launch`](@ref) **and** [`new_context`](@ref) together;
+Takes the keywords of [`launch`](@ref) **and** [`new_context`](@ref) together.
 see those for what each does.
 
 `user_data_dir` is positional because it is the entire reason the function
 exists and there is no sensible default. Playwright allows an empty string,
-meaning a temporary profile; this package raises instead, because a *persistent*
+meaning a temporary profile. This package raises instead, because a *persistent*
 context whose profile evaporates is a call nobody meant to make.
 
 !!! note "It comes with a page, and `close!` takes the browser with it"
@@ -494,14 +494,14 @@ length(pages(ctx))   # 1
 ```
 
 A popup opened by the page under test shows up here once it exists — though
-`expect_event(ctx, :page)` is the way to *wait* for one; see
+`expect_event(ctx, :page)` is the way to *wait* for one. See
 [`expect_event`](@ref).
 """
 pages(context::BrowserContext) = live_children(context, Page)
 
 """
 Children of `parent` of type `T` that are still alive. Disposed objects leave
-a stale guid behind in the parent's child list, so liveness is decided by the
+a stale guid behind in the parent's child list, so liveness comes from the
 object registry rather than by that list.
 """
 function live_children(parent::ChannelOwner, ::Type{T}) where {T}

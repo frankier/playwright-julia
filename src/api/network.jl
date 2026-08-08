@@ -147,7 +147,7 @@ redirected_from(req::Request) =
 The request body as bytes, or `nothing` for a request that carries none.
 
 Bytes, because that is what a request body is — a form upload is not text.
-[`post_data_string`](@ref) decodes UTF-8 and [`json`](@ref) parses; three
+[`post_data_string`](@ref) decodes UTF-8 and [`json`](@ref) parses. Three
 names for three return types rather than one name that changes its mind.
 """
 function post_data(req::Request)
@@ -246,7 +246,7 @@ text(resp::Response) = String(body(resp))
     json(resp::Response)
     json(req::Request)
 
-The body parsed as JSON. **The response form costs a round trip**; the request
+The body parsed as JSON. **The response form costs a round trip**. The request
 form does not, since a request body is already in the initializer.
 
 Raises if the body is not valid JSON, which is the useful behaviour: a test

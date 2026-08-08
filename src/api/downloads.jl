@@ -107,7 +107,7 @@ end
 Why the download failed, or `nothing` if it succeeded.
 
 **This is the only way to ask that does not throw.** A download refused by
-`accept_downloads = false` still arrives as a perfectly ordinary `Download`;
+`accept_downloads = false` still arrives as a perfectly ordinary `Download`.
 the refusal appears here, as the driver's own sentence, while [`path`](@ref)
 and [`save_as!`](@ref) raise a [`DriverError`](@ref) carrying the same text.
 
@@ -154,7 +154,7 @@ save_as!(dl; path = joinpath(dir, suggested_filename(dl)))
 ```
 
 `timeout` is in milliseconds and defaults to the
-[`set_default_timeout!`](@ref) cascade; [`TimeoutError`](@ref) is raised if no
+[`set_default_timeout!`](@ref) cascade. [`TimeoutError`](@ref) is raised if no
 download starts.
 
 !!! note "A refused download is still a download"

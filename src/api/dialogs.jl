@@ -41,7 +41,7 @@ A JavaScript dialog the page opened: `alert`, `confirm`, `prompt`, or the
 `beforeunload` prompt.
 
 Read it with [`dialog_type`](@ref), [`message`](@ref) and
-[`default_value`](@ref); answer it with [`accept!`](@ref) or
+[`default_value`](@ref). Answer it with [`accept!`](@ref) or
 [`dismiss!`](@ref).
 
 ```julia
@@ -96,7 +96,7 @@ default_value(d::Dialog) = get(d.initializer, "defaultValue", "")::String
 Accept the dialog — OK on a `confirm`, leave on a `beforeunload`, submit on a
 `prompt`.
 
-`prompt_text` is the text to submit and is meaningful only for `prompt`; the
+`prompt_text` is the text to submit and is meaningful only for `prompt`. The
 dialog's own [`default_value`](@ref) is used when it is omitted.
 
 ```julia
@@ -344,7 +344,7 @@ function warn_unsettled_dialog!(reg::DialogRegistration)
     reg.warned && return nothing
     reg.warned = true
     @warn """
-    A dialog handler returned without answering the dialog; it has been
+    A dialog handler returned without answering the dialog. It has been
     dismissed. Call accept! or dismiss! on the dialog. This is reported once
     per registration, not once per dialog."""
     return nothing

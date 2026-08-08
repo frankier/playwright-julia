@@ -4,7 +4,7 @@
 
 """
 Remote object owned by the protocol connection. Concrete channel-owner types
-(`Browser`, `Page`, …) are registered in `CHANNEL_TYPES` (see objects.jl);
+(`Browser`, `Page`, …) are registered in `CHANNEL_TYPES` (see objects.jl).
 protocol types without a registered wrapper become plain `RemoteObject`s.
 """
 abstract type ChannelOwner end
@@ -137,7 +137,7 @@ to_wire(d::AbstractDict) = Dict{String,Any}(String(k) => to_wire(v) for (k, v) i
     send_message(conn, guid, method, params) -> result
 
 Send one protocol request and block until the driver replies. Returns the
-`result` payload (an `AbstractDict` or `nothing`); raises `PlaywrightError`
+`result` payload (an `AbstractDict` or `nothing`). Raises `PlaywrightError`
 for error replies and when the connection closes mid-call.
 """
 function send_message(

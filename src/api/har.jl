@@ -16,7 +16,7 @@
 Serve `target`'s matching requests from the HAR archive at `har`, so a page can
 be driven with no backend running at all.
 
-`target` is a [`Page`](@ref) or [`BrowserContext`](@ref); `har` is a path to a
+`target` is a [`Page`](@ref) or [`BrowserContext`](@ref). `har` is a path to a
 `.har` or a `.har.zip`. `url` restricts which requests are served — a glob,
 `Regex` or predicate, exactly as [`route!`](@ref) takes — and `nothing` serves
 all of them.
@@ -142,11 +142,11 @@ both are load-bearing:
     it, so the caller's file is copied into the temp directory and the copy is
     what the driver eats.
   - **`resourcesDir` must be the directory holding the extracted `.har`.**
-    `harLookup` resolves a content `_file` beside the `.har`; point the
+    `harLookup` resolves a content `_file` beside the `.har`. Point the
     resources somewhere else and every body comes back as an `ENOENT` at lookup
     time, long after the call that got it wrong.
 
-Whether it *is* a zip is decided by the file's first bytes, not by its name.
+The file's first bytes decide whether it *is* a zip, not its name.
 A `.har` that is really a zip is not hypothetical: it is what
 `harExport(mode = "archive")` produces. The extension is a guess, the content is
 the fact.
@@ -330,8 +330,8 @@ end
     start_har_recording!(ctx; path, content = :embed, mode = :full, url = nothing)
         -> HarRecording
 
-Begin recording `ctx`'s network into a HAR archive, to be written to `path` by
-[`stop_har_recording!`](@ref).
+Start recording `ctx`'s network into a HAR archive.
+[`stop_har_recording!`](@ref) writes it to `path`.
 
 ```julia
 rec = start_har_recording!(ctx; path = "api.har", url = "**/api/**")
@@ -346,7 +346,7 @@ body throws.
 |---|---|
 | `content` | `:embed` (bodies inline), `:attach` (bodies beside the JSON, so a `.har.zip`), `:omit` (no bodies) |
 | `mode` | `:full`, or `:minimal` for just enough to replay |
-| `url` | Record only matching requests — a glob string or a `Regex`; `nothing` records everything |
+| `url` | Record only matching requests — a glob string or a `Regex`, `nothing` records everything |
 
 `content` and `mode` are `Symbol`s validated here into the wire's string enums,
 so a typo is an `ArgumentError` naming the valid set rather than a driver error
@@ -539,7 +539,7 @@ function record_into_har(target::Union{Page,BrowserContext}, har::AbstractString
 end
 
 """
-Whether `path` begins with the local-file-header magic of a zip, `PK\\x03\\x04`.
+Whether `path` starts with the local-file-header magic of a zip, `PK\\x03\\x04`.
 
 By content rather than by extension, because both directions of this feature
 produce a zip under a `.har` name if you let them, and a misjudged extension

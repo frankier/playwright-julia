@@ -22,7 +22,7 @@ Julia attaches finalizers only to mutable objects, and a leaked response has to
 be disposed on finalization. Nothing mutates it but disposal.
 
 [`url`](@ref), [`status`](@ref), [`status_text`](@ref) and
-[`headers`](@ref) read its fields and cost nothing; [`body`](@ref),
+[`headers`](@ref) read its fields and cost nothing. [`body`](@ref),
 [`text`](@ref) and [`json`](@ref) fetch the body and cost a round trip.
 
 !!! warning "It holds a driver-side buffer"
@@ -91,7 +91,7 @@ fetch_response_uid(r::APIResponse) = r.fetch_uid
     text(r::APIResponse) -> String
     json(r::APIResponse)
 
-The fetched body, as bytes, as UTF-8, or parsed. **Each costs a round trip**;
+The fetched body, as bytes, as UTF-8, or parsed. **Each costs a round trip**.
 none of them is cached, so bind the result rather than calling twice.
 
 Raises if the response has already been disposed — the driver no longer has the
@@ -172,11 +172,11 @@ end
 
 | Keyword | Meaning |
 |---|---|
-| `method` | `"GET"`, `"POST"`, … ; defaults to the route's own, or `"GET"` |
-| `headers` | a `Dict`; defaults to the route's own on the `Route` form |
+| `method` | `"GET"`, `"POST"`, …, defaults to the route's own, or `"GET"` |
+| `headers` | a `Dict`, defaults to the route's own on the `Route` form |
 | `data` | a `String` or `Vector{UInt8}` body |
 | `json` | a Julia value, serialized, with `content-type: application/json` |
-| `timeout` | milliseconds; defaults to the owner's timeout cascade |
+| `timeout` | milliseconds, defaults to the owner's timeout cascade |
 | `max_redirects` | how many redirects to follow |
 | `fail_on_status_code` | raise on 4xx/5xx rather than returning the response |
 

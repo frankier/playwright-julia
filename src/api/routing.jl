@@ -153,7 +153,7 @@ is the loop's exit. No sentinel value, no polling, and above all no `sleep`: a
 lifetime that needs one is the wrong lifetime.
 
 `close(sub)` first, so the reader task stops delivering into a channel that is
-about to close; `deliver_event` already treats a put! into a dead subscription
+about to close. `deliver_event` already treats a put! into a dead subscription
 as a no-op rather than an error, so the race is closed on both sides.
 """
 function stop_dispatcher!(registry::RouteRegistry)
@@ -296,7 +296,7 @@ function warn_unsettled!(reg::RouteRegistration, target::AbstractString)
     reg.warned && return nothing
     reg.warned = true
     @warn """
-    A route handler returned without settling the route; it has been continued.
+    A route handler returned without settling the route. It has been continued.
     Call abort!, continue! or fulfill! on the route. This is reported once per
     registration, not once per request.""" url = target
     return nothing
@@ -329,7 +329,7 @@ each one.
 
 `matcher` is a glob string (see [`glob_to_regex`](@ref)), a `Regex`, or a
 `url -> Bool` predicate. `handler` must settle the route with
-[`abort!`](@ref), [`continue!`](@ref) or [`fulfill!`](@ref); one that returns
+[`abort!`](@ref), [`continue!`](@ref) or [`fulfill!`](@ref). One that returns
 without settling gets a warning and the route is continued for it.
 
 ```julia
@@ -357,7 +357,7 @@ is released, by [`unroute!`](@ref) or at the end of [`with_route`](@ref) — see
 
 `release` is an optional zero-argument callable run once when the registration
 goes away, for a handler that owns a resource for the registration's lifetime.
-[`route_from_har`](@ref) uses it to close the archive; most callers do not need
+[`route_from_har`](@ref) uses it to close the archive. Most callers do not need
 it.
 """
 function route!(
@@ -640,7 +640,7 @@ $(join(["`\"" * c * "\"`" for c in ABORT_ERROR_CODES], ", ")).
 route!(ctx, "**/*.png", route -> abort!(route))    # no images in this test
 ```
 
-A route can be settled exactly once; a second settle raises.
+A route can be settled exactly once. A second settle raises.
 """
 function abort!(route::Route; error_code::AbstractString = "failed")
     code = String(error_code)
@@ -660,7 +660,7 @@ end
 
 Let the request proceed, optionally rewriting it on the way through.
 
-This is Playwright's `route.continue()`; `playwright-python` spells it
+This is Playwright's `route.continue()`. `playwright-python` spells it
 `continue_` because Python has no escape from the keyword. Julia does: the
 lexer reads an identifier greedily, so `continue!` is a name and never the
 `continue` keyword followed by `!`.

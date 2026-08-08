@@ -92,7 +92,7 @@ right for anything the browser paints) or a number of milliseconds for a fixed
 interval, which is better for a condition that is not tied to rendering.
 
 `timeout` defaults to the [`set_default_timeout!`](@ref) cascade. A predicate
-that never becomes true raises [`TimeoutError`](@ref); a predicate that *throws*
+that never becomes true raises [`TimeoutError`](@ref). A predicate that *throws*
 raises [`DriverError`](@ref) — the distinction between a condition that has not
 happened yet and one that can never happen.
 

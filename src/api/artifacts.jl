@@ -70,7 +70,7 @@ path(a::Artifact) = _artifact_path_after_finished(a)::String
 """
     delete_file!(a::Artifact)
 
-Delete the artifact's driver-side file. This is Playwright's `delete`; the name
+Delete the artifact's driver-side file. This is Playwright's `delete`. The name
 differs because `delete!` would have been ambiguous with the exported
 `Base.delete!`, and because removing a file from disk is not what
 `Base.delete!` means. Worth calling for artifacts a passing test does not need
@@ -87,7 +87,7 @@ else
 end
 ```
 
-This deletes the *driver's* copy; a file already copied out with
+This deletes the *driver's* copy. A file already copied out with
 [`save_as!`](@ref) is yours and is untouched. See [`Artifact`](@ref).
 """
 function delete_file!(a::Artifact)
@@ -112,7 +112,7 @@ tracing_channel(ctx::BrowserContext) =
     start_tracing!(ctx::BrowserContext; screenshots=true, snapshots=true,
                   name=nothing, title=nothing)
 
-Begin recording a Playwright trace on `ctx` — the full record of what the
+Start recording a Playwright trace on `ctx` — the full record of what the
 browser did, viewable afterwards in Playwright's own trace viewer. Pair with
 [`stop_tracing!`](@ref), or use [`with_tracing`](@ref) to guarantee the pairing
 even when the block throws, which is the run worth tracing.
@@ -181,7 +181,7 @@ for you. Open the result with:
 npx playwright@1.61.1 show-trace artifacts/trace.zip
 ```
 
-The zip is assembled by the driver, not by Julia — this package has no zip
+The driver assembles the zip, not Julia — this package has no zip
 dependency and does not parse the trace. It is an opaque artifact for the
 upstream viewer.
 """
@@ -220,8 +220,8 @@ end
 Returns whatever `f()` returned. Open the trace with
 `npx playwright show-trace artifacts/trace.zip`.
 
-Options other than `path` are passed straight to [`start_tracing!`](@ref); the
-zip is written by [`stop_tracing!`](@ref). For a whole test wrapped in a trace
+Options other than `path` are passed straight to [`start_tracing!`](@ref). The
+zip comes from [`stop_tracing!`](@ref). For a whole test wrapped in a trace
 *and* a screenshot on failure, see [`with_page`](@ref).
 
 !!! note "A failed save never replaces your exception"
@@ -296,13 +296,13 @@ Render `page` to PDF, write it to `path`, and return `path` — the same shape a
 pdf(page; path = "artifacts/page.pdf", format = "A4")   # -> "artifacts/page.pdf"
 ```
 
-`path` is required; for the bytes in memory call [`pdf_bytes`](@ref). Both take
+`path` is required. For the bytes in memory call [`pdf_bytes`](@ref). Both take
 the same options, listed below.
 
 | Option | Meaning |
 |---|---|
 | `format` | paper size, e.g. `"A4"` or `"Letter"` |
-| `width`, `height` | explicit paper size, as CSS lengths; override `format` |
+| `width`, `height` | explicit paper size, as CSS lengths, override `format` |
 | `landscape` | rotate the paper |
 | `margin` | a `NamedTuple` or `Dict` of `top`/`bottom`/`left`/`right` |
 | `print_background` | include background graphics, off by default upstream |

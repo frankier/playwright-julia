@@ -68,7 +68,7 @@ page = new_page(ctx)
 set_default_timeout!(page, 5_000)  # ...but this page gets 5 s
 ```
 
-Milliseconds; `0` means no timeout. See also
+Milliseconds. `0` means no timeout. See also
 [`set_default_navigation_timeout!`](@ref).
 """
 set_default_timeout!(target::TimeoutOwner, milliseconds::Integer) =
@@ -84,7 +84,7 @@ Navigations fall back to the [`set_default_timeout!`](@ref) setting when no
 navigation-specific one is in force, so setting only the action default also
 shortens navigations rather than leaving them at 30 s.
 
-Milliseconds; `0` means no timeout.
+Milliseconds. `0` means no timeout.
 
 ```julia
 set_default_navigation_timeout!(ctx, 60_000)   # a slow app to first paint
@@ -92,7 +92,7 @@ set_default_timeout!(ctx, 5_000)               # but assertions stay snappy
 goto!(page, url)                                # gets the 60s budget
 ```
 
-Set on a context it applies to every page in it; set on a page it applies to
+Set on a context it applies to every page in it. Set on a page it applies to
 that page only. A `timeout` keyword on [`goto!`](@ref) itself beats both.
 """
 set_default_navigation_timeout!(target::TimeoutOwner, milliseconds::Integer) =
@@ -166,7 +166,7 @@ Set the default strictness for [`locator`](@ref)s created on a
 
 Strictness is otherwise a per-call keyword, so a suite that works with lists
 says `strict = false` on every single call. This is the same cascade
-[`set_default_timeout!`](@ref) already provides, pointed at the other keyword.
+[`set_default_timeout!`](@ref) already gives, pointed at the other keyword.
 
 ```julia
 ctx = new_context(browser)

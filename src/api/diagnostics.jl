@@ -119,7 +119,7 @@ end
 Returns an empty vector — rather than raising [`TargetClosedError`](@ref) — if
 the page or its context has already closed. This is a postmortem reader,
 typically called from a `finally` block while a more important error is in
-flight; throwing there would mask that error, and "the page is gone" tells a
+flight. Throwing there would mask that error, and "the page is gone" tells a
 caller who is already handling a failure nothing it can use. Any *other* error
 still propagates.
 """
@@ -196,7 +196,7 @@ clear_console_messages!(page::Page) = _page_clear_console_messages(page)
     clear_page_errors!(page::Page)
 
 Drop the page's buffered uncaught errors, so a later [`page_errors`](@ref)
-only reports what happened next; the console equivalent is
+only reports what happened next. The console equivalent is
 [`clear_console_messages!`](@ref).
 
 ```julia

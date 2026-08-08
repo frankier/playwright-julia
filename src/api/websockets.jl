@@ -461,7 +461,7 @@ end
 ```
 
 Whether `connect!` was called is the entire mode switch. Until it is, the real
-server is never contacted and [`send_to_server!`](@ref) is an error; after it,
+server is never contacted and [`send_to_server!`](@ref) is an error. After it,
 messages flow in both directions.
 
 **In proxy mode a callback you register replaces the default forwarding for that
@@ -506,7 +506,7 @@ ws_message_from_wire(message::AbstractString, is_base64::Bool) =
 Send `message` to the page, as though the server had sent it.
 
 `message` is a `String` (a text frame) or a `Vector{UInt8}` (a binary frame).
-The base64 the driver wants for binary is handled here; the caller never sees
+The base64 the driver wants for binary is handled here. The caller never sees
 the flag.
 
 Works in both modes: in mock mode this is the only thing the page ever hears.
@@ -557,7 +557,7 @@ Close the page's socket, optionally with a close `code` and `reason` the page's
 Named `close_ws!` rather than `close!` on purpose: the [`close!`](@ref) family
 closes *owners* — a page, a context, a browser — and a route is not an owner.
 
-The close is reported to the page as clean; an unclean close is something the
+The close is reported to the page as clean. An unclean close is something the
 socket reports, not something this API can produce.
 """
 function close_ws!(

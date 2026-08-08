@@ -159,9 +159,9 @@ Base.showerror(io::IO, e::PlaywrightError) = print(io, nameof(typeof(e)), ": ", 
     driver_error(detail, log=nothing, details=nothing) -> PlaywrightError
 
 Build the right `PlaywrightError` subtype from a protocol error reply. `detail`
-is the inner `{message, name, stack}` payload; `log` is the reply's top-level
+is the inner `{message, name, stack}` payload. `log` is the reply's top-level
 call log (actionability retries, selector waits), appended to the message the
-way upstream clients do; `details` is the reply's top-level `errorDetails`,
+way upstream clients do. `details` is the reply's top-level `errorDetails`,
 which `frame.expect` uses to report what it actually received.
 
 An unrecognised `name` yields a [`DriverError`](@ref) rather than an error of
@@ -198,7 +198,7 @@ Internal: a raw `frame.expect` rejection, before the caller has turned it into
 an [`AssertionFailure`](@ref). Carries the driver's `errorDetails`, which is
 where the *received* value lives — the call log has it only as prose.
 
-Users never see this; `expect` catches it and re-raises an `AssertionFailure`
+Users never see this. `expect` catches it and re-raises an `AssertionFailure`
 whose message names both values. It is a `PlaywrightError` so that an escape
 through some path `expect` does not cover still satisfies the taxonomy.
 """

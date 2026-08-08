@@ -100,7 +100,7 @@ function browser_name(obj::Union{Page,BrowserContext})
 end
 
 """
-Main frame backing `page`; page-level actions delegate to it.
+Main frame backing `page`. Page-level actions delegate to it.
 
 Raises [`TargetClosedError`](@ref) once the page has closed. Every page-level
 entry point (`goto!`, `title`, `evaluate`, `locator`, `frames`, `frame_locator`,
@@ -165,7 +165,7 @@ Locator(frame::Frame, selector::AbstractString) = Locator(frame, String(selector
     PlaywrightAPI
 
 Root handle passed to the [`playwright`](@ref) block. Fields `chromium` and
-`firefox` are the launchable [`BrowserType`](@ref)s; `process` is the driver
+`firefox` are the launchable [`BrowserType`](@ref)s. `process` is the driver
 subprocess and `connection` the protocol connection (internal).
 
 `utils` is the driver's `LocalUtils`, which owns HAR lookup and zip extraction.
@@ -190,7 +190,7 @@ end
     Browser
 
 A running browser process, from [`launch`](@ref). Holds
-[`BrowserContext`](@ref)s; `close` it to shut the process down. Ask
+[`BrowserContext`](@ref)s. `close` it to shut the process down. Ask
 [`browser_name`](@ref) which engine it is.
 
 ```julia
@@ -311,7 +311,7 @@ Handed to a [`route!`](@ref) handler, and settled exactly once with
 settles is continued for you with a warning — never left hanging, because
 a hung request surfaces as an unrelated timeout thirty seconds later.
 
-[`request`](@ref) reads what was asked for; [`url`](@ref) is shorthand for its
+[`request`](@ref) reads what was asked for. [`url`](@ref) is shorthand for its
 URL.
 
 ```julia
@@ -331,7 +331,7 @@ optionally calling `connect!` — and returns. The messages arrive
 afterwards.
 
 Whether `connect!` was called is the whole mode switch: without it the
-real server is never contacted and the socket is entirely mocked; with it, the
+real server is never contacted and the socket is entirely mocked. With it, the
 route proxies a real connection and any callback you register replaces the
 default forwarding for that direction.
 

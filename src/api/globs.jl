@@ -191,8 +191,8 @@ const UrlMatcher = Union{AbstractString,Regex,Function}
 Whether `url` satisfies `matcher`. Internal — it is the dispatcher's mechanism,
 not something a caller needs, since route registration takes the matcher itself.
 
-A glob is compiled and anchored (see [`glob_to_regex`](@ref)); a `Regex` is an
-unanchored `occursin`, matching Playwright, so `r"/api/"` matches mid-URL; a
+A glob is compiled and anchored (see [`glob_to_regex`](@ref)). A `Regex` is an
+unanchored `occursin`, matching Playwright, so `r"/api/"` matches mid-URL. A
 `Function` is called with the URL string and must return `Bool`.
 """
 matches(matcher::AbstractString, url::AbstractString; base_url = nothing) =

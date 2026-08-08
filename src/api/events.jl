@@ -518,7 +518,7 @@ with_events(ctx, :pageerror) do stream
 end
 ```
 
-For one event at a time, blocking, use [`next_event`](@ref); see
+For one event at a time, blocking, use [`next_event`](@ref). See
 [`EventStream`](@ref).
 """
 function pending_events(stream::EventStream)
@@ -536,7 +536,7 @@ Take the next event off `stream`, waiting up to `timeout` ms for one to arrive.
 Raises [`TimeoutError`](@ref) if none does. `timeout` defaults to the
 [`set_default_timeout!`](@ref) cascade.
 
-`predicate` skips payloads it returns `false` for; they are consumed, not
+`predicate` skips payloads it returns `false` for. They are consumed, not
 requeued — so a rejected payload is gone, not left for the next call.
 
 ```julia
@@ -547,7 +547,7 @@ with_events(page, :console) do stream
 end
 ```
 
-Blocking and one at a time; [`pending_events`](@ref) is the drain-everything
+Blocking and one at a time. [`pending_events`](@ref) is the drain-everything
 form, and [`EventStream`](@ref) has the pair side by side.
 """
 next_event(stream::EventStream; timeout = nothing, predicate = nothing) =
@@ -618,12 +618,12 @@ end
 title(popup)
 ```
 
-`f`'s own return value is discarded; the event payload is what comes back. An
+`f`'s own return value is discarded. The event payload is what comes back. An
 exception from `f` propagates unchanged, and the subscription is released
 either way.
 
 `predicate` filters payloads — the first one it accepts is returned. `timeout`
-is in milliseconds and defaults to the [`set_default_timeout!`](@ref) cascade;
+is in milliseconds and defaults to the [`set_default_timeout!`](@ref) cascade.
 [`TimeoutError`](@ref) is raised if no matching event arrives.
 
 Supported events, by owner:

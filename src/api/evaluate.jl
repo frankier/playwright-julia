@@ -18,7 +18,7 @@ end
 
 Evaluate `expression` in `target` (a `Page`, `Frame` or `JSHandle`) and return
 the result converted to Julia. `arg` is passed to the expression when it is a
-function; it is serialized with the same mapping as the return value.
+function. It is serialized with the same mapping as the return value.
 
 Whether `expression` is a function is detected by the driver, exactly as it is
 for Playwright's other string-based clients, so JavaScript pasted from the
@@ -180,7 +180,7 @@ eval_on_selector(page, "#volume", "(el, v) => el.value = v", 7)
 `arg` is serialized with the same mapping as [`evaluate`](@ref) arguments, and
 `strict` behaves as it does for a [`locator`](@ref). The locator-first form is
 usually what you want — `evaluate(loc, …)`, see [`evaluate`](@ref) — since a
-locator already carries both the selector and the strictness; this one exists
+locator already carries both the selector and the strictness. This one exists
 for the times you have a selector and nothing else. The all-matches form is
 [`eval_on_selector_all`](@ref).
 """

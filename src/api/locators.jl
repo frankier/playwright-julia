@@ -133,7 +133,7 @@ Base.last(loc::Locator) = nth(loc, count(loc))
     text_content(loc::Locator; timeout=nothing) -> Union{String,Nothing}
 
 The `textContent` of the matched element (`nothing` for elements without one).
-Includes text that is not rendered; see [`inner_text`](@ref) for what a user
+Includes text that is not rendered. See [`inner_text`](@ref) for what a user
 would actually see.
 
 This reads once and returns. To *assert* on text, reach for
@@ -249,7 +249,7 @@ click!(locator(page, "#accept"))
 is_checked(locator(page, "#accept"))   # true
 ```
 
-As with [`is_visible`](@ref), this reads rather than waits; for an assertion
+As with [`is_visible`](@ref), this reads rather than waits. For an assertion
 use `expect(loc; to_be_checked = true)` — see [`expect`](@ref).
 """
 is_checked(loc::Locator; timeout::MaybeTimeout = nothing) = _frame_is_checked(
@@ -315,7 +315,7 @@ expect(locator(page, "li.greeting"); to_have_text = "Hello!")
 ```
 
 `timeout` covers the whole wait and defaults to the
-[`set_default_timeout!`](@ref) cascade; a click that never becomes actionable
+[`set_default_timeout!`](@ref) cascade. A click that never becomes actionable
 raises [`TimeoutError`](@ref). For a synthetic event with none of those checks,
 see [`dispatch_event!`](@ref).
 """

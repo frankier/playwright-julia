@@ -55,7 +55,7 @@ negated(x::Not) = (x.expected, true)
 negated(x) = (x, false)
 
 """
-An `ExpectedTextValue` (playwright.yml:240). A `String` matches exactly; a
+An `ExpectedTextValue` (playwright.yml:240). A `String` matches exactly. A
 `Regex` is sent as a pattern and flags so the *driver* does the matching, which
 keeps the retry loop in the browser rather than shipping text back per attempt.
 """
@@ -163,7 +163,7 @@ const BOOLEAN_MATCHERS =
     expect(loc::Locator; timeout=nothing, matchers...) -> loc
 
 Assert something about `loc`, retrying in the browser until it holds or
-`timeout` runs out. Returns `loc` on success, so assertions chain; raises
+`timeout` runs out. Returns `loc` on success, so assertions chain. Raises
 [`AssertionFailure`](@ref) on failure, with a message naming both what was
 expected and what was actually there.
 
@@ -189,7 +189,7 @@ expect(locator(page, "#link"); to_have_attribute = "href" => "/somewhere")
 | `to_be_enabled`, `to_be_disabled` | `true`/`false` |
 | `to_be_checked` | `true`/`false` |
 
-Wrap any expectation in [`Not`](@ref) to negate it; for the boolean matchers,
+Wrap any expectation in [`Not`](@ref) to negate it. For the boolean matchers,
 `= false` does the same thing more readably.
 
 Several matchers in one call are checked one after another, and the first
@@ -243,7 +243,7 @@ end
 
 Assert something about the *document* rather than about an element, retrying in
 the browser until it holds or `timeout` runs out. Returns its target, so
-assertions chain; raises [`AssertionFailure`](@ref) on failure, carrying the
+assertions chain. Raises [`AssertionFailure`](@ref) on failure, carrying the
 value that was actually there.
 
 ```julia
@@ -256,7 +256,7 @@ expect(page; to_have_url = r"/dashboard\$")
 | `to_have_title` | the document title — a `String` or a `Regex` |
 | `to_have_url` | the current URL — a `String` or a `Regex` |
 
-`expect(page; …)` delegates to the page's main frame; pass a `Frame` directly
+`expect(page; …)` delegates to the page's main frame. Pass a `Frame` directly
 to assert about an iframe's document instead.
 
 Matchers are partitioned by target: the element matchers
@@ -421,7 +421,7 @@ end
 !!! note "`:false` is the boolean `false`"
     Unlike `:throw` and `:retry`, `:false` is not a `Symbol` — `false` is a
     boolean literal, so Julia parses `:false` as `false`. Both spellings are
-    accepted and mean the same thing; `:false` is written here only because it
+    accepted and mean the same thing. `:false` is written here only because it
     lines up with the other values at the call site.
 
 ## What happens when the predicate throws

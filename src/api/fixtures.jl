@@ -134,7 +134,7 @@ usual.
 !!! note "Your exception always wins"
     If `f` throws, that exception propagates **unchanged** — same type, same
     message — after the diagnostics are written. A failure *in* the diagnostics
-    is a `@warn`, never an exception. The helper adds evidence; it never
+    is a `@warn`, never an exception. The helper adds evidence. It never
     replaces the failure.
 """
 function with_page(

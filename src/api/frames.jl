@@ -71,7 +71,7 @@ which is how you tell the main frame apart from the rest.
 main = only(filter(f -> parent_frame(f) === nothing, frames(page)))
 ```
 
-The downward direction is [`frames`](@ref); from an element, it is
+The downward direction is [`frames`](@ref). From an element, it is
 [`owner_frame`](@ref).
 """
 parent_frame(frame::Frame) =
@@ -102,7 +102,7 @@ frame named `""` are indistinguishable here.
 findfirst(f -> frame_name(f) == "checkout", frames(page))
 ```
 
-Names are a convenience for finding a known frame; [`frame_locator`](@ref) is
+Names are a convenience for finding a known frame. [`frame_locator`](@ref) is
 the way to actually work inside one. Note this is unrelated to
 [`browser_name`](@ref).
 """
@@ -192,7 +192,7 @@ inner = locator(frame_locator(page, "#embed"), "h1")
 owner_frame(inner) === main_frame(page)    # false: it lives in the iframe
 ```
 
-Both of these resolve the locator immediately, so neither waits; see
+Both of these resolve the locator immediately, so neither waits. See
 [`wait_for_selector`](@ref) for an element that is not there yet.
 """
 function owner_frame(loc::Locator)

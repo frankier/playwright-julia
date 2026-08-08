@@ -117,7 +117,7 @@ end
 """
     install_driver(; force=false) -> String
 
-Ensure the driver bundle is assembled in the scratch space; return its
+Make sure the driver bundle is assembled in the scratch space. Return its
 directory. Downloads the playwright-core npm package and a Node.js binary
 on first use.
 """
@@ -223,7 +223,7 @@ const DEFAULT_BROWSERS = ["chromium", "firefox"]
     browsers_from_args(args) -> Vector{String}
 
 Browser names from a command line, defaulting to [`DEFAULT_BROWSERS`](@ref)
-when none are given. Used by `bin/install.jl`; unknown names are rejected here
+when none are given. Used by `bin/install.jl`. Unknown names are rejected here
 rather than after a download has already started.
 """
 function browsers_from_args(args)

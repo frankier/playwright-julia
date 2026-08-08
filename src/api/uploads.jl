@@ -79,7 +79,7 @@ set_input_files!(loc; name = "x.csv", mime_type = "text/csv", buffer = bytes)
 set_input_files!(loc)                                      # clears it
 ```
 
-Paths and the in-memory form are mutually exclusive; passing both raises an
+Paths and the in-memory form are mutually exclusive. Passing both raises an
 `ArgumentError` **before** anything reaches the driver. A path that does not
 exist raises too, for the same reason: the driver's version of that complaint
 arrives later and is harder to place.
