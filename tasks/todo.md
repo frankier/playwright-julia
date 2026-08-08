@@ -75,7 +75,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
       page-scoped, **stop and amend the spec** (OQ 2)
 - [x] **T18** (L) `WebSocketRoute`, the registry, the dispatcher
       (D11, D13) — SC 21
-- [ ] **T19** (M) `connect!`, `send_to_page!`/`send_to_server!`, `close_ws!`,
+- [x] **T19** (M) `connect!`, `send_to_page!`/`send_to_server!`, `close_ws!`,
       binary (D12) — SC 24, 27
 - [ ] **T20** (M) Callbacks; subscriptions dropped on dispose (D13) — SC 28
 - [ ] **T21** (S) `:websocket`'s `DEFERRED_EVENTS` message rewritten (D14)

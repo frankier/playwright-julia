@@ -191,10 +191,16 @@ function handle_web_socket_route(registry::WebSocketRouteRegistry, route::WebSoc
             break
         end
     finally
-        try
-            _web_socket_route_ensure_opened(route)
-        catch
-            # The socket or its page went away first. Nothing to open.
+        # Only a *mocked* socket needs opening: a proxied one is opened by the
+        # server `connect!` reached, and asking for both is asking the driver to
+        # open the same socket twice. Read here rather than after the loop so a
+        # handler that connected and *then* threw is still not opened twice.
+        if !ws_is_connected(route)
+            try
+                _web_socket_route_ensure_opened(route)
+            catch
+                # The socket or its page went away first. Nothing to open.
+            end
         end
     end
     return nothing
@@ -390,3 +396,160 @@ set_ws_interception_patterns(owner::BrowserContext, patterns) =
 The URL the page asked to connect to.
 """
 url(route::WebSocketRoute) = route.initializer["url"]::String
+
+# --- Mock or proxy (D12) ---------------------------------------------------
+#
+# `WebSocketRoute` is a generated struct with a fixed field layout, so "has this
+# route connected?" lives beside it rather than on it — the same shape as
+# routing.jl's SETTLED_ROUTES and lifecycle.jl's IMPLICIT_CONTEXTS.
+#
+# Bounded by the sockets currently *open*, not by the sockets ever routed:
+# `forget_ws_route!` drops the entry when the route is disposed. Without that
+# this is one entry per socket, forever — the leak R3 names, in its smaller
+# form.
+
+const CONNECTED_WS_ROUTES = Set{String}()
+const CONNECTED_WS_ROUTES_LOCK = ReentrantLock()
+
+"Whether [`connect!`](@ref) has put this route into proxy mode."
+ws_is_connected(route::WebSocketRoute) =
+    lock(CONNECTED_WS_ROUTES_LOCK) do
+        route.guid in CONNECTED_WS_ROUTES
+    end
+
+"Mark `route` connected, returning whether this call is the one that connected it."
+function mark_ws_connected!(route::WebSocketRoute)
+    return lock(CONNECTED_WS_ROUTES_LOCK) do
+        route.guid in CONNECTED_WS_ROUTES ? false :
+        (push!(CONNECTED_WS_ROUTES, route.guid); true)
+    end
+end
+
+forget_ws_route!(route::WebSocketRoute) =
+    lock(CONNECTED_WS_ROUTES_LOCK) do
+        delete!(CONNECTED_WS_ROUTES, route.guid)
+    end
+
+"""
+    connect!(route::WebSocketRoute)
+
+Connect the route to the real server, switching it from **mock** mode to
+**proxy** mode.
+
+```julia
+route_web_socket!(page, "**/ws") do wsr
+    connect!(wsr)                                  # proxy mode
+    on_message_from_server!(wsr) do msg
+        send_to_page!(wsr, replace(msg, "live" => "mocked"))
+    end
+end
+```
+
+Whether `connect!` was called is the entire mode switch. Until it is, the real
+server is never contacted and [`send_to_server!`](@ref) is an error; after it,
+messages flow in both directions.
+
+**In proxy mode a callback you register replaces the default forwarding for that
+direction.** Registering [`on_message_from_server!`](@ref) and not calling
+[`send_to_page!`](@ref) silently swallows every server message. That is
+Playwright's behaviour, not this package's choice, and it is the one edge of
+this API worth reading twice.
+
+Connecting a route that is already connected raises: there is one socket and it
+is reached once.
+"""
+function connect!(route::WebSocketRoute)
+    mark_ws_connected!(route) || throw(
+        ArgumentError(
+            "this route is already connected to the server; `connect!` switches " *
+            "a route from mock to proxy mode exactly once.",
+        ),
+    )
+    _web_socket_route_connect(route)
+    return nothing
+end
+
+# --- Messages, in both directions and both shapes --------------------------
+
+"A message as the wire wants it: `(payload, isBase64)`."
+ws_wire_message(message::AbstractString) = (String(message), false)
+ws_wire_message(message::AbstractVector{UInt8}) = (base64encode(message), true)
+
+"""
+A message as the caller wants it: a `String`, or the `Vector{UInt8}` that was
+sent as bytes.
+
+The `isBase64` flag is the driver's business. A binary frame sent as bytes
+arrives as bytes, and nobody outside this file decodes anything.
+"""
+ws_message_from_wire(message::AbstractString, is_base64::Bool) =
+    is_base64 ? base64decode(message) : String(message)
+
+"""
+    send_to_page!(route::WebSocketRoute, message)
+
+Send `message` to the page, as though the server had sent it.
+
+`message` is a `String` (a text frame) or a `Vector{UInt8}` (a binary frame).
+The base64 the driver wants for binary is handled here; the caller never sees
+the flag.
+
+Works in both modes: in mock mode this is the only thing the page ever hears.
+"""
+function send_to_page!(
+    route::WebSocketRoute,
+    message::Union{AbstractString,AbstractVector{UInt8}},
+)
+    payload, is_base64 = ws_wire_message(message)
+    _web_socket_route_send_to_page(route; isBase64 = is_base64, message = payload)
+    return nothing
+end
+
+"""
+    send_to_server!(route::WebSocketRoute, message)
+
+Send `message` to the real server, as though the page had sent it.
+
+`message` is a `String` or a `Vector{UInt8}`, exactly as for
+[`send_to_page!`](@ref).
+
+**Proxy mode only.** Calling this before [`connect!`](@ref) raises an
+`ArgumentError` — before anything reaches the wire, because in mock mode there
+is no server to reach and a driver-side rejection would arrive later and say
+less.
+"""
+function send_to_server!(
+    route::WebSocketRoute,
+    message::Union{AbstractString,AbstractVector{UInt8}},
+)
+    ws_is_connected(route) || throw(
+        ArgumentError(
+            "this route is in mock mode, so there is no server to send to. " *
+            "Call `connect!(route)` in the handler to switch it to proxy mode.",
+        ),
+    )
+    payload, is_base64 = ws_wire_message(message)
+    _web_socket_route_send_to_server(route; isBase64 = is_base64, message = payload)
+    return nothing
+end
+
+"""
+    close_ws!(route::WebSocketRoute; code = nothing, reason = nothing)
+
+Close the page's socket, optionally with a close `code` and `reason` the page's
+`onclose` will see.
+
+Named `close_ws!` rather than `close!` on purpose: the [`close!`](@ref) family
+closes *owners* — a page, a context, a browser — and a route is not an owner.
+
+The close is reported to the page as clean; an unclean close is something the
+socket reports, not something this API can produce.
+"""
+function close_ws!(
+    route::WebSocketRoute;
+    code::Union{Real,Nothing} = nothing,
+    reason::Union{AbstractString,Nothing} = nothing,
+)
+    _web_socket_route_close_page(route; wasClean = true, code, reason)
+    return nothing
+end

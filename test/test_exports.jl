@@ -133,6 +133,11 @@
         :route_web_socket!,
         :unroute_web_socket!,
         :with_web_socket_route,
+        # M8 T19: mock or proxy, and the messages (D12)
+        :connect!,
+        :send_to_page!,
+        :send_to_server!,
+        :close_ws!,
         :frame_name,
         :new_context,
         # M8 T14: persistent contexts (D9, D10)

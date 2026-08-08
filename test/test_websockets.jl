@@ -13,7 +13,15 @@
 # test that reproduces that by hanging is not a test.
 
 using Playwright:
-    WebSocketRoute, route_web_socket!, unroute_web_socket!, with_web_socket_route
+    WebSocketRoute,
+    close_ws!,
+    connect!,
+    route_web_socket!,
+    send_to_page!,
+    send_to_server!,
+    unroute_web_socket!,
+    with_web_socket_route
+using Base64: base64decode, base64encode
 
 const WS_GUID_SEQ = Ref(0)
 
@@ -44,6 +52,9 @@ function fire_web_socket_route(f, owner_guid = "context@1"; url = "ws://probe.te
     )
     return Playwright.lookup_object(f.fake.connection, guid)
 end
+
+"Every request of `method` the fake driver saw, oldest first."
+ws_sent(f, method) = filter(m -> get(m, "method", "") == method, f.requests)
 
 "Wait for `cond`, failing rather than hanging. Never a bare sleep."
 function ws_until(cond, seconds = 10.0)
@@ -305,6 +316,198 @@ end
         ws_until(() -> any(m -> get(m, "method", "") == "ensureOpened", f.requests))
         opened = only(filter(m -> get(m, "method", "") == "ensureOpened", f.requests))
         @test opened["guid"] == route.guid
+
+        unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    # --- T19: connect!, the send verbs, binary (D12, SC 24, SC 27) ----------
+
+    @testset "connect! switches the route from mock to proxy (T19, D12)" begin
+        # Whether connect! was called is the entire mode switch. Nothing else
+        # distinguishes the two modes, which is why the flag is worth asserting
+        # directly and not only through its consequences.
+        f = har_fixture()
+        reg = route_web_socket!(connect!, f.context, "**/ws")
+        route = fire_web_socket_route(f)
+
+        ws_until(() -> !isempty(ws_sent(f, "connect")))
+        @test only(ws_sent(f, "connect"))["guid"] == route.guid
+        @test Playwright.ws_is_connected(route)
+
+        unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "a route is in mock mode until connect! (T19, D12)" begin
+        f = har_fixture()
+        reg = route_web_socket!(_ -> nothing, f.context, "**/ws")
+        route = fire_web_socket_route(f)
+
+        ws_until(() -> !isempty(ws_sent(f, "ensureOpened")))
+        @test !Playwright.ws_is_connected(route)
+        @test isempty(ws_sent(f, "connect"))
+
+        unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "connecting twice raises rather than reconnecting (T19)" begin
+        f = har_fixture()
+        second = Ref{Any}(nothing)
+        reg = route_web_socket!(f.context, "**/ws") do wsr
+            connect!(wsr)
+            second[] = try
+                connect!(wsr)
+                nothing
+            catch e
+                e
+            end
+        end
+
+        fire_web_socket_route(f)
+        ws_until(() -> second[] !== nothing)
+        @test second[] isa ArgumentError
+        # One socket, one connection: the second attempt must not reach the wire.
+        @test length(ws_sent(f, "connect")) == 1
+
+        unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "a connected route is not also ensureOpened (T19, D12)" begin
+        # ensureOpened is what opens a *mocked* socket. A proxied one is opened
+        # by the server it connected to, and asking for both is asking the
+        # driver to open the same socket twice.
+        f = har_fixture()
+        reg = route_web_socket!(connect!, f.context, "**/ws")
+
+        fire_web_socket_route(f)
+        ws_until(() -> !isempty(ws_sent(f, "connect")))
+        unroute_web_socket!(f.context, reg)   # waits for the handler to finish
+        @test isempty(ws_sent(f, "ensureOpened"))
+
+        close(f.conn)
+    end
+
+    @testset "send_to_page! sends a String as text (T19)" begin
+        f = har_fixture()
+        reg = route_web_socket!(wsr -> send_to_page!(wsr, "pong"), f.context, "**/ws")
+        route = fire_web_socket_route(f)
+
+        ws_until(() -> !isempty(ws_sent(f, "sendToPage")))
+        sent = only(ws_sent(f, "sendToPage"))
+        @test sent["guid"] == route.guid
+        @test sent["params"]["message"] == "pong"
+        @test sent["params"]["isBase64"] == false
+
+        unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "send_to_page! base64-encodes bytes (T19, SC 24)" begin
+        f = har_fixture()
+        bytes = UInt8[0x00, 0xff, 0x10, 0x80]
+        reg = route_web_socket!(wsr -> send_to_page!(wsr, bytes), f.context, "**/ws")
+        fire_web_socket_route(f)
+
+        ws_until(() -> !isempty(ws_sent(f, "sendToPage")))
+        sent = only(ws_sent(f, "sendToPage"))
+        @test sent["params"]["isBase64"] == true
+        # The caller never sees the flag: bytes in, bytes out of the encoding.
+        @test base64decode(sent["params"]["message"]) == bytes
+
+        unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "a wire message decodes back to the type it was sent as (T19, SC 24)" begin
+        # The other half of the round trip: what the driver hands back. Bytes
+        # sent as bytes must arrive as `Vector{UInt8}`, not as a base64 String
+        # the caller has to know to decode.
+        text = Playwright.ws_message_from_wire("hello", false)
+        @test text isa String
+        @test text == "hello"
+
+        bytes = UInt8[0xde, 0xad, 0xbe, 0xef]
+        back = Playwright.ws_message_from_wire(base64encode(bytes), true)
+        @test back isa Vector{UInt8}
+        @test back == bytes
+    end
+
+    @testset "send_to_server! in mock mode raises before the wire (T19, SC 27)" begin
+        f = har_fixture()
+        thrown = Ref{Any}(nothing)
+        reg = route_web_socket!(f.context, "**/ws") do wsr
+            thrown[] = try
+                send_to_server!(wsr, "hello")
+                nothing
+            catch e
+                e
+            end
+        end
+
+        fire_web_socket_route(f)
+        ws_until(() -> thrown[] !== nothing)
+        @test thrown[] isa ArgumentError
+        # "Before the wire" is the claim, so the absence of the message is the
+        # test. A driver-side rejection would be a different, later failure.
+        @test isempty(ws_sent(f, "sendToServer"))
+        @test occursin("connect!", sprint(showerror, thrown[]))
+
+        unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "send_to_server! sends text and bytes once connected (T19, SC 24)" begin
+        f = har_fixture()
+        bytes = UInt8[0x01, 0x02, 0xfe]
+        reg = route_web_socket!(f.context, "**/ws") do wsr
+            connect!(wsr)
+            send_to_server!(wsr, "hello")
+            send_to_server!(wsr, bytes)
+        end
+
+        fire_web_socket_route(f)
+        ws_until(() -> length(ws_sent(f, "sendToServer")) == 2)
+        text, binary = ws_sent(f, "sendToServer")
+        @test text["params"] == Dict("message" => "hello", "isBase64" => false)
+        @test binary["params"]["isBase64"] == true
+        @test base64decode(binary["params"]["message"]) == bytes
+
+        unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "close_ws! closes the page's socket with code and reason (T19)" begin
+        f = har_fixture()
+        reg = route_web_socket!(f.context, "**/ws") do wsr
+            close_ws!(wsr; code = 4001, reason = "done here")
+        end
+        route = fire_web_socket_route(f)
+
+        ws_until(() -> !isempty(ws_sent(f, "closePage")))
+        closed = only(ws_sent(f, "closePage"))
+        @test closed["guid"] == route.guid
+        @test closed["params"]["code"] == 4001
+        @test closed["params"]["reason"] == "done here"
+        # A close the user asked for is a clean one; an unclean close is what
+        # the *socket* reports, not something this API can produce.
+        @test closed["params"]["wasClean"] == true
+
+        unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "close_ws! omits a code and reason nobody gave (T19)" begin
+        f = har_fixture()
+        reg = route_web_socket!(close_ws!, f.context, "**/ws")
+        fire_web_socket_route(f)
+
+        ws_until(() -> !isempty(ws_sent(f, "closePage")))
+        params = only(ws_sent(f, "closePage"))["params"]
+        @test !haskey(params, "code")
+        @test !haskey(params, "reason")
 
         unroute_web_socket!(f.context, reg)
         close(f.conn)
