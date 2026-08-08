@@ -107,6 +107,21 @@ function har_fixture(;
     )
 end
 
+"""
+Give the HAR fixture's context a Tracing channel, the way the real driver does —
+via the context initializer rather than a generated accessor. Recording hangs
+off Tracing (D6), so every start_har_recording! test needs this first.
+"""
+function har_tracing(f)
+    send_create(f.fake, "context@1", "Tracing", "tracing@1")
+    @test timedwait(
+        () -> Playwright.lookup_object(f.conn, "tracing@1") !== nothing,
+        5.0,
+    ) === :ok
+    f.context.initializer["tracing"] = Dict("guid" => "tracing@1")
+    return nothing
+end
+
 "The settle verb a route reached, waiting rather than sleeping (R1's tripwire)."
 function settled_with(requests, guid; seconds = 10.0)
     found = Ref{Any}(nothing)
@@ -573,35 +588,106 @@ end
         close(f.conn)
     end
 
-    @testset "update = true says it is not here yet, and where it will be (T7, SC 7)" begin
-        # D7: the keyword is refused rather than accepted-and-ignored, which is
-        # how a flag ends up silently doing nothing for a release. Part B's task
-        # removes this, and not before.
+    # --- update = true: a recording behind a replay's name (T10, D7) --------
+    #
+    # T7 shipped this keyword as an explicit refusal, and this is the commit
+    # that removes it — the point of D7's two-task split. The name says "route"
+    # and the behaviour is "trace", which is confusing enough that the spec says
+    # it twice and so does this comment.
+
+    @testset "update = true records instead of replaying (T10, SC 7)" begin
         f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "refresh.har")
+        cp(HAR_FIXTURE, dest)
+
+        reg = route_from_har(f.context, dest; url = "**/api/**", update = true)
+        @test reg isa Playwright.RouteRegistration
+
+        # It is a recording: harStart, scoped to the same url pattern, aimed at
+        # the same file. Not a replay: the archive is never opened for lookup.
+        start = only(filter(m -> get(m, "method", "") == "harStart", f.requests))
+        @test start["params"]["options"]["urlGlob"] == "**/api/**"
+        @test start["params"]["options"]["path"] == dest
+        @test isempty(filter(m -> get(m, "method", "") == "harOpen", f.requests))
+
+        # ...and it intercepts nothing, so the traffic it records is the real
+        # traffic rather than something round-tripped through a handler.
+        @test isempty(
+            filter(
+                m -> get(m, "method", "") == "setNetworkInterceptionPatterns",
+                f.requests,
+            ),
+        ) || last_patterns(f.requests) == String[]
+
+        close(f.conn)
+    end
+
+    @testset "unroute! on an update registration writes the file (T10, SC 7)" begin
+        f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "refresh.har")
+        cp(HAR_FIXTURE, dest)
+
+        reg = route_from_har(f.context, dest; update = true)
+        @test isempty(filter(m -> get(m, "method", "") == "harExport", f.requests))
+
+        unroute!(f.context, reg)
+
+        export_msg = only(filter(m -> get(m, "method", "") == "harExport", f.requests))
+        @test export_msg["params"]["mode"] == "archive"
+        @test only(filter(m -> get(m, "method", "") == "saveAs", f.requests))["params"]["path"] ==
+              dest
+        # No archive was ever opened, so none is closed.
+        @test isempty(filter(m -> get(m, "method", "") == "harClose", f.requests))
+
+        close(f.conn)
+    end
+
+    @testset "with_har + update writes even when the body throws (T10)" begin
+        f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "refresh.har")
+        cp(HAR_FIXTURE, dest)
+
+        @test_throws ErrorException with_har(f.context, dest; update = true) do
+            error("the body failed")
+        end
+        @test length(filter(m -> get(m, "method", "") == "harExport", f.requests)) == 1
+
+        close(f.conn)
+    end
+
+    @testset "update = true does not require the archive to exist yet (T10)" begin
+        # Recording *into* a path is how the first archive gets made, so the
+        # isfile check that guards replay must not guard this.
+        f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "brand-new.har")
+        @test !isfile(dest)
+
+        reg = route_from_har(f.context, dest; update = true)
+        @test only(filter(m -> get(m, "method", "") == "harStart", f.requests))["params"]["options"]["path"] ==
+              dest
+        unroute!(f.context, reg)
+
+        close(f.conn)
+    end
+
+    @testset "update = true still refuses a Page target (T10, D7)" begin
+        # harStart is a Tracing command and Tracing hangs off the context, so
+        # there is nowhere to put a page-scoped recording. Named rather than
+        # left as a MethodError from two frames down.
+        f = har_fixture()
+        har_tracing(f)
         err = try
-            route_from_har(f.context, HAR_FIXTURE; update = true)
+            route_from_har(f.page, HAR_FIXTURE; update = true)
             nothing
         catch e
             e
         end
         @test err isa ArgumentError
-        @test occursin("update", err.msg)
-        @test occursin("not", lowercase(err.msg))
-
-        # Refused before the wire: nothing was opened, so nothing leaked.
-        @test isempty(filter(m -> get(m, "method", "") == "harOpen", f.requests))
-
-        # ...and with_har refuses it identically, rather than only the one
-        # spelling being guarded.
-        @test_throws ArgumentError with_har(f.context, HAR_FIXTURE; update = true) do
-            error("never reached")
-        end
-
-        # update = false is not refused: only the unimplemented value is.
-        reg = route_from_har(f.context, HAR_FIXTURE; update = false)
-        @test reg isa Playwright.RouteRegistration
-        unroute!(f.context, reg)
-
+        @test occursin("BrowserContext", err.msg)
         close(f.conn)
     end
 
@@ -612,17 +698,6 @@ end
     # the identical protocol shape — a Tracing command pair producing an
     # Artifact. A second feature on the same object with the opposite spelling
     # would be the package disagreeing with itself.
-
-    "Give the HAR fixture's context a Tracing channel, as the real driver does."
-    function har_tracing(f)
-        send_create(f.fake, "context@1", "Tracing", "tracing@1")
-        @test timedwait(
-            () -> Playwright.lookup_object(f.conn, "tracing@1") !== nothing,
-            5.0,
-        ) === :ok
-        f.context.initializer["tracing"] = Dict("guid" => "tracing@1")
-        return nothing
-    end
 
     @testset "start_har_recording! sends the RecordHarOptions (T8, SC 9)" begin
         f = har_fixture()

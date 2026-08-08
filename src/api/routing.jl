@@ -80,10 +80,19 @@ mutable struct RouteRegistration
     active::Bool
     release::Union{Function,Nothing}
     released::Bool        # so a second unroute! does not release twice
+    # Whether this registration arms the driver's interception. False for a
+    # registration that exists *only* to own a release hook —
+    # `route_from_har(…; update = true)` is a recording, not a replay, and must
+    # not put a handler in front of the traffic it is recording (D7).
+    intercepts::Bool
 end
 
-RouteRegistration(matcher, handler; release::Union{Function,Nothing} = nothing) =
-    RouteRegistration(matcher, handler, Any[], false, true, release, false)
+RouteRegistration(
+    matcher,
+    handler;
+    release::Union{Function,Nothing} = nothing,
+    intercepts::Bool = true,
+) = RouteRegistration(matcher, handler, Any[], false, true, release, false, intercepts)
 
 "Per-owner routing state: the registrations, the buffer, and the dispatcher."
 mutable struct RouteRegistry
@@ -356,14 +365,17 @@ function route!(
     matcher,
     handler;
     release::Union{Function,Nothing} = nothing,
+    intercepts::Bool = true,
 )
     registry = lock(ROUTE_REGISTRIES_LOCK) do
         get!(() -> RouteRegistry(target), ROUTE_REGISTRIES, target.guid)
     end
-    reg = RouteRegistration(matcher, handler; release)
+    reg = RouteRegistration(matcher, handler; release, intercepts)
     lock(registry.lock) do
         push!(registry.registrations, reg)
-        start_dispatcher!(registry)
+        # A registration that intercepts nothing needs no dispatcher: starting
+        # one would subscribe to a `route` event the driver will never send.
+        intercepts && start_dispatcher!(registry)
     end
     push_patterns!(registry)
     return reg
@@ -550,7 +562,15 @@ sent again on every registration change rather than incrementally — there is n
 """
 function push_patterns!(registry::RouteRegistry)
     globs = lock(registry.lock) do
-        unique(String[driver_pattern(r.matcher) for r in registry.registrations if r.active])
+        # `intercepts` as well as `active`: an update-mode HAR registration owns
+        # a release hook and nothing else, and must not arm the driver against
+        # the traffic it is there to record (D7).
+        unique(
+            String[
+                driver_pattern(r.matcher) for
+                r in registry.registrations if r.active && r.intercepts
+            ],
+        )
     end
     patterns = [Dict{String,Any}("glob" => g) for g in globs]
     try

@@ -48,17 +48,12 @@ function route_from_har(
     not_found::Symbol = :abort,
     update::Bool = false,
 )
-    # Refused, not accepted-and-ignored: `update = true` is a *recording* into
-    # the archive rather than a replay from it, so it is Part B's machinery and
-    # lands with Part B (D7). A keyword that silently does nothing is how a flag
-    # ships broken for a release.
-    update && throw(
-        ArgumentError(
-            "route_from_har(…; update = true) is not implemented yet — it records " *
-            "into the archive rather than replaying from it, so it arrives with " *
-            "HAR recording (SPEC-M8 D7). Drop the keyword to replay.",
-        ),
-    )
+    # `update = true` does not replay. It *records*, into the same file,
+    # replacing it — the name says "route" and the behaviour is "trace", which
+    # is confusing enough to be worth stating twice (D7). So it is Part B's
+    # machinery under Part A's name, and it returns early: none of the replay
+    # setup below applies to it.
+    update && return record_into_har(target, har; url)
 
     not_found in (:abort, :fallback) || throw(
         ArgumentError(
@@ -457,4 +452,52 @@ function with_har_recording(
     finally
         stop_har_recording!(rec)
     end
+end
+
+"""
+`route_from_har(…; update = true)`: a recording into the archive, wearing a
+replay's name (D7).
+
+Implemented on D6's machinery rather than on replay's, because that is what it
+is — `harStart` scoped to the same `url` pattern, and an export written when the
+registration is released. Two consequences worth stating rather than
+discovering:
+
+  - The returned `RouteRegistration` **intercepts nothing**. Recording happens
+    driver-side, and putting a handler in front of the traffic would mean
+    recording something round-tripped through Julia rather than the real
+    exchange. That is what `route!`'s `intercepts = false` is for.
+  - `unroute!` on it stops the recording and writes the file. There is no
+    archive open, so there is nothing to `harClose`.
+
+It needs a real backend to record from, which is the opposite of every other
+`route_from_har` call — see the smoke tests, where the two do not share a
+fixture.
+"""
+function record_into_har(target::Union{Page,BrowserContext}, har::AbstractString; url)
+    # harStart is a Tracing command and Tracing hangs off the context, so a
+    # page-scoped recording has nowhere to live. Named here rather than left to
+    # surface as a MethodError from tracing_channel two frames down.
+    target isa BrowserContext || throw(
+        ArgumentError(
+            "route_from_har(…; update = true) records, and recording is per " *
+            "BrowserContext — pass the context rather than the Page.",
+        ),
+    )
+    # Deliberately *not* the isfile check replay does: recording into a path is
+    # how the first archive gets made.
+    destination = abspath(String(har))
+    matcher = url === nothing ? "**/*" : url
+    rec = start_har_recording!(
+        target;
+        path = destination,
+        url = url isa Union{AbstractString,Regex,Nothing} ? url : nothing,
+    )
+    return route!(
+        target,
+        matcher,
+        _ -> error("an update-mode HAR registration should never be handed a route");
+        release = () -> stop_har_recording!(rec),
+        intercepts = false,
+    )
 end
