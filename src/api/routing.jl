@@ -65,6 +65,12 @@ One live `route!` call. Returned so it can be passed back to [`unroute!`](@ref).
 It also carries the exceptions its handler threw (D7). They are not raised
 where they happen — there is no user task there — so they are collected and
 rethrown when the registration is released.
+
+`release` is an optional zero-argument callable run by [`unroute!`](@ref) once
+the registration is gone and any in-flight route has settled. It exists so a
+registration can *own* a resource for its lifetime — M8's HAR replay owns an
+open archive and a temp directory that way (D3) — without a second handle type
+and a second thing for the caller to remember to close.
 """
 mutable struct RouteRegistration
     matcher::Any
@@ -72,10 +78,12 @@ mutable struct RouteRegistration
     exceptions::Vector{Any}
     warned::Bool          # D6: one warning per registration, not per request
     active::Bool
+    release::Union{Function,Nothing}
+    released::Bool        # so a second unroute! does not release twice
 end
 
-RouteRegistration(matcher, handler) =
-    RouteRegistration(matcher, handler, Any[], false, true)
+RouteRegistration(matcher, handler; release::Union{Function,Nothing} = nothing) =
+    RouteRegistration(matcher, handler, Any[], false, true, release, false)
 
 "Per-owner routing state: the registrations, the buffer, and the dispatcher."
 mutable struct RouteRegistry
@@ -337,12 +345,22 @@ Prefer [`with_route`](@ref), which unregisters even when the body throws.
 Exceptions thrown by `handler` are collected and rethrown when the registration
 is released, by [`unroute!`](@ref) or at the end of [`with_route`](@ref) — see
 [`unroute!`](@ref).
+
+`release` is an optional zero-argument callable run once when the registration
+goes away, for a handler that owns a resource for the registration's lifetime.
+[`route_from_har`](@ref) uses it to close the archive; most callers do not need
+it.
 """
-function route!(target::Union{Page,BrowserContext}, matcher, handler)
+function route!(
+    target::Union{Page,BrowserContext},
+    matcher,
+    handler;
+    release::Union{Function,Nothing} = nothing,
+)
     registry = lock(ROUTE_REGISTRIES_LOCK) do
         get!(() -> RouteRegistry(target), ROUTE_REGISTRIES, target.guid)
     end
-    reg = RouteRegistration(matcher, handler)
+    reg = RouteRegistration(matcher, handler; release)
     lock(registry.lock) do
         push!(registry.registrations, reg)
         start_dispatcher!(registry)
@@ -387,6 +405,12 @@ function unroute!(target::Union{Page,BrowserContext}, reg::RouteRegistration)
     # dispatch that was already under way.
     settle_in_flight!(registry)
 
+    # After the last dispatch, never before: the hook frees what the handler was
+    # using, so releasing early would pull an open archive out from under a
+    # route still being served (D3). Before raise_collected, so a handler that
+    # threw does not also leak the resource.
+    run_release!(registry, reg)
+
     raise_collected([reg])
     return nothing
 end
@@ -408,7 +432,29 @@ function unroute!(target::Union{Page,BrowserContext})
     retire!(registry)
     settle_in_flight!(registry)
 
+    for reg in removed
+        run_release!(registry, reg)
+    end
+
     raise_collected(removed)
+    return nothing
+end
+
+"""
+Run a registration's release hook, at most once (D3).
+
+The flag flips under the registry's lock so two concurrent `unroute!` calls
+cannot both release, while the hook itself runs outside it — releasing talks to
+the driver (`harClose`) and holding the registry's lock across a round trip
+would put every other registration behind the transport.
+"""
+function run_release!(registry::RouteRegistry, reg::RouteRegistration)
+    hook = reg.release
+    hook === nothing && return nothing
+    mine = lock(registry.lock) do
+        reg.released ? false : (reg.released = true)
+    end
+    mine && hook()
     return nothing
 end
 
@@ -478,8 +524,14 @@ end
 Anything the handler threw is rethrown here, after the body has finished and
 the registration is gone — see [`unroute!`](@ref).
 """
-function with_route(body, target::Union{Page,BrowserContext}, matcher, handler)
-    reg = route!(target, matcher, handler)
+function with_route(
+    body,
+    target::Union{Page,BrowserContext},
+    matcher,
+    handler;
+    release::Union{Function,Nothing} = nothing,
+)
+    reg = route!(target, matcher, handler; release)
     try
         return body()
     finally

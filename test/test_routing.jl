@@ -476,6 +476,100 @@ end
         close(f.conn)
     end
 
+    # --- The release hook (T3, for D3) -------------------------------------
+    #
+    # A registration can own a resource — Part A's open HAR and its temp
+    # directory — whose lifetime is the registration's. The hook is what makes
+    # `unroute!` the owner of that lifetime, so these tests are about *when* it
+    # runs and how many times, not about what it does.
+
+    @testset "a release hook runs exactly once on unroute! (T3)" begin
+        f = routing_fixture()
+        runs = Ref(0)
+        reg = route!(f.context, "**/*", route -> abort!(route); release = () -> runs[] += 1)
+
+        @test runs[] == 0                 # not at registration
+        unroute!(f.context, reg)
+        @test runs[] == 1
+        unroute!(f.context, reg)          # idempotent: the hook does not run twice
+        @test runs[] == 1
+
+        close(f.conn)
+    end
+
+    @testset "unroute_all! runs every registration's release hook (T3)" begin
+        f = routing_fixture()
+        a = Ref(0)
+        b = Ref(0)
+        route!(f.context, "**/a", route -> abort!(route); release = () -> a[] += 1)
+        route!(f.context, "**/b", route -> abort!(route); release = () -> b[] += 1)
+
+        unroute_all!(f.context)
+        @test a[] == 1
+        @test b[] == 1
+
+        close(f.conn)
+    end
+
+    @testset "with_route runs the release hook even when the body throws (T3)" begin
+        f = routing_fixture()
+        runs = Ref(0)
+
+        @test_throws ErrorException with_route(
+            f.context,
+            "**/*",
+            route -> abort!(route);
+            release = () -> runs[] += 1,
+        ) do
+            error("the body failed")
+        end
+        @test runs[] == 1
+
+        # ...and on the path where it does not throw.
+        with_route(
+            f.context,
+            "**/*",
+            route -> abort!(route);
+            release = () -> runs[] += 1,
+        ) do
+            42
+        end
+        @test runs[] == 2
+
+        close(f.conn)
+    end
+
+    @testset "a registration without a release hook is unchanged (T3)" begin
+        f = routing_fixture()
+        reg = route!(f.context, "**/*", route -> abort!(route))
+        @test reg.release === nothing
+        unroute!(f.context, reg)          # no hook, and no error for the want of one
+        @test routing_registry(f.context) === nothing
+        close(f.conn)
+    end
+
+    @testset "the release hook runs after the handler's exception is collected (T3)" begin
+        # Ordering matters for D3: the hook releases what the handler was using,
+        # so it must run after the last dispatch and not before. Asserted through
+        # the exception path because that is where an early release would show
+        # up as a resource freed under a running handler.
+        f = routing_fixture()
+        runs = Ref(0)
+        reg = route!(
+            f.context,
+            "**/*",
+            route -> error("handler blew up");
+            release = () -> runs[] += 1,
+        )
+        send_route(f.fake, "context@1", "route@1", "https://x.test/a")
+        until(() -> !isempty(reg.exceptions))
+
+        @test_throws ErrorException unroute!(f.context, reg)
+        @test runs[] == 1                 # ran despite the rethrow
+
+        close(f.conn)
+    end
+
     # --- The settle verbs --------------------------------------------------
 
     @testset "abort! validates its error code client-side (D15)" begin
