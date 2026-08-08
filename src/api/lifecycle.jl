@@ -553,7 +553,17 @@ function close!(page::Page)
     return nothing
 end
 
-close!(context::BrowserContext) = _browser_context_close(context)
+function close!(context::BrowserContext)
+    # Taken, not read: a second close! must not try to close the browser again,
+    # and the entry must go whether or not the browser close succeeds.
+    browser = take_persistent_browser!(context)
+    _browser_context_close(context)
+    # A persistent context owns the browser it was launched with (D9). Without
+    # this every use leaks a browser process, and the leak is invisible because
+    # the context — the thing the caller is holding — did close.
+    browser === nothing || close!(browser)
+    return nothing
+end
 
 function close!(browser::Browser)
     _browser_close(browser)
