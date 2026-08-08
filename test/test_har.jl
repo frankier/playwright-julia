@@ -10,7 +10,7 @@
 
 using Base64: base64encode, base64decode
 
-using Playwright: route_from_har, route!, unroute!, unroute_all!
+using Playwright: route_from_har, with_har, route!, unroute!, unroute_all!
 
 const HAR_FIXTURE = joinpath(@__DIR__, "fixtures", "api.har")
 const HAR_ZIP_FIXTURE = joinpath(@__DIR__, "fixtures", "api.har.zip")
@@ -469,6 +469,100 @@ end
         reg = route_from_har(f.context, HAR_FIXTURE)
         @test isempty(filter(m -> get(m, "method", "") == "harUnzip", f.requests))
         unroute!(f.context, reg)
+        close(f.conn)
+    end
+
+    # --- with_har, the update refusal, and harClose (T7) --------------------
+
+    @testset "unroute! closes the archive, on the wire (T7, SC 8)" begin
+        f = har_fixture()
+        reg = route_from_har(f.context, HAR_FIXTURE)
+        @test isempty(filter(m -> get(m, "method", "") == "harClose", f.requests))
+
+        unroute!(f.context, reg)
+
+        closes = filter(m -> get(m, "method", "") == "harClose", f.requests)
+        @test length(closes) == 1
+        @test closes[1]["guid"] == "localUtils"
+        @test closes[1]["params"]["harId"] == "har@1"
+
+        # Idempotent: a second unroute! does not close a second time.
+        unroute!(f.context, reg)
+        @test length(filter(m -> get(m, "method", "") == "harClose", f.requests)) == 1
+
+        close(f.conn)
+    end
+
+    @testset "unroute_all! closes the archive too (T7, SC 8)" begin
+        f = har_fixture()
+        route_from_har(f.context, HAR_FIXTURE)
+        unroute_all!(f.context)
+        @test length(filter(m -> get(m, "method", "") == "harClose", f.requests)) == 1
+        close(f.conn)
+    end
+
+    @testset "with_har closes the archive when the body throws (T7)" begin
+        f = har_fixture()
+        @test_throws ErrorException with_har(f.context, HAR_FIXTURE) do
+            error("the body failed")
+        end
+
+        @test length(filter(m -> get(m, "method", "") == "harClose", f.requests)) == 1
+        @test Playwright.registry_for(f.context) === nothing
+        close(f.conn)
+    end
+
+    @testset "with_har returns the body's value (T7)" begin
+        f = har_fixture()
+        @test with_har(f.context, HAR_FIXTURE; url = "**/api/**") do
+            42
+        end == 42
+        @test length(filter(m -> get(m, "method", "") == "harClose", f.requests)) == 1
+        close(f.conn)
+    end
+
+    @testset "with_har cleans up a .zip's temp directory when the body throws (T7)" begin
+        # The path most likely to leak: two lifetimes, an exception, and no
+        # explicit unroute! in the caller's code.
+        f = har_fixture()
+        @test_throws ErrorException with_har(f.context, HAR_ZIP_FIXTURE) do
+            error("the body failed")
+        end
+        har_file =
+            only(filter(m -> get(m, "method", "") == "harUnzip", f.requests))["params"]["harFile"]
+        @test !isdir(dirname(har_file))
+        close(f.conn)
+    end
+
+    @testset "update = true says it is not here yet, and where it will be (T7, SC 7)" begin
+        # D7: the keyword is refused rather than accepted-and-ignored, which is
+        # how a flag ends up silently doing nothing for a release. Part B's task
+        # removes this, and not before.
+        f = har_fixture()
+        err = try
+            route_from_har(f.context, HAR_FIXTURE; update = true)
+            nothing
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("update", err.msg)
+        @test occursin("not", lowercase(err.msg))
+
+        # Refused before the wire: nothing was opened, so nothing leaked.
+        @test isempty(filter(m -> get(m, "method", "") == "harOpen", f.requests))
+
+        # ...and with_har refuses it identically, rather than only the one
+        # spelling being guarded.
+        @test_throws ArgumentError with_har(f.context, HAR_FIXTURE; update = true) do
+            error("never reached")
+        end
+
+        # update = false is not refused: only the unimplemented value is.
+        reg = route_from_har(f.context, HAR_FIXTURE; update = false)
+        @test reg isa Playwright.RouteRegistration
+        unroute!(f.context, reg)
+
         close(f.conn)
     end
 

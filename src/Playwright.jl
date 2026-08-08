@@ -81,8 +81,9 @@ export playwright,
     continue!,
     fulfill!,
     RouteRegistration,
-    # M8 T4: HAR replay (D2–D5a)
+    # M8 T4/T7: HAR replay (D2–D5a)
     route_from_har,
+    with_har,
     click!,
     text_content,
     input_value,

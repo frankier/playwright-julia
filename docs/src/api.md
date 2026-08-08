@@ -259,6 +259,7 @@ archive.
 
 ```@docs
 route_from_har
+with_har
 ```
 
 ### Network events

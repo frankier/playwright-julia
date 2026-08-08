@@ -38,14 +38,28 @@ failure this feature exists to prevent. `:fallback` is offered anyway, because
 "archive the API, let the CDN through" is a real configuration.
 
 Returns the [`RouteRegistration`](@ref) that [`unroute!`](@ref) takes, which is
-also what closes the archive.
+also what closes the archive. Prefer [`with_har`](@ref), which releases the
+archive even when the body throws.
 """
 function route_from_har(
     target::Union{Page,BrowserContext},
     har::AbstractString;
     url = nothing,
     not_found::Symbol = :abort,
+    update::Bool = false,
 )
+    # Refused, not accepted-and-ignored: `update = true` is a *recording* into
+    # the archive rather than a replay from it, so it is Part B's machinery and
+    # lands with Part B (D7). A keyword that silently does nothing is how a flag
+    # ships broken for a release.
+    update && throw(
+        ArgumentError(
+            "route_from_har(…; update = true) is not implemented yet — it records " *
+            "into the archive rather than replaying from it, so it arrives with " *
+            "HAR recording (SPEC-M8 D7). Drop the keyword to replay.",
+        ),
+    )
+
     not_found in (:abort, :fallback) || throw(
         ArgumentError(
             "not_found must be :abort or :fallback, got $(repr(not_found)). " *
@@ -79,6 +93,40 @@ function route_from_har(
             workdir === nothing || rm(workdir; recursive = true, force = true)
         end,
     )
+end
+
+"""
+    with_har(body, target, har; url = nothing, not_found = :abort)
+
+Serve `target`'s matching requests from the archive at `har` for the duration of
+`body`, then close the archive — even when `body` throws.
+
+```julia
+with_har(ctx, "test/fixtures/api.har"; url = "**/api/**") do
+    goto!(page, "https://app.example.com")
+    expect(locator(page, "#total"); to_have_text = "42")
+end
+```
+
+The block form exists for the same reason [`with_route`](@ref)'s does: the
+registration holds driver-side state — an open archive, and for a `.har.zip` a
+temp directory — and a body that throws must not leak either. Keywords are
+[`route_from_har`](@ref)'s.
+"""
+function with_har(
+    body,
+    target::Union{Page,BrowserContext},
+    har::AbstractString;
+    url = nothing,
+    not_found::Symbol = :abort,
+    update::Bool = false,
+)
+    reg = route_from_har(target, har; url, not_found, update)
+    try
+        return body()
+    finally
+        unroute!(target, reg)
+    end
 end
 
 """

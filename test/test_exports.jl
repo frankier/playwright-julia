@@ -119,8 +119,9 @@
         :abort!,
         :continue!,
         :fulfill!,
-        # M8 T4: HAR replay (D2–D5a)
+        # M8 T4/T7: HAR replay (D2–D5a)
         :route_from_har,
+        :with_har,
         :frame_name,
         :new_context,
         :new_page,

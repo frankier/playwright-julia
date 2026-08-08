@@ -40,7 +40,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
       abort message that names the archive (D5, D5a) — SC 4, 5
 - [x] **T6** (M) `.har.zip` via `harUnzip`; the temp dir owned by `unroute!`
       (D3) — SC 6
-- [ ] **T7** (M) `with_har`; `update = true` refused; `harClose` on the wire
+- [x] **T7** (M) `with_har`; `update = true` refused; `harClose` on the wire
       (D2, D7) — SC 7, 8
 
 **Checkpoint A** — SC 1–8, entirely hermetic.
