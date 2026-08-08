@@ -371,10 +371,10 @@ context whose profile evaporates is a call nobody meant to make.
     context in the package. Reach for `first(pages(ctx))`, not
     [`new_page`](@ref).
 
-    [`close!`](@ref) on the returned context also closes the browser it was
-    launched with (D9). The browser has exactly one context and is not
-    independently useful, so the alternative is leaking a browser process on
-    every use — invisibly, because the thing you were holding did close.
+    [`close!`](@ref) on the returned context takes the browser down with it —
+    the *driver* does that, not this package, verified on both engines. So
+    there is no browser handle to hold and nothing extra to close, and a
+    `close!` on the browser afterwards would raise rather than be a no-op.
 """
 function launch_persistent_context(
     bt::BrowserType,
@@ -412,36 +412,26 @@ function launch_persistent_context(
         userDataDir = String(user_data_dir),
         options...,
     )
-    context = result.context::BrowserContext
-    # The context owns the browser from here: close!(ctx) closes both (D9).
-    remember_persistent_browser!(context, result.browser::Browser)
-    return context
+    # The Browser comes back too and is deliberately dropped: it has exactly one
+    # context, is not independently useful, and the driver closes it with the
+    # context anyway (see PERSISTENT_BROWSERS' note).
+    return result.context::BrowserContext
 end
 
-# Contexts from launch_persistent_context own the browser they were launched
-# with, so close!(ctx) can take it down too (D9). Beside IMPLICIT_CONTEXTS and
-# for the same reason: a BrowserContext is a generated struct with a fixed field
-# layout, so the association lives here rather than on the object.
+# PERSISTENT_BROWSERS: deliberately absent.
 #
-# SPEC-M8 D9 suggested the connection-side state table; this is the shape the
-# package already uses for exactly this relationship one level down (a Page and
-# the context new_page created for it), and matching it beats matching the
-# suggestion.
-const PERSISTENT_BROWSERS = Dict{String,Browser}()
-const PERSISTENT_BROWSERS_LOCK = ReentrantLock()
-
-remember_persistent_browser!(ctx::BrowserContext, browser::Browser) =
-    lock(PERSISTENT_BROWSERS_LOCK) do
-        PERSISTENT_BROWSERS[ctx.guid] = browser
-    end
-
-"The browser a persistent context owns, and forget it — close! calls this once."
-take_persistent_browser!(ctx::BrowserContext) =
-    lock(PERSISTENT_BROWSERS_LOCK) do
-        browser = get(PERSISTENT_BROWSERS, ctx.guid, nothing)
-        browser === nothing || delete!(PERSISTENT_BROWSERS, ctx.guid)
-        browser
-    end
+# SPEC-M8 D9 says a persistent context must own its browser, because "otherwise
+# every use leaks a browser process, and the leak is invisible because the
+# context — the thing the caller is holding — did close". **That premise is
+# false on this driver**, probed on both engines (tasks/m8-probe.md, T15/T16
+# addendum): closing a persistent context already takes the browser process with
+# it, disposes the Browser object, and makes an explicit close! raise
+# TargetClosedError.
+#
+# So there is no ownership table and close!(::BrowserContext) is unchanged. The
+# claim is not merely assumed either — test_smoke_persistent.jl asserts on the
+# *process* that nothing is left behind (SC 20), so a driver that ever stops
+# doing this is a test failure here rather than a leak in the wild.
 
 # Pages opened by new_page(::Browser) own the context created for them, so
 # close!(page) can tear it down (D7). A Page is a generated struct with a fixed
@@ -553,17 +543,9 @@ function close!(page::Page)
     return nothing
 end
 
-function close!(context::BrowserContext)
-    # Taken, not read: a second close! must not try to close the browser again,
-    # and the entry must go whether or not the browser close succeeds.
-    browser = take_persistent_browser!(context)
-    _browser_context_close(context)
-    # A persistent context owns the browser it was launched with (D9). Without
-    # this every use leaks a browser process, and the leak is invisible because
-    # the context — the thing the caller is holding — did close.
-    browser === nothing || close!(browser)
-    return nothing
-end
+# Persistent contexts included: the driver closes the browser along with the
+# context, so there is nothing extra to do here. See PERSISTENT_BROWSERS' note.
+close!(context::BrowserContext) = _browser_context_close(context)
 
 function close!(browser::Browser)
     _browser_close(browser)

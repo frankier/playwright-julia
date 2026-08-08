@@ -65,7 +65,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 - [x] **T14** (M) `launch_persistent_context`; `first(pages(ctx))` documented
       (D9) — SC 15, 17
 - [x] **T15** (M) `close!(ctx)` closes the browser it owns (D9) — SC 20
-- [ ] **T16** (M) The reopen, both engines; `pages(ctx)` has one page — SC 18, 19
+- [x] **T16** (M) The reopen, both engines; `pages(ctx)` has one page — SC 18, 19
 
 **Checkpoint C** — SC 15–20. **The budget checkpoint.**
 

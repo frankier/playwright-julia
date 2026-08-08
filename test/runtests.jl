@@ -45,6 +45,10 @@ using Playwright
         # After test_smoke_network.jl: reuses its with_browser, within_deadline
         # and todo_texts helpers, and its m6.html fixture page.
         include("test_smoke_har.jl")
+        # After test_smoke.jl and test_smoke_network.jl: uses the former's
+        # fixture server and playwright_browser_pids, the latter's
+        # within_deadline.
+        include("test_smoke_persistent.jl")
         include("test_smoke_files.jl")
     else
         @info "Skipping smoke tests (set PLAYWRIGHT_JL_SMOKE=1 to enable)"

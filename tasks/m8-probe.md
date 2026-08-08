@@ -242,3 +242,48 @@ Reading four magic bytes to decide which driver call to make is not reading the
 archive, and Julia still never sees the JSON.
 
 Recorded 2026-08-08, during T11.
+
+---
+
+## Addendum, found at T15/T16: the driver already closes the browser
+
+D9 says a persistent context must own the browser it was launched with, because
+"otherwise every use leaks a browser process, and the leak is invisible because
+the context — the thing the caller is holding — did close". T15 implemented
+that. Every one of T16's six smoke testsets then failed, on both engines, with
+`TargetClosedError: Target page, context or browser has been closed`.
+
+**The premise is false on this driver.** Probed directly, closing *only* the
+context:
+
+| | Chromium | Firefox |
+|---|---|---|
+| `ms-playwright` processes before launch | 0 | 0 |
+| after `launchPersistentContext` | 6 | 7 |
+| after closing **only** the context | **0** | **0** |
+| `Browser` still in the guid registry | **no** | **no** |
+| explicit `Browser.close` afterwards | `TargetClosedError` | `TargetClosedError` |
+
+So the driver tears the browser down with the context, disposes the `Browser`
+object, and an extra close is an *error* rather than a harmless no-op — which is
+why D9's implementation did not merely fail to help, it broke `close!` for every
+persistent context.
+
+**D9's ownership clause is dropped.** There is no `PERSISTENT_BROWSERS` table
+and `close!(::BrowserContext)` is unchanged; `launch_persistent_context` drops
+the `Browser` the wire returns, with a comment saying why. The rest of D9 —
+returning the context, the positional `user_data_dir`, refusing an empty one,
+and `first(pages(ctx))` — is unaffected and stands.
+
+**SC 20 is still met, and better than it would have been.** It asks that
+`close!(ctx)` leave no browser process behind, "asserted on the process, not
+inferred from the context being closed". That assertion now verifies the
+driver's behaviour rather than our own, which is the stronger claim: if a driver
+upgrade ever stops doing this, `test_smoke_persistent.jl` fails and the
+ownership table comes back with a reason.
+
+The lesson is D5a's, twice in one milestone: a decision written from the
+protocol's shape rather than from the driver's behaviour is a hypothesis, and
+the smoke test is where it gets tested.
+
+Recorded 2026-08-08, during T16.

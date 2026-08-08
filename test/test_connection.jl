@@ -541,7 +541,16 @@ end
         @test isempty(intersect(launch_keys, context_keys))
     end
 
-    @testset "close! on a persistent context closes its browser (T15, SC 20)" begin
+    @testset "close! on a persistent context closes only the context (T15, SC 20)" begin
+        # SPEC-M8 D9 wanted close!(ctx) to close the browser as well, on the
+        # premise that otherwise every use leaks a browser process. **That
+        # premise is false on this driver** — probed on both engines
+        # (tasks/m8-probe.md, T15/T16 addendum): closing a persistent context
+        # already takes the browser process with it and disposes the Browser,
+        # and an explicit close afterwards raises TargetClosedError.
+        #
+        # So exactly one close goes out, and this test is what would notice if
+        # someone re-added the second one.
         fake = FakeDriver()
         bt = Playwright.BrowserType(
             fake.connection,
@@ -564,33 +573,32 @@ end
         )
         ctx = fetch(task)
 
-        closer = @async close!(ctx)
-        first_close = take!(fake.client_messages)
-        @test first_close["method"] == "close"
-        @test first_close["guid"] == "context@own"
-        reply_ok(fake, first_close["id"], Dict{String,Any}())
+        seen = Vector{Any}()
+        @async try
+            while true
+                m = take!(fake.client_messages)
+                push!(seen, m)
+                reply_ok(fake, m["id"], Dict{String,Any}())
+            end
+        catch
+        end
 
-        # The browser goes too, and on the wire — inferring it from the context
-        # having closed is exactly the mistake that hides the leak (D9).
-        second_close = take!(fake.client_messages)
-        @test second_close["method"] == "close"
-        @test second_close["guid"] == "browser@own"
-        reply_ok(fake, second_close["id"], Dict{String,Any}())
-        fetch(closer)
+        close!(ctx)
+        sync(fake)
+
+        closes = filter(m -> get(m, "method", "") == "close", seen)
+        @test length(closes) == 1
+        @test closes[1]["guid"] == "context@own"
+        # In particular, not the browser: the driver has already done that, and
+        # asking again is an error rather than a no-op.
+        @test !any(m -> get(m, "guid", "") == "browser@own", closes)
 
         close(fake.connection)
     end
 
     @testset "a non-persistent context closes only itself (T15, SC 20)" begin
-        # The other half: close!(ctx) must not have grown a second close for
-        # every context in the package.
+        # Unchanged by any of the above, and asserted so it stays that way.
         fake = FakeDriver()
-        browser = Playwright.Browser(
-            fake.connection,
-            "Browser",
-            "browser@plain",
-            Dict{String,Any}("version" => "1.0", "name" => "chromium"),
-        )
         ctx = Playwright.BrowserContext(
             fake.connection,
             "BrowserContext",
@@ -601,58 +609,12 @@ end
         closer = @async close!(ctx)
         msg = take!(fake.client_messages)
         @test msg["guid"] == "context@plain"
+        @test msg["method"] == "close"
         reply_ok(fake, msg["id"], Dict{String,Any}())
         fetch(closer)
 
-        # Nothing else was sent.
         sync(fake)
         @test true
-
-        close(fake.connection)
-    end
-
-    @testset "closing a persistent context twice closes the browser once (T15)" begin
-        fake = FakeDriver()
-        bt = Playwright.BrowserType(
-            fake.connection,
-            "BrowserType",
-            "browserType@1",
-            Dict{String,Any}("name" => "chromium"),
-        )
-
-        task = @async launch_persistent_context(bt, "/tmp/m8-twice")
-        msg = take!(fake.client_messages)
-        send_create(fake, "browserType@1", "Browser", "browser@twice")
-        send_create(fake, "browser@twice", "BrowserContext", "context@twice")
-        reply_ok(
-            fake,
-            msg["id"],
-            Dict(
-                "browser" => Dict("guid" => "browser@twice"),
-                "context" => Dict("guid" => "context@twice"),
-            ),
-        )
-        ctx = fetch(task)
-
-        seen = Vector{Any}()
-        replier = @async try
-            while true
-                m = take!(fake.client_messages)
-                push!(seen, m)
-                reply_ok(fake, m["id"], Dict{String,Any}())
-            end
-        catch
-        end
-
-        close!(ctx)
-        close!(ctx)
-        sync(fake)
-
-        browser_closes = count(
-            m -> get(m, "guid", "") == "browser@twice" && m["method"] == "close",
-            seen,
-        )
-        @test browser_closes == 1
 
         close(fake.connection)
     end
