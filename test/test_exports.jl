@@ -340,10 +340,9 @@ end
     # Playwright's spelling, and docs/build/ is a build artifact.
     function hand_written_files()
         paths = String[joinpath(root, "README.md")]
-        # "docs" and not "docs/src": docs/bonnie-parity.md sits directly in
-        # docs/ and escaped Part A's rename entirely because the first version
-        # of this walk stopped at docs/src. A grep that does not cover a file
-        # is indistinguishable from a file with nothing to find.
+        # Whole directories, not just the subdirectories that hold prose today:
+        # a grep that does not cover a file is indistinguishable from a file
+        # with nothing to find.
         for dir in ("src", "test", "docs", "examples")
             for (base, _, names) in walkdir(joinpath(root, dir))
                 occursin(joinpath("src", "generated"), base) && continue

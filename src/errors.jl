@@ -2,8 +2,8 @@
 # but callers can branch on *why* it failed without matching on message text.
 #
 # Classification is driven entirely by the `name` field the driver puts on its
-# error replies. Probed against the vendored 1.61.1 driver: a locator timeout
-# arrives as "TimeoutError", a call against a closed page/context/browser as
+# error replies. Against the vendored 1.61.1 driver: a locator timeout arrives
+# as "TimeoutError", a call against a closed page, context or browser as
 # "TargetClosedError", and JS exceptions and navigation failures alike as
 # "Error".
 
@@ -52,11 +52,6 @@ julia> sprint(showerror, e)
 julia> TimeoutError("too slow") isa PlaywrightError
 true
 ```
-
-!!! note "Changed in milestone 3"
-    `PlaywrightError` used to be a concrete struct. It is now abstract, so
-    `PlaywrightError(msg)` no longer constructs — use [`DriverError`](@ref).
-    `catch e isa PlaywrightError` and `e.message` are unaffected.
 """
 abstract type PlaywrightError <: Exception end
 

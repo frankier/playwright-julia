@@ -27,6 +27,10 @@ the `name` field the driver puts on its error replies, and an unrecognised name
 becomes a `DriverError` — so a future Playwright release cannot produce an
 error that escapes the taxonomy.
 
+`PlaywrightError` is the abstract supertype of those four, so it does not
+construct. To build one yourself, name a concrete subtype:
+[`DriverError`](@ref)`(msg)`.
+
 ## The message includes the call log
 
 A timeout does not just say that it timed out. The driver's call log is
@@ -122,10 +126,3 @@ evaluate(page, "1 + 1") == 2   # true
 
 Not an error, but it is the kind of thing that produces a confusing failure in
 a `@test` that compares types rather than values.
-
-## Changed in milestone 3
-
-`PlaywrightError` used to be a concrete struct and is now an abstract
-supertype. `catch e isa PlaywrightError` and `e.message` are unaffected; only
-`PlaywrightError(msg)` as a *constructor* breaks — use
-[`DriverError`](@ref)`(msg)`. Construction was internal to this package.
