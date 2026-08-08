@@ -201,3 +201,44 @@ The three rows are pinned by the driver-gated testset at the bottom of
 failure rather than a surprise.
 
 Recorded 2026-08-08, during T5.
+
+---
+
+## Addendum, found at T11: `harExport(mode = "archive")` always produces a zip
+
+The round trip failed on its first run, on both engines, with the same error
+from the replay half:
+
+```
+DriverError: Unexpected token 'P', "PK  "... is not valid JSON
+```
+
+`PK\x03\x04` is a zip's local file header. **`harExport(mode = "archive")`
+returns a zip whatever `content` was** — `:embed` included, where there are no
+attached bodies to justify one. `save_as!` had faithfully written that zip to a
+path ending in `.har`, and `harOpen` then handed it to a JSON parser.
+
+Nothing in `tracing.yml` says this; `harExport` is declared as returning an
+`Artifact?` and the artifact's shape is not described. The spec's D8 reasoned by
+analogy with `tracingStopChunk` — correctly, as it turns out, since *that* one
+produces a zip too and M4 wrote it to a `.zip` path without ever having to
+notice.
+
+Two consequences, both implemented at T11:
+
+- **Writing.** `stop_har_recording!` unzips on the way out when the destination
+  is not a `.zip`, via the driver's own `harUnzip`, putting attached bodies
+  beside the `.har` where `harLookup` resolves them. A `.zip` destination is
+  written as exported. This is what other bindings do and what makes
+  `path = "api.har"` mean what a caller expects.
+- **Reading.** `route_from_har` now decides whether an archive is zipped from
+  its **first four bytes rather than its extension**. Both directions of this
+  feature produce a zip under a `.har` name if you let them, and the failure is
+  a JSON parse error from inside the driver — as unhelpful a message as this
+  milestone has produced. The extension is a guess; the content is the fact.
+
+Worth noting against SPEC-M8's "What M8 is not": this is still not HAR parsing.
+Reading four magic bytes to decide which driver call to make is not reading the
+archive, and Julia still never sees the JSON.
+
+Recorded 2026-08-08, during T11.

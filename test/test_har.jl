@@ -90,6 +90,20 @@ function har_fixture(;
                 (e, catch_backtrace())
     end
 
+    # Every fixture in this file reuses the same guids, and ROUTE_REGISTRIES is
+    # keyed by guid — so a testset that forgets to unroute leaves a registry
+    # whose owner belongs to a connection that is now closed, and the *next*
+    # fixture's route! publishes its patterns down the dead pipe. That presents
+    # as "connection closed: the Playwright driver exited" in a testset that did
+    # nothing wrong, metres from the one that did. Dropping the entry here makes
+    # each fixture independent of its predecessors' tidiness — the same lesson
+    # test_routing.jl records about reused guids.
+    lock(Playwright.ROUTE_REGISTRIES_LOCK) do
+        for guid in ("context@1", "page@1")
+            delete!(Playwright.ROUTE_REGISTRIES, guid)
+        end
+    end
+
     send_create(fake, "", "LocalUtils", "localUtils")
     send_create(fake, "", "Browser", "browser@1")
     send_create(fake, "browser@1", "BrowserContext", "context@1")
@@ -620,6 +634,7 @@ end
             ),
         ) || last_patterns(f.requests) == String[]
 
+        unroute!(f.context, reg)
         close(f.conn)
     end
 
@@ -636,9 +651,12 @@ end
 
         export_msg = only(filter(m -> get(m, "method", "") == "harExport", f.requests))
         @test export_msg["params"]["mode"] == "archive"
-        @test only(filter(m -> get(m, "method", "") == "saveAs", f.requests))["params"]["path"] ==
+        # The export is a zip, so it is staged and unzipped onto the caller's
+        # path — the same write path stop_har_recording! takes anywhere else.
+        @test only(filter(m -> get(m, "method", "") == "harUnzip", f.requests))["params"]["harFile"] ==
               dest
-        # No archive was ever opened, so none is closed.
+        # No archive was ever *opened*, so none is closed. (The harUnzip above
+        # is the write, not a read.)
         @test isempty(filter(m -> get(m, "method", "") == "harClose", f.requests))
 
         close(f.conn)
@@ -812,11 +830,60 @@ end
         @test export_msg["params"]["mode"] == "archive"
         @test export_msg["params"]["harId"] == rec.har_id
 
-        # The artifact is written by save_as!, the writer M4 already had.
+        # The artifact is written by save_as!, the writer M4 already had — but
+        # to a staging zip, because harExport(mode = "archive") always produces
+        # one whatever `content` was. T11 found that the hard way: the replay
+        # met `Unexpected token 'P', "PK…" is not valid JSON`.
         save = only(filter(m -> get(m, "method", "") == "saveAs", f.requests))
         @test startswith(save["guid"], "artifact@har-")
-        @test save["params"]["path"] == dest
+        @test endswith(save["params"]["path"], ".zip")
 
+        # ...and the zip is unzipped onto the destination the caller asked for,
+        # with resources beside it where harLookup will look.
+        unzip = only(filter(m -> get(m, "method", "") == "harUnzip", f.requests))
+        @test unzip["params"]["harFile"] == dest
+        @test unzip["params"]["resourcesDir"] == dirname(abspath(dest))
+        @test unzip["params"]["zipFile"] == save["params"]["path"]
+
+        close(f.conn)
+    end
+
+    @testset "a .zip destination keeps the archive as exported (T11)" begin
+        # The other half of the same decision: ask for a zip and no unzip
+        # happens, because a zip is what the export already is.
+        f = har_fixture()
+        har_tracing(f)
+        dest = joinpath(mktempdir(), "out.har.zip")
+
+        rec = start_har_recording!(f.context, path = dest, content = :attach)
+        @test stop_har_recording!(rec) == dest
+
+        @test only(filter(m -> get(m, "method", "") == "saveAs", f.requests))["params"]["path"] ==
+              dest
+        @test isempty(filter(m -> get(m, "method", "") == "harUnzip", f.requests))
+
+        close(f.conn)
+    end
+
+    @testset "a zip is recognised by its bytes, not its name (T11)" begin
+        # Both directions of this feature produce a zip under a .har name if you
+        # let them, and the failure mode is the driver's JSON parser choking on
+        # "PK". The extension is a guess; the content is the fact.
+        dir = mktempdir()
+        zip_named_har = joinpath(dir, "actually-a-zip.har")
+        cp(HAR_ZIP_FIXTURE, zip_named_har)
+        @test Playwright.is_zip_file(zip_named_har)
+        @test !Playwright.is_zip_file(HAR_FIXTURE)
+        @test !Playwright.is_zip_file(joinpath(dir, "nothing-here"))
+
+        f = har_fixture()
+        reg = route_from_har(f.context, zip_named_har)
+        # Unzipped despite the name, so harOpen never sees the zip.
+        @test length(filter(m -> get(m, "method", "") == "harUnzip", f.requests)) == 1
+        @test only(filter(m -> get(m, "method", "") == "harOpen", f.requests))["params"]["file"] !=
+              zip_named_har
+
+        unroute!(f.context, reg)
         close(f.conn)
     end
 
@@ -856,7 +923,7 @@ end
 
         @test length(filter(m -> get(m, "method", "") == "harStart", f.requests)) == 1
         @test length(filter(m -> get(m, "method", "") == "harExport", f.requests)) == 1
-        @test only(filter(m -> get(m, "method", "") == "saveAs", f.requests))["params"]["path"] ==
+        @test only(filter(m -> get(m, "method", "") == "harUnzip", f.requests))["params"]["harFile"] ==
               dest
 
         close(f.conn)

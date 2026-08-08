@@ -52,7 +52,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
       (D6, D8) — SC 9, 10, 11
 - [x] **T9** (S) `with_har_recording` (D6)
 - [x] **T10** (M) `update = true` implemented; T7's refusal removed (D7)
-- [ ] **T11** (L) The round trip, both engines: record, **stop the server**,
+- [x] **T11** (L) The round trip, both engines: record, **stop the server**,
       replay — SC 12, 13
 - [ ] **T12** (M) `update` against a changed response, both engines — SC 14
 

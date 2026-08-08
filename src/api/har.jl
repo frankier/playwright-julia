@@ -145,9 +145,14 @@ both are load-bearing:
     `harLookup` resolves a content `_file` beside the `.har`; point the
     resources somewhere else and every body comes back as an `ENOENT` at lookup
     time, long after the call that got it wrong.
+
+Whether it *is* a zip is decided by the file's first bytes, not by its name.
+A `.har` that is really a zip is not hypothetical — it is what
+`harExport(mode = "archive")` produces, and it is exactly the confusion T11 hit.
+The extension is a guess; the content is the fact.
 """
 function open_maybe_zipped(utils, archive::AbstractString)
-    endswith(lowercase(archive), ".zip") || return (open_archive(utils, archive), nothing)
+    is_zip_file(archive) || return (open_archive(utils, archive), nothing)
 
     workdir = mktempdir(; prefix = "playwright-jl-har-")
     try
@@ -401,6 +406,13 @@ route_from_har(other_ctx, path)
 [`save_as!`](@ref) is already the writer (D8) — including its guard: an export
 that produced no artifact raises naming the path that was *not* written, rather
 than returning quietly and leaving the caller to find an absent file later.
+
+**`mode = "archive"` always produces a zip**, whatever `content` was — found by
+T11, whose replay met `Unexpected token 'P', "PK  "... is not valid JSON`. So a
+destination that is not a `.zip` gets the driver's own `harUnzip` on the way to
+disk, writing the `.har` and putting any attached bodies beside it, which is
+where [`route_from_har`](@ref) looks for them. Ask for a `.zip` path and you get
+the archive as exported.
 """
 function stop_har_recording!(rec::HarRecording)
     result = _tracing_har_export(
@@ -416,7 +428,31 @@ function stop_har_recording!(rec::HarRecording)
             name = "Error",
         ),
     )
-    save_as!(artifact; path = rec.path)
+
+    if endswith(lowercase(rec.path), ".zip")
+        save_as!(artifact; path = rec.path)
+        return rec.path
+    end
+
+    # Not a .zip destination: unzip on the way out, so what lands at `path` is
+    # a HAR rather than a zip wearing a .har name.
+    staging = mktempdir(; prefix = "playwright-jl-har-export-")
+    try
+        zipped = joinpath(staging, "export.zip")
+        save_as!(artifact; path = zipped)
+        destination = dirname(abspath(rec.path))
+        isempty(destination) || mkpath(destination)
+        _local_utils_har_unzip(
+            local_utils(rec.context.connection);
+            zipFile = zipped,
+            harFile = rec.path,
+            # Beside the .har, not under it: harLookup resolves an attached body
+            # relative to the archive (D3).
+            resourcesDir = destination,
+        )
+    finally
+        rm(staging; recursive = true, force = true)
+    end
     return rec.path
 end
 
@@ -500,4 +536,19 @@ function record_into_har(target::Union{Page,BrowserContext}, har::AbstractString
         release = () -> stop_har_recording!(rec),
         intercepts = false,
     )
+end
+
+"""
+Whether `path` begins with the local-file-header magic of a zip, `PK\\x03\\x04`.
+
+By content rather than by extension, because both directions of this feature
+produce a zip under a `.har` name if you let them, and a misjudged extension
+surfaces as `Unexpected token 'P', "PK…" is not valid JSON` from inside the
+driver's JSON parser.
+"""
+function is_zip_file(path::AbstractString)
+    isfile(path) || return false
+    return open(path, "r") do io
+        read(io, 4) == UInt8[0x50, 0x4b, 0x03, 0x04]
+    end
 end
