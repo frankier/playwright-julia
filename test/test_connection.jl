@@ -89,6 +89,37 @@ end
         close(fake.connection)
     end
 
+    @testset "local_utils names HAR replay when the driver exposes none (T2, SC 1)" begin
+        # Playwright.utils is `LocalUtils?` in the protocol (playwright.yml:36),
+        # so its absence is a case that has to have an answer. D1's answer is an
+        # error that says what is unavailable and why, raised at the accessor —
+        # rather than a `nothing` that surfaces as a MethodError three frames
+        # down inside a route handler.
+        fake = FakeDriver()
+        @test fake.connection.local_utils === nothing
+        err = try
+            Playwright.local_utils(fake.connection)
+            nothing
+        catch e
+            e
+        end
+        @test err isa Playwright.DriverError
+        @test occursin("HAR replay", err.message)
+        @test occursin("LocalUtils", err.message)
+        close(fake.connection)
+    end
+
+    @testset "local_utils returns the LocalUtils when the driver has one (T2)" begin
+        fake = FakeDriver()
+        send_create(fake, "", "LocalUtils", "localUtils")
+        sync(fake)
+        utils = Playwright.lookup_object(fake.connection, "localUtils")
+        @test utils isa Playwright.LocalUtils
+        fake.connection.local_utils = utils
+        @test Playwright.local_utils(fake.connection) === utils
+        close(fake.connection)
+    end
+
     @testset "__create__ registers objects; initializer guid refs resolve" begin
         fake = FakeDriver()
         send_create(
@@ -289,4 +320,17 @@ end
         @test !any(v -> v === nothing, values(params))
     end
 
+end
+
+# The hermetic tests above cover the absent case, which is the one that needs an
+# error. That the pinned driver actually *has* a LocalUtils is a fact about the
+# driver, so it is asserted against the driver — the probe found it present
+# (m8-probe.md PQ0) and this is what keeps that true.
+if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
+    @testset "the pinned driver exposes a LocalUtils (T2, SC 1)" begin
+        playwright() do pw
+            @test pw.utils isa Playwright.LocalUtils
+            @test Playwright.local_utils(pw.connection) === pw.utils
+        end
+    end
 end

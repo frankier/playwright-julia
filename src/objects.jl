@@ -168,12 +168,19 @@ Locator(frame::Frame, selector::AbstractString) = Locator(frame, String(selector
 Root handle passed to the [`playwright`](@ref) block. Fields `chromium` and
 `firefox` are the launchable [`BrowserType`](@ref)s; `process` is the driver
 subprocess and `connection` the protocol connection (internal).
+
+`utils` is the driver's `LocalUtils`, which owns HAR lookup and zip extraction.
+The protocol declares it optional (`playwright.yml:36`), so it is `nothing` on a
+driver that does not expose one; reach it through `local_utils(conn)`, which
+names what is unavailable instead of returning a `nothing` that fails later
+(D1).
 """
 struct PlaywrightAPI
     chromium::BrowserType
     firefox::BrowserType
     process::Base.Process
     connection::Connection
+    utils::Union{LocalUtils,Nothing}
 end
 
 # --- Docs for the exported channel-owner types ----------------------------

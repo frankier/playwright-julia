@@ -31,7 +31,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 
 ## Phase 1: Part A — replay
 
-- [ ] **T2** (M) `LocalUtils` plumbed through the `Connection`; `local_utils`
+- [x] **T2** (M) `LocalUtils` plumbed through the `Connection`; `local_utils`
       accessor with the absent case named (D1) — SC 1
 - [ ] **T3** (S) `RouteRegistration` gains an optional release hook (D3)
 - [ ] **T4** (L) `route_from_har`: the action table, `fulfill`/`noentry`,

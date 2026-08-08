@@ -77,7 +77,15 @@ function start_playwright()
     end
     chromium = from_channel(conn, root.initializer["chromium"])::BrowserType
     firefox = from_channel(conn, root.initializer["firefox"])::BrowserType
-    return PlaywrightAPI(chromium, firefox, proc, conn)
+    # `utils` is LocalUtils? in the protocol, so the key can be absent as well
+    # as null — get, not indexing. The absent case is answered once, by
+    # local_utils (D1), rather than at each of HAR replay's call sites.
+    utils = from_channel(
+        conn,
+        get(root.initializer, "utils", nothing),
+    )::Union{LocalUtils,Nothing}
+    conn.local_utils = utils
+    return PlaywrightAPI(chromium, firefox, proc, conn, utils)
 end
 
 function shutdown(pw::PlaywrightAPI)

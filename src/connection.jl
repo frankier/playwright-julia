@@ -41,6 +41,11 @@ mutable struct Connection
     last_id::Int
     closed_error::Union{PlaywrightError,Nothing}
     lock::ReentrantLock
+    # The driver's LocalUtils, resolved once by start_playwright from the root
+    # initializer. Typed as the abstract ChannelOwner only because the concrete
+    # LocalUtils is generated and this file is included before it; read it
+    # through local_utils, which owns the absent case (D1).
+    local_utils::Union{ChannelOwner,Nothing}
 
     function Connection(transport::Transport)
         conn = new(
@@ -56,6 +61,7 @@ mutable struct Connection
             0,
             nothing,
             ReentrantLock(),
+            nothing,
         )
         transport.on_message = msg -> dispatch(conn, msg)
         transport.on_close = () -> handle_transport_close(conn)
@@ -86,6 +92,32 @@ Resolve a protocol `{"guid" => …}` reference to the registered object.
 """
 from_channel(conn::Connection, ::Nothing) = nothing
 from_channel(conn::Connection, ref::AbstractDict) = lookup_object(conn, ref["guid"])
+
+"""
+    local_utils(conn::Connection) -> LocalUtils
+
+The driver's `LocalUtils` object, which owns HAR lookup and zip extraction.
+
+Optional in the protocol (`playwright.yml:36`) and present in every driver build
+this package pins, so its absence means the driver is not the one we think it
+is — which is worth saying once, here, rather than as a `MethodError` inside a
+route handler three frames down (D1).
+
+It hangs off the `Connection` rather than [`PlaywrightAPI`](@ref) because a
+`Route` handler has a `Route`, and from a `Route` the connection is one field
+away while the `PlaywrightAPI` is not reachable at all.
+"""
+function local_utils(conn::Connection)
+    utils = conn.local_utils
+    utils === nothing && throw(
+        DriverError(
+            "this driver exposes no LocalUtils, so HAR replay is unavailable; " *
+            "Playwright $(PLAYWRIGHT_VERSION) is expected to provide one";
+            name = "Error",
+        ),
+    )
+    return utils
+end
 
 """
     to_wire(x) -> JSON-encodable value
