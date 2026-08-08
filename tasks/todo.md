@@ -78,7 +78,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 - [x] **T19** (M) `connect!`, `send_to_page!`/`send_to_server!`, `close_ws!`,
       binary (D12) — SC 24, 27
 - [x] **T20** (M) Callbacks; subscriptions dropped on dispose (D13) — SC 28
-- [ ] **T21** (S) `:websocket`'s `DEFERRED_EVENTS` message rewritten (D14)
+- [x] **T21** (S) `:websocket`'s `DEFERRED_EVENTS` message rewritten (D14)
 - [ ] **T22** (L) The socket on real browsers, both engines — SC 22, 23, 25, 26
 
 **Checkpoint D** — SC 21–28.

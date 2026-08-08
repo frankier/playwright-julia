@@ -582,9 +582,19 @@ end
         # simply not offered as an event.
         @test occursin("route!", Playwright.DEFERRED_EVENTS[:route])
         @test !occursin("not wrapped", Playwright.DEFERRED_EVENTS[:route])
-        for key in (:worker, :websocket, :bindingcall)
+        for key in (:worker, :bindingcall)
             @test occursin("no accessors yet", Playwright.DEFERRED_EVENTS[key])
         end
+        # :websocket is :route's case as of M8 T21, not :worker's. The
+        # observation type still has no accessors, but a reader who has just
+        # used route_web_socket! reads "no accessors yet" as "WebSockets are
+        # unsupported" — which is the half-wrong message m7-api-gaps.md gap 2
+        # was written about. Asserted on the message a user actually sees.
+        @test haskey(Playwright.DEFERRED_EVENTS, :websocket)
+        @test occursin("route_web_socket!", Playwright.DEFERRED_EVENTS[:websocket])
+        # The qualifier is the whole fix: it is *observation* that has no
+        # accessors, not WebSockets that have no support.
+        @test occursin("WebSocket observation", Playwright.DEFERRED_EVENTS[:websocket])
         # :dialog is :route's case, not :worker's: the type is wrapped and
         # usable, so the message must send the reader to the API that answers
         # dialogs rather than imply none exists.

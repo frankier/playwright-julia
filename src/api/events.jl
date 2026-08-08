@@ -376,8 +376,14 @@ const DEFERRED_EVENTS = Dict(
     # Generated ChannelOwners with no hand-written API: nothing useful could be
     # handed to a caller yet.
     :worker => "Worker has no accessors yet, so the event would yield nothing usable",
-    :websocket => "WebSocket has no accessors yet, so the event would yield nothing usable",
     :bindingcall => "BindingCall has no accessors yet, so the event would yield nothing usable",
+    # M8 D14, and :route's case rather than :worker's after Part D. `WebSocket`
+    # the *observation* type still has no accessors — that much of the old
+    # message was true — but a reader who has just written `route_web_socket!`
+    # reads "no accessors yet" as "WebSockets are unsupported", which is now
+    # simply wrong. The entry stays, because subscribing to a socket is still
+    # not something this package offers; only the message moves.
+    :websocket => "WebSocket observation has no accessors yet; to intercept a socket use route_web_socket!",
     # The subtler kind of stale, and the reason this entry is rewritten rather
     # than deleted: `Route` IS wrapped (M6) and fully usable. It is simply not
     # offered as an event, because `route!` is the supported path — an event
