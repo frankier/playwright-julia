@@ -287,3 +287,33 @@ protocol's shape rather than from the driver's behaviour is a hypothesis, and
 the smoke test is where it gets tested.
 
 Recorded 2026-08-08, during T16.
+
+---
+
+## Addendum, answered at T17: context-scoped `webSocketRoute` is symmetric
+
+OQ2 left half a question open. The spec-phase probe established that arming
+`setWebSocketInterceptionPatterns` on a **Page** delivers `webSocketRoute` on
+the page's guid; the context-scoped case was unprobed, and the plan made
+asserting it Part D's first task precisely so that a page-scoped answer would be
+a design change caught before D11's registry was written rather than after.
+
+It is symmetric. Armed on a `BrowserContext`, for a socket opened by one of its
+pages:
+
+| | Chromium | Firefox |
+|---|---|---|
+| `webSocketRoute` events | 1 | 1 |
+| delivered on | **the context guid** | **the context guid** |
+| `WebSocketRoute` created under | the context guid | the context guid |
+| initializer | `url`, `protocols` | `url`, `protocols` |
+| server connections made | **0** | **0** |
+
+**D11's registry can key on the target the caller named**, exactly as
+`routing.jl`'s does, and needs no filtering step. No spec edit.
+
+The last row is a bonus: with a pattern armed and no `connect!`, the real server
+records **no connection at all**. That is the mechanism behind SC 22 — mock mode
+never contacts the server — confirmed before any of Part D's code existed.
+
+Recorded 2026-08-08, during T17.

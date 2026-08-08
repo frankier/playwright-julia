@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Playwright.jl M8 Fixture</title>
+  </head>
+  <body>
+    <h1>M8</h1>
+
+    <!-- Everything the page observes about its socket lands in the DOM, so a
+         test asserts on what the *page* saw rather than on what the test
+         believes it sent. That is the same discipline m6.html uses for fetch. -->
+    <p id="status">idle</p>
+    <ul id="received"></ul>
+    <p id="binary">none</p>
+    <p id="closed">open</p>
+
+    <button id="open">Open socket</button>
+    <button id="send">Send ping</button>
+    <button id="send-binary">Send bytes</button>
+
+    <script>
+      const status = document.getElementById("status");
+      const received = document.getElementById("received");
+      const binary = document.getElementById("binary");
+      const closed = document.getElementById("closed");
+
+      let socket = null;
+
+      function record(text) {
+        const li = document.createElement("li");
+        li.textContent = text;
+        received.appendChild(li);
+      }
+
+      document.getElementById("open").addEventListener("click", () => {
+        const url = new URL("/ws", location.href);
+        url.protocol = location.protocol === "https:" ? "wss:" : "ws:";
+        socket = new WebSocket(url.href);
+        // Binary frames arrive as Blob by default; arraybuffer is what lets the
+        // page report the bytes it actually got rather than "[object Blob]".
+        socket.binaryType = "arraybuffer";
+
+        socket.addEventListener("open", () => {
+          status.textContent = "open";
+        });
+
+        socket.addEventListener("message", (event) => {
+          if (typeof event.data === "string") {
+            record(event.data);
+          } else {
+            const bytes = Array.from(new Uint8Array(event.data));
+            binary.textContent = bytes.join(",");
+            record("binary:" + bytes.length);
+          }
+        });
+
+        // The code and reason are the assertion for close_ws! (SC 25), so both
+        // are reported rather than just the fact of closing.
+        socket.addEventListener("close", (event) => {
+          closed.textContent = "closed:" + event.code + ":" + event.reason;
+        });
+
+        socket.addEventListener("error", () => {
+          status.textContent = "error";
+        });
+      });
+
+      document.getElementById("send").addEventListener("click", () => {
+        socket.send("ping");
+      });
+
+      document.getElementById("send-binary").addEventListener("click", () => {
+        socket.send(new Uint8Array([1, 2, 3, 4]).buffer);
+      });
+    </script>
+  </body>
+</html>

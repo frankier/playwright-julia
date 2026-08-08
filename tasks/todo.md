@@ -71,7 +71,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 
 ## Phase 4: Part D — the socket
 
-- [ ] **T17** (S) Assert context-scoped `webSocketRoute` delivery. If it is
+- [x] **T17** (S) Assert context-scoped `webSocketRoute` delivery. If it is
       page-scoped, **stop and amend the spec** (OQ 2)
 - [ ] **T18** (L) `WebSocketRoute`, the registry, the dispatcher
       (D11, D13) — SC 21

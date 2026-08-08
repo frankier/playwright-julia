@@ -49,6 +49,10 @@ using Playwright
         # fixture server and playwright_browser_pids, the latter's
         # within_deadline.
         include("test_smoke_persistent.jl")
+        # After test_smoke_network.jl: reuses within_deadline and with_browser.
+        # Its server is its own — proving mock mode never contacts the real one
+        # needs a server that counts connections.
+        include("test_smoke_websockets.jl")
         include("test_smoke_files.jl")
     else
         @info "Skipping smoke tests (set PLAYWRIGHT_JL_SMOKE=1 to enable)"
