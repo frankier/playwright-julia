@@ -235,6 +235,171 @@ end
         close(f.conn)
     end
 
+    @testset "`redirect` is one continue! at redirectURL (T5, SC 4)" begin
+        # A navigation whose archive entry is a 302. The driver asks for the
+        # navigation to be re-issued at the new URL, which is one continue! —
+        # not a re-lookup and not a hop counter. D5 said otherwise until the
+        # probe; see tasks/m8-probe.md OQ1.
+        f = har_fixture(
+            lookup = () -> Dict{String,Any}(
+                "action" => "redirect",
+                "redirectURL" => "http://probe.test/b",
+            ),
+        )
+        reg = route_from_har(f.context, HAR_FIXTURE)
+        route = send_route(
+            f.fake,
+            "context@1",
+            "har@nav",
+            "http://probe.test/a";
+            navigation = true,
+        )
+
+        settled = settled_with(f.requests, route.guid)
+        @test settled["method"] == "continue"
+        @test settled["params"]["url"] == "http://probe.test/b"
+
+        unroute!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "a sub-resource redirect is fulfilled, not continued (T5, SC 4)" begin
+        # The other half, and the reason the two are separate tests: for a
+        # sub-resource the driver resolves the chain internally and answers
+        # `fulfill` with the *final* response already attached. A single test
+        # covering "a redirect entry" would hide that they are different
+        # actions with different answers.
+        f = har_fixture(
+            lookup = () -> Dict{String,Any}(
+                "action" => "fulfill",
+                "status" => 200,
+                "headers" => Any[],
+                "body" => base64encode("BODY-B"),
+            ),
+        )
+        reg = route_from_har(f.context, HAR_FIXTURE)
+        route = send_route(f.fake, "context@1", "har@sub", "http://probe.test/a")
+
+        settled = settled_with(f.requests, route.guid)
+        @test settled["method"] == "fulfill"
+        @test String(base64decode(settled["params"]["body"])) == "BODY-B"
+        # No continue! happened: the chain was the driver's to follow.
+        @test isempty(
+            filter(
+                m -> get(m, "guid", "") == route.guid && get(m, "method", "") == "continue",
+                f.requests,
+            ),
+        )
+
+        unroute!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "`error` carries the driver's message to unroute! (T5, SC 4)" begin
+        f = har_fixture(
+            lookup = () -> Dict{String,Any}(
+                "action" => "error",
+                "message" => "HAR error: Found redirect cycle for http://probe.test/loop1",
+            ),
+        )
+        reg = route_from_har(f.context, HAR_FIXTURE)
+        send_route(
+            f.fake,
+            "context@1",
+            "har@cyc",
+            "http://probe.test/loop1";
+            navigation = true,
+        )
+        until(() -> !isempty(reg.exceptions))
+
+        err = only(reg.exceptions)
+        @test err isa Playwright.DriverError
+        # The driver's own text, verbatim: a cycle is its problem and it already
+        # solves it, so a message of ours would only paraphrase a better one.
+        @test occursin("Found redirect cycle", err.message)
+        @test occursin("http://probe.test/loop1", err.message)
+        # ...and it is rethrown where the handler's exceptions are rethrown.
+        @test_throws Playwright.DriverError unroute!(f.context, reg)
+
+        close(f.conn)
+    end
+
+    @testset "`error` supplies the names the driver's message omits (T5, SC 5)" begin
+        # The driver's own text for a file that is not a HAR is a raw JS
+        # TypeError — "Cannot read properties of undefined (reading 'entries')"
+        # — which names neither the archive nor the request. Pinned live in the
+        # driver-gated testset at the bottom of this file. That is the case D5a
+        # is about, and the `error` branch is where it lands, so this is where
+        # both names have to be added.
+        f = har_fixture(
+            lookup = () -> Dict{String,Any}(
+                "action" => "error",
+                "message" => "HAR error: Cannot read properties of undefined (reading 'entries')",
+            ),
+        )
+        reg = route_from_har(f.context, HAR_FIXTURE)
+        send_route(f.fake, "context@1", "har@bad", "http://probe.test/api/items")
+        until(() -> !isempty(reg.exceptions))
+
+        err = only(reg.exceptions)
+        @test occursin("Cannot read properties", err.message)   # the driver's words
+        @test occursin("http://probe.test/api/items", err.message)
+        @test occursin(abspath(HAR_FIXTURE), err.message)
+
+        @test_throws Playwright.DriverError unroute!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "an aborted noentry names the archive and the URL (T5, SC 5)" begin
+        # The trap D5a found: harOpen succeeds on a file that is not a HAR, so a
+        # typo'd archive is indistinguishable at open time and then misses
+        # everything. Under :abort that is a page whose every request fails with
+        # no clue why — unless the abort says which archive it consulted.
+        #
+        # Asserted on the message a user actually sees, not only on the fact
+        # that something was logged — the distinction m7-api-gaps.md gap 2 paid
+        # for.
+        f = har_fixture()
+        logger = Test.TestLogger(; min_level = Base.CoreLogging.Warn)
+        # The registration is made *inside* the block on purpose: the warning is
+        # emitted on the dispatcher task, which inherits the logger current when
+        # it was spawned. Registering first and wrapping only the request would
+        # test logger propagation instead of behaviour — the trap
+        # test_dialogs.jl:208 records and test_smoke_network.jl:340 avoids the
+        # same way.
+        Base.CoreLogging.with_logger(logger) do
+            reg = route_from_har(f.context, HAR_FIXTURE)
+            route = send_route(f.fake, "context@1", "har@nn2", "http://probe.test/missing")
+            settled_with(f.requests, route.guid)
+            unroute!(f.context, reg)
+        end
+
+        warnings = filter(r -> r.level == Base.CoreLogging.Warn, logger.logs)
+        @test length(warnings) == 1
+        text = string(warnings[1].message, " ", warnings[1].kwargs)
+        @test occursin("http://probe.test/missing", text)
+        @test occursin(abspath(HAR_FIXTURE), text)
+
+        close(f.conn)
+    end
+
+    @testset ":fallback misses are not warned about (T5, SC 5)" begin
+        # A miss under :fallback is the configuration working as asked — "archive
+        # the API, let the CDN through" — so warning on it would train the
+        # reader to ignore the warning that matters.
+        f = har_fixture()
+        logger = Test.TestLogger(; min_level = Base.CoreLogging.Warn)
+        Base.CoreLogging.with_logger(logger) do
+            reg = route_from_har(f.context, HAR_FIXTURE; not_found = :fallback)
+            route = send_route(f.fake, "context@1", "har@nn3", "http://probe.test/missing")
+            settled_with(f.requests, route.guid)
+            unroute!(f.context, reg)
+        end
+        @test isempty(filter(r -> r.level == Base.CoreLogging.Warn, logger.logs))
+
+        close(f.conn)
+    end
+
     @testset "harOpen answering with `error` names the archive (T4, D5a)" begin
         fake = FakeDriver()
         conn = fake.connection
@@ -287,5 +452,114 @@ end
         @test err !== nothing
         @test occursin("nope.har", sprint(showerror, err))
         close(f.conn)
+    end
+end
+
+# The tests above canned every harLookup reply, which proves the mapping and
+# nothing about what the driver actually answers. SC 4 asks for the driver's own
+# behaviour — that a redirect entry is `redirect` for a navigation and `fulfill`
+# for a sub-resource, and that a cycle comes back as the driver's own message.
+#
+# That needs the real LocalUtils, so it is gated. It needs **no browser**: this
+# is the driver parsing a file, which is why it is here beside the hermetic
+# tests rather than in a test_smoke_har.jl that has to launch two engines.
+if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
+    @testset "what the driver really answers (T5, SC 4)" begin
+        playwright() do pw
+            utils = Playwright.local_utils(pw.connection)
+            opened = Playwright._local_utils_har_open(utils; file = abspath(HAR_FIXTURE))
+            @test opened.error === nothing
+            har_id = opened.harId
+
+            ask(url; navigation = false) = Playwright._local_utils_har_lookup(
+                utils;
+                harId = har_id,
+                url = url,
+                method = "GET",
+                headers = Any[],
+                isNavigationRequest = navigation,
+            )
+
+            @testset "a sub-resource redirect resolves to the final response" begin
+                got = ask("http://probe.test/a")
+                @test got.action == "fulfill"
+                @test got.status == 200
+                @test String(got.body) == "BODY-B"
+            end
+
+            @testset "the same entry as a navigation is a redirect" begin
+                got = ask("http://probe.test/a"; navigation = true)
+                @test got.action == "redirect"
+                @test got.redirectURL == "http://probe.test/b"
+            end
+
+            @testset "a cycle is the driver's error, with the driver's words" begin
+                got = ask("http://probe.test/loop1"; navigation = true)
+                @test got.action == "error"
+                @test occursin("Found redirect cycle", got.message)
+            end
+
+            @testset "a URL the archive lacks is noentry" begin
+                @test ask("http://probe.test/nope").action == "noentry"
+            end
+
+            # D5a predicted that a file which is not a HAR opens successfully and
+            # then answers `noentry` to everything. The first half holds; the
+            # second does not, and the three tests below pin what the driver
+            # really does. See the T5 addendum in tasks/m8-probe.md — the
+            # conclusion is unchanged (the caller must be told which archive and
+            # which URL) but it is the `error` branch that has to say so, not the
+            # `noentry` one.
+            lookup_against(path) = begin
+                opened = Playwright._local_utils_har_open(utils; file = path)
+                got = Playwright._local_utils_har_lookup(
+                    utils;
+                    harId = opened.harId,
+                    url = "http://probe.test/api/items",
+                    method = "GET",
+                    headers = Any[],
+                    isNavigationRequest = false,
+                )
+                Playwright._local_utils_har_close(utils; harId = opened.harId)
+                (opened, got)
+            end
+
+            @testset "a file that is not a HAR opens, then errors on lookup" begin
+                path = joinpath(mktempdir(), "not-a.har")
+                write(path, """{"this": "is not a har"}""")
+                opened, got = lookup_against(path)
+                @test opened.error === nothing      # D5a's first half: it opens
+                @test opened.harId !== nothing
+                @test got.action == "error"         # D5a's second half: not noentry
+                # The driver's message is a raw JS TypeError naming neither the
+                # archive nor the URL, which is why the `error` branch wraps it
+                # with both rather than passing it through.
+                @test occursin("Cannot read properties", got.message)
+                @test !occursin(path, got.message)
+            end
+
+            @testset "a valid archive missing an entry is noentry" begin
+                # The case the noentry warning is actually for.
+                path = joinpath(mktempdir(), "empty.har")
+                write(path, """{"log": {"version": "1.2", "entries": []}}""")
+                _, got = lookup_against(path)
+                @test got.action == "noentry"
+            end
+
+            @testset "a truncated archive raises at harOpen" begin
+                path = joinpath(mktempdir(), "truncated.har")
+                write(path, """{"log": {"vers""")
+                err = try
+                    Playwright._local_utils_har_open(utils; file = path)
+                    nothing
+                catch e
+                    e
+                end
+                @test err isa Playwright.DriverError
+                @test occursin("JSON", err.message)
+            end
+
+            Playwright._local_utils_har_close(utils; harId = har_id)
+        end
     end
 end

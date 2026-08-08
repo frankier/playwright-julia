@@ -36,7 +36,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 - [x] **T3** (S) `RouteRegistration` gains an optional release hook (D3)
 - [x] **T4** (L) `route_from_har`: the action table, `fulfill`/`noentry`,
       `not_found` validation (D2, D4) — SC 2, 3
-- [ ] **T5** (M) `redirect` → one `continue!`; the driver's cycle error; the
+- [x] **T5** (M) `redirect` → one `continue!`; the driver's cycle error; the
       abort message that names the archive (D5, D5a) — SC 4, 5
 - [ ] **T6** (M) `.har.zip` via `harUnzip`; the temp dir owned by `unroute!`
       (D3) — SC 6

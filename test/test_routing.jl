@@ -83,8 +83,12 @@ Deliver a `route` event carrying a Route whose request is for `target`.
 `guid` is suffixed with a counter so no two routes in this file ever share one.
 Reused guids let one testset's state decide another's outcome, which is how the
 unbounded SETTLED_ROUTES leak first showed itself.
+
+`navigation` sets `isNavigationRequest`, which HAR replay needs: the driver
+answers a redirecting archive entry with `redirect` for a navigation and
+`fulfill` for a sub-resource, and those are different code paths (M8 D5).
 """
-function send_route(fake, owner_guid, guid, target)
+function send_route(fake, owner_guid, guid, target; navigation::Bool = false)
     guid = "$(guid)-$(ROUTE_GUID_SEQ[] += 1)"
     send_create(
         fake,
@@ -94,8 +98,8 @@ function send_route(fake, owner_guid, guid, target)
         Dict{String,Any}(
             "url" => target,
             "method" => "GET",
-            "resourceType" => "fetch",
-            "isNavigationRequest" => false,
+            "resourceType" => navigation ? "document" : "fetch",
+            "isNavigationRequest" => navigation,
             "headers" => Any[],
         ),
     )

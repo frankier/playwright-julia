@@ -131,15 +131,49 @@ function serve_from_har(route::Route, utils, har_id, archive, not_found::Symbol)
                       Dict(name_value_pairs(result.headers)),
             body = result.body,
         )
-    elseif action == "noentry"
-        not_found === :fallback ? continue!(route) : abort!(route)
-    else
-        # redirect and error arrive in T5; anything else is the driver telling
-        # us the protocol moved.
+    elseif action == "redirect"
+        # One branch, no hop counter and no re-lookup (D5). For a sub-resource
+        # the driver resolves the chain itself and answers `fulfill` with the
+        # final response, so `redirect` only ever arrives for a navigation, and
+        # what it asks for is that the navigation be re-issued at the new URL.
+        # Cycles are the driver's problem and it already solves them — a guard
+        # of ours would sit behind a working one and could only fire on input
+        # that guard has already rejected.
+        continue!(route; url = result.redirectURL)
+    elseif action == "error"
+        # The archive is broken, not the request. The driver's own words, which
+        # for a cycle are better than any paraphrase of ours.
         throw(
             DriverError(
-                "unhandled harLookup action $(repr(action)) for $(url(req)) " *
-                "in HAR archive $(archive)";
+                "$(something(result.message, "HAR error")) " *
+                "(replaying $(url(req)) from HAR archive $(archive))";
+                name = "Error",
+            ),
+        )
+    elseif action == "noentry"
+        if not_found === :fallback
+            # Asked for: "archive the API, let the CDN through". Not warned
+            # about, or the warning below stops meaning anything.
+            continue!(route)
+        else
+            # D5a: harOpen succeeds on a file that is not a HAR, so a typo'd or
+            # truncated archive opens cleanly and then misses *everything*.
+            # Under :abort that is a page whose every request fails with no clue
+            # why. Naming both the URL and the archive is what makes "your HAR
+            # is not a HAR" distinguishable from "your HAR lacks this entry".
+            #
+            # Per request, not per registration: each miss is a different URL,
+            # and the list of them is the diagnosis.
+            @warn "HAR archive has no entry for this request; aborting it. " *
+                  "Pass not_found = :fallback to let unarchived requests reach " *
+                  "the real network." url = url(req) archive = archive
+            abort!(route)
+        end
+    else
+        throw(
+            DriverError(
+                "unknown harLookup action $(repr(action)) for $(url(req)) " *
+                "in HAR archive $(archive) — the protocol moved";
                 name = "Error",
             ),
         )

@@ -162,3 +162,42 @@ Three findings:
    so. A caller who reaches for `new_page` — the habit every other context in
    this package teaches — gets a stray blank page and, on the reopen test, a
    confusing result.
+
+---
+
+## Addendum, found at T5: a non-HAR archive answers `error`, not `noentry`
+
+The probe established (OQ1) that `harOpen` succeeds on `{"this": "is not a
+har"}`, and **D5a was written on the assumption that every subsequent lookup
+against it returns `noentry`** — so that a typo'd archive would present as a
+page whose every request silently aborts. T5 asserted that against the live
+driver and it is **wrong in its second half**.
+
+Three shapes, all probed on the pinned 1.61.1 driver:
+
+| Archive | `harOpen` | lookup `action` | lookup `message` |
+|---|---|---|---|
+| `{"this": "is not a har"}` | succeeds, returns a `harId` | **`error`** | `HAR error: Cannot read properties of undefined (reading 'entries')` |
+| `{"log": {"version": "1.2", "entries": []}}` | succeeds | `noentry` | — |
+| `{"log": {"vers` (truncated) | **raises** `DriverError: Unterminated string in JSON at position 14` | — | — |
+
+**D5a's conclusion survives; its mechanism does not.** The caller still has to
+be told which archive was consulted and which URL was not found — but that work
+belongs on the **`error`** branch, not only on the `noentry` one, because the
+driver's own text for a non-HAR file is a raw JS `TypeError` that names neither.
+So the implementation does both:
+
+- `error` wraps the driver's message with the URL and the archive path;
+- an aborted `noentry` warns with the URL and the archive path.
+
+The `noentry` warning is not wasted by this finding: a *valid* archive that
+lacks an entry is the second row of the table, and that is the case the warning
+is actually for. What changed is that "your HAR is not a HAR" is distinguishable
+by the driver rather than by us — it is a different `action`, not a different
+message on the same one.
+
+The three rows are pinned by the driver-gated testset at the bottom of
+`test/test_har.jl`, so a driver upgrade that changes any of them is a test
+failure rather than a surprise.
+
+Recorded 2026-08-08, during T5.
