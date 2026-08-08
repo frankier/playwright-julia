@@ -320,6 +320,123 @@ end
         @test !any(v -> v === nothing, values(params))
     end
 
+    # --- D10's pin (T13) ---------------------------------------------------
+    #
+    # These grow *before* launch/new_context are refactored onto shared option
+    # builders, not after (R4). launch and new_context are used by every test
+    # and every example, so a subtle change to option construction would break
+    # the suite far from its cause. SC 16 is that the assertions above and below
+    # pass unchanged across the refactor — which only means anything if they
+    # were written against the old behaviour first.
+
+    "Build a Browser over a FakeDriver, for asserting new_context's wire params."
+    function context_fixture()
+        fake = FakeDriver()
+        browser = Playwright.Browser(
+            fake.connection,
+            "Browser",
+            "browser@1",
+            Dict{String,Any}("version" => "1.0", "name" => "chromium"),
+        )
+        return (fake = fake, browser = browser)
+    end
+
+    @testset "new_context sends only the options that were set (T13, SC 16)" begin
+        f = context_fixture()
+
+        # Defaults only: new_context sets nothing of its own, so the params are
+        # empty. That is the half most at risk from a builder that helpfully
+        # supplies a default.
+        task = @async new_context(f.browser)
+        msg = take!(f.fake.client_messages)
+        @test msg["method"] == "newContext"
+        @test isempty(msg["params"])
+        send_create(f.fake, "browser@1", "BrowserContext", "context@1")
+        reply_ok(f.fake, msg["id"], Dict("context" => Dict("guid" => "context@1")))
+        @test fetch(task) isa Playwright.BrowserContext
+
+        close(f.fake.connection)
+    end
+
+    @testset "new_context's full option set crosses unchanged (T13, SC 16)" begin
+        f = context_fixture()
+
+        task = @async new_context(
+            f.browser;
+            viewport = (width = 1280, height = 720),
+            record_video = (dir = "artifacts/video", size = (width = 640, height = 480)),
+            user_agent = "M8/1.0",
+            locale = "de-DE",
+            timezone_id = "Europe/Berlin",
+            color_scheme = "dark",
+            device_scale_factor = 2,
+            is_mobile = true,
+            has_touch = true,
+            offline = false,
+            permissions = ["geolocation"],
+            base_url = "https://app.example.com",
+            extra_http_headers = Dict("x-m8" => "yes"),
+            ignore_https_errors = true,
+            java_script_enabled = false,
+            accept_downloads = true,
+        )
+        msg = take!(f.fake.client_messages)
+        params = msg["params"]
+
+        @test sort(collect(keys(params))) == sort([
+            "viewport",
+            "recordVideo",
+            "userAgent",
+            "locale",
+            "timezoneId",
+            "colorScheme",
+            "deviceScaleFactor",
+            "isMobile",
+            "hasTouch",
+            "offline",
+            "permissions",
+            "baseURL",
+            "extraHTTPHeaders",
+            "ignoreHTTPSErrors",
+            "javaScriptEnabled",
+            "acceptDownloads",
+        ])
+
+        # The three that are *transformed* rather than passed through, which are
+        # the three a refactor is most likely to get wrong.
+        @test params["viewport"] == Dict("width" => 1280, "height" => 720)
+        @test params["recordVideo"] == Dict(
+            "dir" => "artifacts/video",
+            "size" => Dict("width" => 640, "height" => 480),
+        )
+        @test params["extraHTTPHeaders"] == [Dict("name" => "x-m8", "value" => "yes")]
+        # ...and the enum mapping that is load-bearing rather than tidy: `true`
+        # becomes "accept", never "internal-browser-default".
+        @test params["acceptDownloads"] == "accept"
+
+        @test params["userAgent"] == "M8/1.0"
+        @test params["javaScriptEnabled"] === false
+        @test params["deviceScaleFactor"] == 2
+        @test !any(v -> v === nothing, values(params))
+
+        send_create(f.fake, "browser@1", "BrowserContext", "context@2")
+        reply_ok(f.fake, msg["id"], Dict("context" => Dict("guid" => "context@2")))
+        @test fetch(task) isa Playwright.BrowserContext
+
+        close(f.fake.connection)
+    end
+
+    @testset "accept_downloads = false denies rather than omitting (T13, SC 16)" begin
+        f = context_fixture()
+        task = @async new_context(f.browser; accept_downloads = false)
+        msg = take!(f.fake.client_messages)
+        @test msg["params"]["acceptDownloads"] == "deny"
+        send_create(f.fake, "browser@1", "BrowserContext", "context@3")
+        reply_ok(f.fake, msg["id"], Dict("context" => Dict("guid" => "context@3")))
+        @test fetch(task) isa Playwright.BrowserContext
+        close(f.fake.connection)
+    end
+
 end
 
 # The hermetic tests above cover the absent case, which is the one that needs an

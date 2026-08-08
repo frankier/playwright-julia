@@ -60,7 +60,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 
 ## Phase 3: Part C — the profile
 
-- [ ] **T13** (M) Shared `launch_options`/`context_options`;
+- [x] **T13** (M) Shared `launch_options`/`context_options`;
       `test_connection.jl` grows **first** (D10) — SC 16
 - [ ] **T14** (M) `launch_persistent_context`; `first(pages(ctx))` documented
       (D9) — SC 15, 17

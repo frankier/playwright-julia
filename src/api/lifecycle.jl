@@ -120,6 +120,103 @@ function record_video_option(opt)
     return out
 end
 
+# --- Shared option builders (D10) ------------------------------------------
+#
+# `launchPersistentContext` takes LaunchOptions *and* ContextOptions, so a third
+# entry point written by hand would be the union of `launch`'s twelve keywords
+# and `new_context`'s sixteen, copy-pasted — and three copies of a default drift
+# apart. So the defaults and the snake_case → wire-name mapping live here once,
+# and all three entry points call these.
+#
+# This is a refactor of code that already worked, which is normally out of scope
+# — it is in scope because the alternative is 28 copy-pasted keyword defaults,
+# and because `test_connection.jl` pins the exact wire params for both existing
+# callers *before* the refactor rather than after (R4, SC 16).
+
+"""
+The wire options for a browser launch, from this package's snake_case keywords.
+
+Internal. Every option is omitted from the message entirely when left unset, so
+the driver's own defaults apply — an option the caller never mentioned must be
+absent, not present-and-null, or the driver applies a different default.
+"""
+launch_options(;
+    headless::Bool = true,
+    timeout::Real = 180_000,
+    args::Union{AbstractVector,Nothing} = nothing,
+    chromium_sandbox::Union{Bool,Nothing} = nothing,
+    env::Union{AbstractDict,Nothing} = nothing,
+    firefox_user_prefs::Union{AbstractDict,Nothing} = nothing,
+    executable_path::Union{AbstractString,Nothing} = nothing,
+    channel::Union{AbstractString,Nothing} = nothing,
+    slow_mo::Union{Real,Nothing} = nothing,
+    proxy::Union{AbstractDict,Nothing} = nothing,
+    downloads_path::Union{AbstractString,Nothing} = nothing,
+) = (;
+    headless,
+    timeout,
+    args,
+    chromiumSandbox = chromium_sandbox,
+    env = env === nothing ? nothing : name_value_array(env),
+    firefoxUserPrefs = firefox_user_prefs,
+    executablePath = executable_path,
+    channel,
+    slowMo = slow_mo,
+    proxy,
+    downloadsPath = downloads_path,
+)
+
+"""
+The wire options for a browser context, from this package's snake_case keywords.
+
+Internal. Three of these are transformed rather than passed through — `viewport`
+and `record_video` become protocol objects, `extra_http_headers` a NameValue
+array — and `accept_downloads` maps onto an enum whose third value must never be
+produced (see `accept_downloads_option`).
+"""
+context_options(;
+    viewport = nothing,
+    record_video = nothing,
+    user_agent::Union{AbstractString,Nothing} = nothing,
+    locale::Union{AbstractString,Nothing} = nothing,
+    timezone_id::Union{AbstractString,Nothing} = nothing,
+    color_scheme::Union{AbstractString,Nothing} = nothing,
+    device_scale_factor::Union{Real,Nothing} = nothing,
+    is_mobile::Union{Bool,Nothing} = nothing,
+    has_touch::Union{Bool,Nothing} = nothing,
+    offline::Union{Bool,Nothing} = nothing,
+    permissions::Union{AbstractVector,Nothing} = nothing,
+    base_url::Union{AbstractString,Nothing} = nothing,
+    extra_http_headers::Union{AbstractDict,Nothing} = nothing,
+    ignore_https_errors::Union{Bool,Nothing} = nothing,
+    java_script_enabled::Union{Bool,Nothing} = nothing,
+    accept_downloads::Union{Bool,Nothing} = nothing,
+) = (;
+    viewport = viewport === nothing ? nothing : as_object(viewport),
+    recordVideo = record_video_option(record_video),
+    userAgent = user_agent,
+    locale,
+    timezoneId = timezone_id,
+    colorScheme = color_scheme,
+    deviceScaleFactor = device_scale_factor,
+    isMobile = is_mobile,
+    hasTouch = has_touch,
+    offline,
+    permissions,
+    baseURL = base_url,
+    extraHTTPHeaders = extra_http_headers === nothing ? nothing :
+                       name_value_array(extra_http_headers),
+    ignoreHTTPSErrors = ignore_https_errors,
+    javaScriptEnabled = java_script_enabled,
+    # `nothing` omits the parameter rather than mapping to the enum's third
+    # value -- see accept_downloads_option, where the reason is a silent timeout
+    # rather than a style preference.
+    acceptDownloads = accept_downloads_option(accept_downloads),
+)
+
+"The keywords each builder accepts, for splitting a caller's kwargs between them."
+option_keywords(builder) = Base.kwarg_decl(only(methods(builder)))
+
 """
     launch(browser_type::BrowserType; headless=true, timeout=180_000, kwargs...) -> Browser
 
@@ -178,33 +275,8 @@ launch(pw.chromium; headless=true, chromium_sandbox=false,
        args=["--disable-dev-shm-usage"])
 ```
 """
-function launch(
-    bt::BrowserType;
-    headless::Bool = true,
-    timeout::Real = 180_000,
-    args::Union{AbstractVector,Nothing} = nothing,
-    chromium_sandbox::Union{Bool,Nothing} = nothing,
-    env::Union{AbstractDict,Nothing} = nothing,
-    firefox_user_prefs::Union{AbstractDict,Nothing} = nothing,
-    executable_path::Union{AbstractString,Nothing} = nothing,
-    channel::Union{AbstractString,Nothing} = nothing,
-    slow_mo::Union{Real,Nothing} = nothing,
-    proxy::Union{AbstractDict,Nothing} = nothing,
-    downloads_path::Union{AbstractString,Nothing} = nothing,
-)
-    options = (;
-        headless,
-        timeout,
-        args,
-        chromiumSandbox = chromium_sandbox,
-        env = env === nothing ? nothing : name_value_array(env),
-        firefoxUserPrefs = firefox_user_prefs,
-        executablePath = executable_path,
-        channel,
-        slowMo = slow_mo,
-        proxy,
-        downloadsPath = downloads_path,
-    )
+function launch(bt::BrowserType; kwargs...)
+    options = launch_options(; kwargs...)
     return try
         _browser_type_launch(bt; options...)::Browser
     catch err
@@ -257,49 +329,8 @@ To choose where the driver puts downloaded files, pass `downloads_path` to
 [`launch`](@ref) — the protocol carries it as a launch option, not a context
 one.
 """
-function new_context(
-    browser::Browser;
-    viewport = nothing,
-    record_video = nothing,
-    user_agent::Union{AbstractString,Nothing} = nothing,
-    locale::Union{AbstractString,Nothing} = nothing,
-    timezone_id::Union{AbstractString,Nothing} = nothing,
-    color_scheme::Union{AbstractString,Nothing} = nothing,
-    device_scale_factor::Union{Real,Nothing} = nothing,
-    is_mobile::Union{Bool,Nothing} = nothing,
-    has_touch::Union{Bool,Nothing} = nothing,
-    offline::Union{Bool,Nothing} = nothing,
-    permissions::Union{AbstractVector,Nothing} = nothing,
-    base_url::Union{AbstractString,Nothing} = nothing,
-    extra_http_headers::Union{AbstractDict,Nothing} = nothing,
-    ignore_https_errors::Union{Bool,Nothing} = nothing,
-    java_script_enabled::Union{Bool,Nothing} = nothing,
-    accept_downloads::Union{Bool,Nothing} = nothing,
-)
-    return _browser_new_context(
-        browser;
-        viewport = viewport === nothing ? nothing : as_object(viewport),
-        recordVideo = record_video_option(record_video),
-        userAgent = user_agent,
-        locale,
-        timezoneId = timezone_id,
-        colorScheme = color_scheme,
-        deviceScaleFactor = device_scale_factor,
-        isMobile = is_mobile,
-        hasTouch = has_touch,
-        offline,
-        permissions,
-        baseURL = base_url,
-        extraHTTPHeaders = extra_http_headers === nothing ? nothing :
-                           name_value_array(extra_http_headers),
-        ignoreHTTPSErrors = ignore_https_errors,
-        javaScriptEnabled = java_script_enabled,
-        # `nothing` omits the parameter rather than mapping to the enum's
-        # third value -- see accept_downloads_option, where the reason is a
-        # silent timeout rather than a style preference.
-        acceptDownloads = accept_downloads_option(accept_downloads),
-    )::BrowserContext
-end
+new_context(browser::Browser; kwargs...) =
+    _browser_new_context(browser; context_options(; kwargs...)...)::BrowserContext
 
 # Pages opened by new_page(::Browser) own the context created for them, so
 # close!(page) can tear it down (D7). A Page is a generated struct with a fixed
