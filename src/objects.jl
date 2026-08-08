@@ -322,6 +322,33 @@ route!(ctx, "**/api/items", route -> fulfill!(route; json = ["a", "b"]))
 """ Route
 
 @doc """
+    WebSocketRoute
+
+One intercepted WebSocket connection, handed to a
+[`route_web_socket!`](@ref) handler.
+
+Unlike a [`Route`](@ref) it has no settle: a socket is a conversation rather
+than a single request, so the handler *sets it up* — registering callbacks,
+optionally calling `connect!` — and returns. The messages arrive
+afterwards.
+
+Whether `connect!` was called is the whole mode switch: without it the
+real server is never contacted and the socket is entirely mocked; with it, the
+route proxies a real connection and any callback you register replaces the
+default forwarding for that direction.
+
+[`url`](@ref) is the address the page asked to connect to.
+
+```julia
+route_web_socket!(page, "**/ws") do wsr
+    on_message_from_page!(wsr) do msg
+        msg == "ping" && send_to_page!(wsr, "pong")
+    end
+end
+```
+""" WebSocketRoute
+
+@doc """
     Request
 
 One HTTP request the browser made — the object delivered by the `:request`

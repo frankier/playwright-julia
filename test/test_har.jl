@@ -103,6 +103,11 @@ function har_fixture(;
             delete!(Playwright.ROUTE_REGISTRIES, guid)
         end
     end
+    lock(Playwright.WS_ROUTE_REGISTRIES_LOCK) do
+        for guid in ("context@1", "page@1")
+            delete!(Playwright.WS_ROUTE_REGISTRIES, guid)
+        end
+    end
 
     send_create(fake, "", "LocalUtils", "localUtils")
     send_create(fake, "", "Browser", "browser@1")

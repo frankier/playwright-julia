@@ -73,7 +73,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
 
 - [x] **T17** (S) Assert context-scoped `webSocketRoute` delivery. If it is
       page-scoped, **stop and amend the spec** (OQ 2)
-- [ ] **T18** (L) `WebSocketRoute`, the registry, the dispatcher
+- [x] **T18** (L) `WebSocketRoute`, the registry, the dispatcher
       (D11, D13) — SC 21
 - [ ] **T19** (M) `connect!`, `send_to_page!`/`send_to_server!`, `close_ws!`,
       binary (D12) — SC 24, 27

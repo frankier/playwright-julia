@@ -10,6 +10,13 @@ struct FakeDriver
     from_driver::Pipe  # we write here, connection reads
     connection::Playwright.Connection
     client_messages::Channel{Any}
+    # Frames are length-prefixed, so two tasks writing at once can interleave a
+    # header with someone else's payload — the transport then reads a garbage
+    # length, throws, and the connection dies as "the Playwright driver exited"
+    # in a test that did nothing wrong. Tests routinely write from *two* tasks:
+    # the test itself (send_create/send_event) and an autoreply loop. So every
+    # write goes through this.
+    write_lock::ReentrantLock
 end
 
 function FakeDriver()
@@ -29,14 +36,17 @@ function FakeDriver()
         end
     catch
     end
-    return FakeDriver(to_driver, from_driver, connection, messages)
+    return FakeDriver(to_driver, from_driver, connection, messages, ReentrantLock())
 end
 
 function driver_send(fake::FakeDriver, msg::AbstractDict)
     payload = Vector{UInt8}(codeunits(JSON.json(msg)))
-    write(fake.from_driver.in, htol(UInt32(length(payload))))
-    write(fake.from_driver.in, payload)
-    flush(fake.from_driver.in)
+    # Header and payload as one critical section — see FakeDriver.write_lock.
+    lock(fake.write_lock) do
+        write(fake.from_driver.in, htol(UInt32(length(payload))))
+        write(fake.from_driver.in, payload)
+        flush(fake.from_driver.in)
+    end
 end
 
 reply_ok(fake, id, result) = driver_send(fake, Dict("id" => id, "result" => result))

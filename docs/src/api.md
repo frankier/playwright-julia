@@ -276,6 +276,21 @@ stop_har_recording!
 with_har_recording
 ```
 
+### WebSocket routing
+
+Intercepting a socket, rather than observing one. A socket is a conversation
+with no request/response shape, so the handler registers callbacks and returns;
+whether `connect!` was called decides whether the real server is
+contacted at all.
+
+```@docs
+WebSocketRoute
+WebSocketRouteRegistration
+route_web_socket!
+unroute_web_socket!
+with_web_socket_route
+```
+
 ### Network events
 
 `expect_request` and `expect_response` are sugar over

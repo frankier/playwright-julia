@@ -89,6 +89,12 @@ export playwright,
     start_har_recording!,
     stop_har_recording!,
     with_har_recording,
+    # M8 T18: WebSocket routing (D11-D13)
+    WebSocketRoute,
+    WebSocketRouteRegistration,
+    route_web_socket!,
+    unroute_web_socket!,
+    with_web_socket_route,
     click!,
     text_content,
     input_value,
@@ -215,6 +221,9 @@ include("api/routing.jl")
 # so it needs route!, the settle verbs and RouteRegistration to exist.
 include("api/har.jl")
 # After routing.jl: reuses its raise_collected, and its dispatcher pattern.
+# After routing.jl: third use of its registry + dispatcher shape, and it
+# reuses raise_collected and driver_pattern (D11).
+include("api/websockets.jl")
 include("api/dialogs.jl")
 include("api/uploads.jl")
 include("api/apirequest.jl")

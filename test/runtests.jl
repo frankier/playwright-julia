@@ -24,6 +24,9 @@ using Playwright
     # After test_routing.jl: HAR replay is a route! handler (D2), so its tests
     # reuse send_route and last_patterns from there.
     include("test_har.jl")
+    # After test_har.jl: reuses its har_fixture, which is the only fake-driver
+    # fixture that registers a LocalUtils and a Tracing channel.
+    include("test_websockets.jl")
     include("test_waiting.jl")
     # After test_waiting.jl: these use its waiting_request helper, as well as
     # timeout_fixture (test_timeouts.jl) and send_event (test_events.jl).

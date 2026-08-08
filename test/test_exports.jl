@@ -127,6 +127,12 @@
         :start_har_recording!,
         :stop_har_recording!,
         :with_har_recording,
+        # M8 T18: WebSocket routing (D11-D13)
+        :WebSocketRoute,
+        :WebSocketRouteRegistration,
+        :route_web_socket!,
+        :unroute_web_socket!,
+        :with_web_socket_route,
         :frame_name,
         :new_context,
         # M8 T14: persistent contexts (D9, D10)
