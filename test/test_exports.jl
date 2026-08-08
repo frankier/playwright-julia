@@ -138,6 +138,10 @@
         :send_to_page!,
         :send_to_server!,
         :close_ws!,
+        # M8 T20: the route's own events (D13)
+        :on_message_from_page!,
+        :on_message_from_server!,
+        :on_close!,
         :frame_name,
         :new_context,
         # M8 T14: persistent contexts (D9, D10)

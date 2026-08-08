@@ -16,6 +16,9 @@ using Playwright:
     WebSocketRoute,
     close_ws!,
     connect!,
+    on_close!,
+    on_message_from_page!,
+    on_message_from_server!,
     route_web_socket!,
     send_to_page!,
     send_to_server!,
@@ -51,6 +54,52 @@ function fire_web_socket_route(f, owner_guid = "context@1"; url = "ws://probe.te
         Dict{String,Any}("webSocketRoute" => Dict("guid" => guid)),
     )
     return Playwright.lookup_object(f.fake.connection, guid)
+end
+
+"""
+Announce a frame on a live `WebSocketRoute`, as the driver does once the socket
+is carrying traffic.
+
+`message` is the wire spelling — a `String` — and `is_base64` says whether the
+driver encoded bytes into it.
+"""
+ws_frame(f, route, event, message; is_base64 = false) = send_event(
+    f.fake,
+    route.guid,
+    event,
+    Dict{String,Any}("message" => message, "isBase64" => is_base64),
+)
+
+"Announce a close on either side of a live `WebSocketRoute`."
+ws_close_frame(f, route, event; code = nothing, reason = nothing) = send_event(
+    f.fake,
+    route.guid,
+    event,
+    Dict{String,Any}("code" => code, "reason" => reason, "wasClean" => true),
+)
+
+"""
+Route `**/ws` on the context, run `setup(wsr)` for the socket it intercepts, and
+hand `body` the live route once the handler has finished setting it up.
+
+The wait is the point: a frame announced before the handler has registered its
+callbacks reaches a route nobody is subscribed to and is dropped, which would
+make the tests below pass or fail for reasons that have nothing to do with what
+they assert.
+"""
+function with_live_socket(body, f; setup = _ -> nothing)
+    armed = Ref(false)
+    reg = route_web_socket!(f.context, "**/ws") do wsr
+        setup(wsr)
+        armed[] = true
+    end
+    route = fire_web_socket_route(f)
+    ws_until(() -> armed[])
+    try
+        return body(route, reg)
+    finally
+        unroute_web_socket!(f.context, reg)
+    end
 end
 
 "Every request of `method` the fake driver saw, oldest first."
@@ -510,6 +559,234 @@ end
         @test !haskey(params, "reason")
 
         unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    # --- T20: callbacks, and the subscriptions that must not leak (D13) -----
+
+    @testset "a page message reaches on_message_from_page! (T20, D13)" begin
+        f = har_fixture()
+        got = Ref{Any}(nothing)
+        with_live_socket(
+            f;
+            setup = wsr -> on_message_from_page!(msg -> (got[] = msg), wsr),
+        ) do route, _
+            ws_frame(f, route, "messageFromPage", "ping")
+            ws_until(() -> got[] !== nothing)
+            @test got[] == "ping"
+            @test got[] isa String
+        end
+        close(f.conn)
+    end
+
+    @testset "a binary page message arrives as bytes (T20, SC 24)" begin
+        # The caller never names base64 — in this direction the decode is the
+        # half T19 could only test through its helper.
+        f = har_fixture()
+        got = Ref{Any}(nothing)
+        bytes = UInt8[0x01, 0x02, 0x03, 0x04]
+        with_live_socket(
+            f;
+            setup = wsr -> on_message_from_page!(msg -> (got[] = msg), wsr),
+        ) do route, _
+            ws_frame(f, route, "messageFromPage", base64encode(bytes); is_base64 = true)
+            ws_until(() -> got[] !== nothing)
+            @test got[] isa Vector{UInt8}
+            @test got[] == bytes
+        end
+        close(f.conn)
+    end
+
+    @testset "a server message reaches on_message_from_server! (T20)" begin
+        f = har_fixture()
+        got = Ref{Any}(nothing)
+        with_live_socket(
+            f;
+            setup = function (wsr)
+                connect!(wsr)
+                on_message_from_server!(msg -> (got[] = msg), wsr)
+            end,
+        ) do route, _
+            ws_frame(f, route, "messageFromServer", "from-server:ping")
+            ws_until(() -> got[] !== nothing)
+            @test got[] == "from-server:ping"
+        end
+        close(f.conn)
+    end
+
+    @testset "an unhandled server message is forwarded to the page (T20, D12)" begin
+        # The default in proxy mode: a socket nobody rewrote behaves like the
+        # socket the page asked for.
+        f = har_fixture()
+        with_live_socket(f; setup = connect!) do route, _
+            ws_frame(f, route, "messageFromServer", "hello")
+            ws_until(() -> !isempty(ws_sent(f, "sendToPage")))
+            sent = only(ws_sent(f, "sendToPage"))
+            @test sent["guid"] == route.guid
+            @test sent["params"]["message"] == "hello"
+            @test sent["params"]["isBase64"] == false
+        end
+        close(f.conn)
+    end
+
+    @testset "a handled server message is swallowed, as intended (T20, D12)" begin
+        # D12's sharp edge, pinned rather than fixed: a callback *replaces* the
+        # forwarding for its direction, so a callback that does not forward
+        # silently drops every server message. It is Playwright's semantics; if
+        # they ever change upstream, this test is what tells us.
+        f = har_fixture()
+        seen = Ref(0)
+        with_live_socket(
+            f;
+            setup = function (wsr)
+                connect!(wsr)
+                on_message_from_server!(_ -> (seen[] += 1), wsr)
+            end,
+        ) do route, _
+            ws_frame(f, route, "messageFromServer", "hello")
+            ws_until(() -> seen[] == 1)
+            @test isempty(ws_sent(f, "sendToPage"))
+        end
+        close(f.conn)
+    end
+
+    @testset "an unhandled page message is forwarded to the server (T20, D12)" begin
+        f = har_fixture()
+        with_live_socket(f; setup = connect!) do route, _
+            ws_frame(f, route, "messageFromPage", "ping")
+            ws_until(() -> !isempty(ws_sent(f, "sendToServer")))
+            @test only(ws_sent(f, "sendToServer"))["params"]["message"] == "ping"
+        end
+        close(f.conn)
+    end
+
+    @testset "in mock mode an unhandled page message goes nowhere (T20)" begin
+        # There is no server to forward to, and inventing one by connecting
+        # would make mock mode contact the network it exists to avoid.
+        f = har_fixture()
+        with_live_socket(f) do route, _
+            ws_frame(f, route, "messageFromPage", "ping")
+            ws_frame(f, route, "messageFromPage", "ping again")
+            # Nothing to wait *for*, so wait for something that proves the
+            # dispatcher got this far: a later frame it does act on.
+            ws_frame(f, route, "messageFromServer", "forwarded")
+            ws_until(() -> !isempty(ws_sent(f, "sendToPage")))
+            @test isempty(ws_sent(f, "sendToServer"))
+        end
+        close(f.conn)
+    end
+
+    @testset "on_close! sees the code and the reason (T20)" begin
+        f = har_fixture()
+        got = Ref{Any}(nothing)
+        with_live_socket(
+            f;
+            setup = wsr -> on_close!((code, reason) -> (got[] = (code, reason)), wsr),
+        ) do route, _
+            ws_close_frame(f, route, "closePage"; code = 4002, reason = "page went")
+            ws_until(() -> got[] !== nothing)
+            @test got[] == (4002, "page went")
+        end
+        close(f.conn)
+    end
+
+    @testset "an unhandled close closes the other side (T20, D12)" begin
+        f = har_fixture()
+        with_live_socket(f; setup = connect!) do route, _
+            ws_close_frame(f, route, "closePage"; code = 1000, reason = "bye")
+            ws_until(() -> !isempty(ws_sent(f, "closeServer")))
+            params = only(ws_sent(f, "closeServer"))["params"]
+            @test params["code"] == 1000
+            @test params["reason"] == "bye"
+        end
+        close(f.conn)
+    end
+
+    @testset "the route's subscriptions are gone once it closes (T20, SC 28)" begin
+        # R3, as a test failure rather than a memory profile. The route object
+        # is short-lived and its subscriptions belong to it, so a table that
+        # keeps them grows one entry per socket for the life of the process —
+        # invisible in a suite, obvious in a long-running scrape.
+        f = har_fixture()
+        with_live_socket(f; setup = wsr -> on_close!((_, _) -> nothing, wsr)) do route, _
+            @test haskey(f.conn.subscriptions, route.guid)
+            @test haskey(Playwright.WS_ROUTE_STATE, route.guid)
+
+            ws_close_frame(f, route, "closePage")
+            ws_until(() -> !haskey(Playwright.WS_ROUTE_STATE, route.guid))
+            @test !haskey(f.conn.subscriptions, route.guid)
+        end
+        close(f.conn)
+    end
+
+    @testset "disposing the route drops its state too (T20, D13)" begin
+        # The other way a socket ends: the page navigates away and the driver
+        # disposes the route without closing it first.
+        f = har_fixture()
+        setup = wsr -> on_message_from_page!(_ -> nothing, wsr)
+        with_live_socket(f; setup = setup) do route, _
+            @test haskey(Playwright.WS_ROUTE_STATE, route.guid)
+            send_dispose(f.fake, route.guid)
+            ws_until(() -> !haskey(Playwright.WS_ROUTE_STATE, route.guid))
+            @test !haskey(f.conn.subscriptions, route.guid)
+            @test !(route.guid in Playwright.CONNECTED_WS_ROUTES)
+        end
+        close(f.conn)
+    end
+
+    @testset "unrouting drops a live socket's state (T20, SC 28)" begin
+        # The third way: the *registration* goes while the socket is still up.
+        f = har_fixture()
+        armed = Ref(false)
+        reg = route_web_socket!(f.context, "**/ws") do wsr
+            on_message_from_page!(_ -> nothing, wsr)
+            armed[] = true
+        end
+        route = fire_web_socket_route(f)
+        ws_until(() -> armed[])
+        @test haskey(Playwright.WS_ROUTE_STATE, route.guid)
+
+        unroute_web_socket!(f.context, reg)
+        @test !haskey(Playwright.WS_ROUTE_STATE, route.guid)
+        @test !haskey(f.conn.subscriptions, route.guid)
+
+        close(f.conn)
+    end
+
+    @testset "a callback that throws is collected and rethrown (T20)" begin
+        f = har_fixture()
+        armed = Ref(false)
+        reg = route_web_socket!(f.context, "**/ws") do wsr
+            on_message_from_page!(_ -> error("callback boom"), wsr)
+            armed[] = true
+        end
+        route = fire_web_socket_route(f)
+        ws_until(() -> armed[])
+
+        ws_frame(f, route, "messageFromPage", "ping")
+        ws_until(() -> !isempty(reg.exceptions))
+        # Same contract as a handler's: there is no user task to raise into, so
+        # it waits for unregistration.
+        @test_throws ErrorException unroute_web_socket!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "callbacks never run on the transport reader task (T20, SC 21)" begin
+        f = har_fixture()
+        ran_on = Ref{Any}(nothing)
+        registry = Ref{Any}(nothing)
+        with_live_socket(
+            f;
+            setup = wsr -> on_message_from_page!(_ -> (ran_on[] = current_task()), wsr),
+        ) do route, _
+            registry[] = Playwright.ws_registry_for(f.context)
+            ws_frame(f, route, "messageFromPage", "ping")
+            ws_until(() -> ran_on[] !== nothing)
+            # The same task the handler ran on: one dispatcher per owner, not
+            # one per socket, and never the reader.
+            @test ran_on[] === registry[].task
+            @test ran_on[] !== f.conn.transport.reader
+        end
         close(f.conn)
     end
 end

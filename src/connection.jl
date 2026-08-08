@@ -294,6 +294,10 @@ function dispose_locked(conn::Connection, guid::String)
     delete!(conn.timeouts, guid)
     filter!(pair -> first(first(pair)) != guid, conn.event_optins)
     close_subscriptions_locked(conn, guid)
+    # A WebSocketRoute disposed without closing first — the page navigated away,
+    # say — leaves callbacks and a connected flag behind. api/websockets.jl owns
+    # both tables; this is the hook that keeps them bounded (D13).
+    forget_ws_route_state!(guid)
     return
 end
 

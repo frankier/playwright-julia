@@ -104,6 +104,21 @@ become garbage immediately rather than at some later GC of the handle.
 Idempotent.
 """
 function Base.close(sub::Subscription)
+    detach_subscription!(sub)
+    drain!(sub.channel)
+    return nothing
+end
+
+"""
+Detach `sub` from the registry **without** draining its buffer. Idempotent.
+
+`close` does both, which is right when the channel belongs to the subscription
+alone. It is wrong when the channel is *shared*: a `WebSocketRoute`'s four
+subscriptions feed their owner's dispatcher queue rather than one each (D13), so
+draining on release would throw away another socket's pending messages — and,
+worse, the route arrivals the dispatcher has not handled yet.
+"""
+function detach_subscription!(sub::Subscription)
     conn = sub.connection
     lock(conn.lock) do
         sub.closed && return nothing
@@ -115,7 +130,6 @@ function Base.close(sub::Subscription)
         end
         return nothing
     end
-    drain!(sub.channel)
     return nothing
 end
 

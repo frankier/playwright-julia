@@ -104,6 +104,10 @@ Closing the channel wakes it: `take!` on a closed channel raises, which is the
 loop's exit. No sentinel, no polling, and no `sleep`.
 """
 function stop_ws_dispatcher!(registry::WebSocketRouteRegistry)
+    # Before the queue closes, not after: a live socket's subscriptions feed
+    # this very channel, and one left attached is one that outlives the thing
+    # that could have consumed it (D13).
+    disarm_registry_routes!(registry)
     task = registry.task
     sub = registry.subscription
     registry.task = nothing
@@ -124,15 +128,21 @@ touching shared state needs no lock of its own.
 """
 function dispatch_web_socket_routes(registry::WebSocketRouteRegistry, sub::Subscription)
     while true
-        route = try
+        item = try
             take!(sub.channel)
         catch
             break            # channel closed: stop_ws_dispatcher! was called
         end
-        route isa WebSocketRoute || continue
+        # Two kinds of thing arrive on this queue: sockets to intercept, and
+        # frames on sockets already intercepted (D13). Sharing one queue is what
+        # keeps this to one task per routed owner rather than one per socket,
+        # and it is what makes a socket's frames arrive in order behind the
+        # handler that set it up.
+        item isa Union{WebSocketRoute,WebSocketRouteEvent} || continue
         try
             lock(registry.dispatching) do
-                handle_web_socket_route(registry, route)
+                item isa WebSocketRoute ? handle_web_socket_route(registry, item) :
+                deliver_ws_route_event(item)
             end
         catch e
             # handle_web_socket_route catches everything a handler throws, so
@@ -173,6 +183,12 @@ function handle_web_socket_route(registry::WebSocketRouteRegistry, route::WebSoc
                 false
             end
             matched || continue
+
+            # Armed *before* the handler runs, and for every intercepted socket
+            # rather than only for one that registers a callback: in proxy mode
+            # the default forwarding is ours to do (D12), so a route with no
+            # callbacks at all still has to be listening.
+            arm_ws_route_events!(registry, route, reg)
 
             try
                 # `invokelatest`, and load-bearing rather than defensive. The
@@ -553,3 +569,263 @@ function close_ws!(
     _web_socket_route_close_page(route; wasClean = true, code, reason)
     return nothing
 end
+
+# --- Per-object events (D13) -----------------------------------------------
+#
+# Every other event in this package belongs to a Page or a BrowserContext, both
+# of which outlive the things they report. A WebSocketRoute's four events
+# (`messageFromPage`, `messageFromServer`, `closePage`, `closeServer`) belong to
+# the route, which arrives mid-flight and is gone when the socket closes. The
+# `Subscription` machinery is keyed by guid and works unchanged; what is new is
+# that something has to *drop* the subscriptions, or the table grows one entry
+# per socket for the life of the process (R3).
+#
+# The subscriptions share their owner's dispatcher queue rather than each
+# getting a task: `Channel` has no select, so four channels would mean four
+# tasks per socket, and a socket-heavy page would spawn dozens. One queue keeps
+# the guarantee D11 already made — user code runs sequentially, on one task per
+# routed owner, never on the reader task — and adds ordering between a route
+# and its own frames for free.
+
+"A frame or a close on a live route, tagged for the dispatcher."
+struct WebSocketRouteEvent
+    route::WebSocketRoute
+    kind::Symbol
+    params::Any
+end
+
+"What a live route knows: who is listening, and what is feeding them."
+mutable struct WebSocketRouteState
+    route::WebSocketRoute
+    registry::WebSocketRouteRegistry
+    # The registration whose handler took this socket. A callback that throws is
+    # collected here, so it is rethrown at unregistration with the handler's —
+    # the same contract, for the same reason (there is no user task to raise
+    # into).
+    registration::WebSocketRouteRegistration
+    on_page::Any
+    on_server::Any
+    on_close::Any
+    subscriptions::Vector{Subscription}
+end
+
+const WS_ROUTE_STATE = Dict{String,WebSocketRouteState}()
+const WS_ROUTE_STATE_LOCK = ReentrantLock()
+
+ws_state_for(route::WebSocketRoute) =
+    lock(WS_ROUTE_STATE_LOCK) do
+        get(WS_ROUTE_STATE, route.guid, nothing)
+    end
+
+const WS_ROUTE_EVENTS = (
+    ("messageFromPage", :message_from_page),
+    ("messageFromServer", :message_from_server),
+    ("closePage", :close_page),
+    ("closeServer", :close_server),
+)
+
+"Subscribe to `route`'s four events, feeding `registry`'s dispatcher queue."
+function arm_ws_route_events!(
+    registry::WebSocketRouteRegistry,
+    route::WebSocketRoute,
+    reg::WebSocketRouteRegistration,
+)
+    owner_sub = registry.subscription
+    owner_sub === nothing && return nothing     # dispatcher already stopped
+    state =
+        WebSocketRouteState(route, registry, reg, nothing, nothing, nothing, Subscription[])
+    for (event, kind) in WS_ROUTE_EVENTS
+        sub = subscribe(
+            route,
+            event,
+            (_owner, params) -> WebSocketRouteEvent(route, kind, params),
+        )
+        # The shared queue. Assigned after `subscribe` because the constructor
+        # makes a channel of its own; nothing has been put into it yet, so
+        # nothing is lost.
+        sub.channel = owner_sub.channel
+        push!(state.subscriptions, sub)
+    end
+    lock(WS_ROUTE_STATE_LOCK) do
+        WS_ROUTE_STATE[route.guid] = state
+    end
+    return state
+end
+
+"""
+Drop everything `guid`'s route holds: its subscriptions, its callbacks and its
+connected flag.
+
+`detach_subscription!` rather than `close`, because the channel belongs to the
+owner's dispatcher and draining it would discard other sockets' frames.
+"""
+function disarm_ws_route!(guid::AbstractString)
+    state = lock(WS_ROUTE_STATE_LOCK) do
+        pop!(WS_ROUTE_STATE, String(guid), nothing)
+    end
+    state === nothing && return nothing
+    for sub in state.subscriptions
+        detach_subscription!(sub)
+    end
+    forget_ws_route!(state.route)
+    return nothing
+end
+
+"Drop every live route belonging to `registry`. Called when its dispatcher stops."
+function disarm_registry_routes!(registry::WebSocketRouteRegistry)
+    guids = lock(WS_ROUTE_STATE_LOCK) do
+        String[g for (g, s) in WS_ROUTE_STATE if s.registry === registry]
+    end
+    for guid in guids
+        disarm_ws_route!(guid)
+    end
+    return nothing
+end
+
+"""
+Called from `dispose_locked` when any object goes: a route disposed by the
+driver — the page navigated away, say — leaves no close event behind, so this is
+the other end that keeps the table bounded.
+"""
+forget_ws_route_state!(guid::AbstractString) = disarm_ws_route!(guid)
+
+"Run a user callback off the reader task, collecting what it throws."
+function run_ws_callback(state::WebSocketRouteState, f, args...)
+    try
+        # invokelatest for the reason handle_web_socket_route spells out: this
+        # task's world age was fixed at the first registration, and a callback
+        # closure defined after that is too new for it.
+        Base.invokelatest(f, args...)
+    catch e
+        push!(state.registration.exceptions, e)
+    end
+    return nothing
+end
+
+"""
+Deliver one frame to its callback, or do the forwarding the callback replaced.
+
+The defaults are Playwright's, and they are what make proxy mode a proxy: a
+message nobody claimed goes on to the other side. Registering a callback takes
+that over — including the right to drop the message, which D12 calls the sharp
+edge and SC 26 pins as intended rather than fixing.
+"""
+function deliver_ws_route_event(ev::WebSocketRouteEvent)
+    state = ws_state_for(ev.route)
+    # A frame arriving after the socket was torn down is not an error: the
+    # driver and this package let go of a socket at slightly different moments.
+    state === nothing && return nothing
+
+    if ev.kind === :message_from_page
+        message = ws_message_from_wire(ev.params["message"], ev.params["isBase64"] === true)
+        if state.on_page !== nothing
+            run_ws_callback(state, state.on_page, message)
+        elseif ws_is_connected(ev.route)
+            # Mock mode deliberately has no `else`: there is no server, and
+            # connecting one to forward to would contact the network mock mode
+            # exists to avoid.
+            ws_forward(() -> send_to_server!(ev.route, message))
+        end
+    elseif ev.kind === :message_from_server
+        message = ws_message_from_wire(ev.params["message"], ev.params["isBase64"] === true)
+        if state.on_server !== nothing
+            run_ws_callback(state, state.on_server, message)
+        else
+            ws_forward(() -> send_to_page!(ev.route, message))
+        end
+    else
+        code = get(ev.params, "code", nothing)
+        reason = get(ev.params, "reason", nothing)
+        if state.on_close !== nothing
+            run_ws_callback(state, state.on_close, code, reason)
+        else
+            was_clean = get(ev.params, "wasClean", true) === true
+            close_other =
+                ev.kind === :close_page ? _web_socket_route_close_server :
+                _web_socket_route_close_page
+            ws_forward(() -> close_other(ev.route; wasClean = was_clean, code, reason))
+        end
+        # Either side closing ends the socket, and with it everything this
+        # package holds for it. SC 28 asserts exactly this.
+        disarm_ws_route!(ev.route.guid)
+    end
+    return nothing
+end
+
+"Forward a frame, tolerating a socket that has already gone."
+function ws_forward(f)
+    try
+        f()
+    catch
+        # The page navigated, the socket closed, the context went away: the
+        # frame has nowhere to go and there is no user to tell.
+    end
+    return nothing
+end
+
+"The live route `route` names, or an error saying why it is not one."
+function ws_state_or_error(route::WebSocketRoute, verb::AbstractString)
+    state = ws_state_for(route)
+    state === nothing && throw(
+        ArgumentError(
+            "this WebSocket route is no longer live, so `$verb` has nothing to " *
+            "listen to. Callbacks are registered inside the `route_web_socket!` " *
+            "handler, which runs while the socket is being set up.",
+        ),
+    )
+    return state
+end
+
+"""
+    on_message_from_page!(f, route::WebSocketRoute)
+
+Call `f(message)` for every frame the **page** sends.
+
+`message` is a `String` for a text frame and a `Vector{UInt8}` for a binary one.
+
+In proxy mode this *replaces* the forwarding to the server: a callback that
+wants the server to see the message must call [`send_to_server!`](@ref) itself.
+In mock mode there is nothing to replace — this is how a mocked socket hears the
+page at all.
+
+```julia
+route_web_socket!(page, "**/ws") do wsr
+    on_message_from_page!(wsr) do msg
+        msg == "ping" && send_to_page!(wsr, "pong")
+    end
+end
+```
+"""
+on_message_from_page!(f, route::WebSocketRoute) =
+    (ws_state_or_error(route, "on_message_from_page!").on_page = f; nothing)
+
+"""
+    on_message_from_server!(f, route::WebSocketRoute)
+
+Call `f(message)` for every frame the **server** sends, with the same two
+message types as [`on_message_from_page!`](@ref).
+
+**This replaces the forwarding to the page.** A callback that does not call
+[`send_to_page!`](@ref) swallows the message and the page never sees it — the
+one behaviour of this API worth reading twice (D12).
+
+Only meaningful in proxy mode: in mock mode there is no server to hear from.
+"""
+on_message_from_server!(f, route::WebSocketRoute) =
+    (ws_state_or_error(route, "on_message_from_server!").on_server = f; nothing)
+
+"""
+    on_close!(f, route::WebSocketRoute)
+
+Call `f(code, reason)` when either side closes the socket. Both arguments may be
+`nothing` — a socket can close without saying why.
+
+Registering this replaces the default, which is to close the *other* side: a
+callback that wants the close to propagate must call [`close_ws!`](@ref) or the
+server-side close itself.
+
+The route is released after the callback returns — the socket is over, and
+nothing else will arrive on it.
+"""
+on_close!(f, route::WebSocketRoute) =
+    (ws_state_or_error(route, "on_close!").on_close = f; nothing)
