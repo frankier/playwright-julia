@@ -62,9 +62,12 @@ wrong. Fix the lifetime, not the test.
         ```
       - `tasks/m6-api-gaps.md` gap 1 marked resolved in place with the three
         commits that did it
-- [ ] T5: open `tasks/m7-api-gaps.md`, empty on purpose (S) — R4, SC 30, no deps
+- [x] T5: open `tasks/m7-api-gaps.md`, empty on purpose (S) — R4, SC 30, no deps
       - **before T6**, or it will not get written at all (M5's lesson, which M6
         confirmed by following it)
+      - landed at `09f34a1`, before Part B had a line of code in it. It has
+        since earned two entries — gap 1 during Part B, gap 2 during T19 —
+        which is the instrument working rather than the file growing
 
 T5 ∥ everything — it is a file with a preamble and no dependencies.
 
@@ -173,37 +176,87 @@ T6 ∥ T10. T7 → T8 → T9 is sequential only because all three edit
 
 ## Phase 3: Part C — the files
 
-- [ ] T12: `downloads.jl` — `Download`, `expect_download`, context keywords (L)
+- [x] T12: `downloads.jl` — `Download`, `expect_download`, context keywords (L)
       — D10, D11, deps: Checkpoint B
       - `accept_downloads = nothing` **omits the parameter**; never sends
         `"internal-browser-default"`, which emits no event at all and costs a
         silent timeout (probed — `tasks/m7-probe.md`)
       - `:download` is **not** opt-in; `:dialog` and `:filechooser` are
       - docstrings must say `failure(dl)` is the only non-throwing success check
-- [ ] T13: download smoke, both engines (M) — SC 13–16, deps: T12
+      - **two spec corrections, both from checking rather than assuming.** D10
+        asks `new_context` to gain `downloads_path`; it cannot — `downloadsPath`
+        is in the `LaunchOptions` mixin, not `ContextOptions`, and `launch` has
+        exposed it correctly since before M7. And `test_events.jl` asserted
+        `:download` was deferred *on a context*; it is a `Page` event, so on a
+        context it is an ordinary "no such event for this owner"
+      - the tests use `timeout_fixture`, not `event_fixture`: the latter's
+        autoreply task drains `client_messages`, so a test asserting on the
+        message it sent loses the race and blocks forever. That cost a hung
+        suite before it cost a comment
+      - hermetic 1756 passed
+- [x] T13: download smoke, both engines (M) — SC 13–16, deps: T12
       - SC 14 asserts `isfile` immediately after `path(dl)` returns, with **no
         `sleep` anywhere** (R5)
       - SC 15 has two halves; the second — `path(dl)` *raises* on a refused
         download — is the one a user gets wrong
-- [ ] T14: `dialogs.jl` — `Dialog`, the registry, `with_dialog` (L) — D12,
+      - 32 assertions, 23s, both engines. The fixture server sets a
+        `Content-Disposition` filename that deliberately **differs** from the
+        URL (`report-2026.csv` from `/download/report.csv`) — without the
+        mismatch, SC 13 would pass on a name derived from the path and prove
+        nothing
+- [x] T14: `dialogs.jl` — `Dialog`, the registry, `with_dialog` (L) — D12,
       deps: T13 — **THE GATE**
       - write the lifetime before the behaviour; reuse M6's dispatcher pattern
         rather than inventing one
       - subscribing to `dialog` is *what* disables the driver's auto-dismiss,
         so there is no room to subscribe speculatively
-- [ ] T15: dialog smoke, both engines (M) — SC 17–19, deps: T14
+      - the `dialog` **event** is declared on `browserContext`, the
+        **subscription** is accepted on either — so a page-scoped registry
+        subscribes to the page's context and filters by the dialog's own page,
+        M6 D11's split again
+      - the first version **hung the suite**: its helper waited for a fixed
+        number of driver messages, and a wrong guess blocks forever instead of
+        failing. It uses the unbounded `autoreply!` responder now
+      - the unsettled warning is asserted through the registration's flag, not
+        `@test_logs` — the warning is emitted on the dispatcher task, spawned
+        before the macro installs its logger
+      - hermetic 1848 passed
+- [x] T15: dialog smoke, both engines (M) — SC 17–19, deps: T14
       - ⚠️ **SC 18 is the most important assertion in Part C**: with no handler
         registered, the dialog is auto-dismissed and the page proceeds. It is
         what catches the event-only design's footgun if the design ever drifts
-- [ ] T16: `uploads.jl` — `set_input_files!`, `FileChooser` (M) — D13, deps: T15
+      - asserted, and asserted through the **DOM** rather than through what
+        Julia saw: an accepted `confirm` and a dismissed one write different
+        text, so a handler whose answer never reached the browser fails here
+        instead of passing
+      - the two warnings in the run output are SC 19's, one per engine — the
+        once-per-registration rule visible in the log
+- [x] T16: `uploads.jl` — `set_input_files!`, `FileChooser` (M) — D13, deps: T15
       - validation lives in exactly one place; `set_files!` delegates
-- [ ] T17: upload smoke, asserted **server-side** (M) — SC 20–22, deps: T16
+      - the in-memory buffer reaches the wire as **raw bytes**: `to_wire`
+        encodes `Vector{UInt8}` itself, and encoding here would have worked
+        while quietly duplicating the rule
+      - the empty call sends an empty `localPaths` rather than omitting the
+        parameter — omitting both leaves the previous selection in place
+      - hermetic 1921 passed
+- [x] T17: upload smoke, asserted **server-side** (M) — SC 20–22, deps: T16
       - a client-side upload assertion proves nothing
       - `webkitdirectory` asserts `is_multiple == false` **on purpose** — probed
         identical on both engines, not an omission
-- [ ] T18: audit `DEFERRED_EVENTS` and gate it (S) — D14, SC 23, 24, deps: T17
+      - the fixture server records every multipart part into a `Ref` and the
+        tests read that; filenames **and full byte contents** compared, for the
+        single, multi and in-memory forms alike
+      - 102 assertions across T13, T15 and T17, 43s, both engines, no `sleep`
+- [x] T18: audit `DEFERRED_EVENTS` and gate it (S) — D14, SC 23, 24, deps: T17
       - `:route`'s message is rewritten, not deleted — `Route` *is* wrapped
       - prove the gate by re-adding `:download` to the table and watching it fail
+      - `:download`'s entry had said "Artifact is not wrapped yet" since M4
+        wrapped `Artifact` — an error message telling users something false
+        about why their event was unsupported. That is this table's failure
+        mode, and it is silent
+      - the gate is written as a function over its inputs rather than a bare
+        assertion, so SC 24 can watch it fail
+      - hermetic 1933 passed
 
 T12, T14 and T16 touch disjoint new files and are parallel in principle. Kept
 sequential in practice: each is followed by its own smoke task, and doing all
@@ -211,15 +264,39 @@ three before any smoke means debugging three new surfaces at once.
 
 ### Checkpoint C — the three surfaces work end to end
 
-- [ ] SC 13–24 all pass on Chromium and Firefox
-- [ ] No test needs a `sleep` to pass (R1 and R5's shared tripwire)
-- [ ] `tasks/m7-api-gaps.md` exists, whatever it contains
+- [x] SC 13–24 all pass on Chromium and Firefox — 102 smoke assertions across
+      T13, T15 and T17, 43s; hermetic 1933 at T18
+- [x] No test needs a `sleep` to pass (R1 and R5's shared tripwire) — the only
+      occurrences of the word in Part C's files are the comments naming the rule
+- [x] `tasks/m7-api-gaps.md` exists, whatever it contains — two entries
 
 ## Phase 4: docs and wrap-up
 
-- [ ] T19: `guide/files.md`, the events table, `api.md` (M) — SC 26, deps: T12–T18
+- [x] T19: `guide/files.md`, the events table, `api.md` (M) — SC 26, deps: T12–T18
       - the guide says why the dialog *registry* is the documented path even
         though `:dialog` is now a real event
+      - ⚠️ **`:dialog` is not a real event.** The line above assumed it was.
+        It is absent from `CONTEXT_EVENTS` as well as `PAGE_EVENTS`, so
+        `expect_event(page, :dialog)` reports `unknown event` — and since T14
+        also removed it from `DEFERRED_EVENTS`, nothing anywhere says why.
+        Recorded as `m7-api-gaps.md` gap 2 rather than fixed: it is a change to
+        `src/api/events.jl` in a docs task, which is the exact reflex R4 warns
+        about. **The guide documents what the code does**, which is that the
+        registry is the only path
+      - `api.md` needed **no new entries** — T12/T14/T16 added each name as they
+        landed, because `checkdocs = :exports` would have failed their commits
+        otherwise. The only thing missing was the page the `Dialog` docstring
+        already linked to, which is what made the build red
+      - the red was a real one, and pre-existing: `Cannot resolve @ref for
+        md"[Files, dialogs and uploads](@ref)" in docs/src/api.md`, from
+        `dialogs.jl:63`. It also fixed the page's title for me
+      - the events table gains `:download` and `:filechooser`; the deferred
+        paragraph was stale in three ways and now distinguishes "no accessors
+        yet" (`:worker`, `:websocket`, `:bindingcall`) from "wrapped, but not
+        event-shaped" (`:route`)
+      - docs build: zero errors, zero warnings, with `checkdocs = :exports`,
+        `warnonly = false` and `doctest = true` all still on (SC 26); hermetic
+        1933 unchanged; `format(".")` clean
 - [ ] T20: README status, `bonnie-parity.md` re-score (S) — SC 29, deps: T19
       - check the not-covered list item by item against `names(Playwright)`,
         not against memory

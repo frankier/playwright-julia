@@ -80,3 +80,50 @@ exactly when such work looks cheapest and is least in scope.
 "both examples pass on both engines" **cannot be met** in this environment, for
 a reason that predates the milestone. Everything else in Checkpoint B holds.
 
+---
+
+## 2. `:dialog` is neither supported nor deferred, so its error message is wrong
+
+Found while writing `docs/src/guide/files.md` (T19), which had to state what
+`expect_event(page, :dialog)` does. It says:
+
+```
+unknown event `:dialog` for Page. Supported: :close, :crash, :download, …
+```
+
+That is the one thing `:dialog` is not. `Dialog` is wrapped, documented and
+fully usable — it is simply answered through `with_dialog` and the registry
+rather than through an event, because subscribing is *what* disables the
+driver's auto-dismiss (D12).
+
+The removal was deliberate, not an oversight: T14 took `:dialog` out of
+`DEFERRED_EVENTS` alongside `:download` and `:filechooser`, and
+`test_events.jl:524` asserts it stays out. **But the reason recorded there is
+wrong on its load-bearing half.** The comment reads "It is a *context* event,
+and it is reachable — but `on_dialog!`/`with_dialog` is the documented path".
+`:dialog` is absent from `CONTEXT_EVENTS` as well as `PAGE_EVENTS`, so it is
+not reachable through `expect_event` on either owner; the registry reaches it
+through the internal `subscribe`, which no caller has. Unlike `:download` and
+`:filechooser`, which left the deferred table *because they arrived in*
+`PAGE_EVENTS`, `:dialog` left it and arrived nowhere.
+
+**This is exactly the case T18 made for `:route`**, four commits later and in
+the opposite direction: deleting a deferred entry for a type that *is* wrapped
+"would have turned a true `deferred` into a false `no such event`". `:route`
+kept its entry and had its message rewritten. `:dialog` is the same situation
+and got the other treatment, because T14 believed it was still reachable.
+
+The fix is one entry in `DEFERRED_EVENTS` — parallel to `:route`'s, saying that
+`Dialog` is wrapped but answering dialogs is `on_dialog!`/`with_dialog` rather
+than an event — plus inverting the assertion and correcting the comment at
+`test_events.jl:524` and `:584`. `deferred_table_is_honest` would still pass,
+because `:dialog` is genuinely absent from every owner's event table, which is
+what that gate checks.
+
+**Not fixed here.** T19 is a docs task and this is a behaviour change in
+`src/api/events.jl`, which is precisely the "cheap and in-scope" reflex R4
+warns about. The guide documents what the code actually does today: that
+`:dialog` is in neither list, and that the registry is the path.
+
+Recorded 2026-08-08, during T19.
+

@@ -23,6 +23,8 @@ event. Nothing the block does can be missed.
 |---|---|---|
 | `Page` | `:close`, `:crash` | the [`Page`](@ref) |
 | `Page` | `:frameattached`, `:framedetached` | [`Frame`](@ref) |
+| `Page` | `:download` | [`Download`](@ref) — see [`expect_download`](@ref) |
+| `Page` | `:filechooser` | [`FileChooser`](@ref) — see [`expect_file_chooser`](@ref) |
 | `BrowserContext` | `:page` | [`Page`](@ref) — this is how you catch a popup |
 | `BrowserContext` | `:close` | the [`BrowserContext`](@ref) |
 | `BrowserContext` | `:console` | [`ConsoleMessage`](@ref) |
@@ -32,10 +34,18 @@ event. Nothing the block does can be missed.
 | `BrowserContext` or `Page` | `:requestfinished` | [`Request`](@ref) |
 | `BrowserContext` or `Page` | `:requestfailed` | [`RequestFailure`](@ref) |
 
-Anything else raises `ArgumentError`. `:dialog`, `:download`, `:worker` and
-the WebSocket events are deferred rather than designed away: their payload
-types exist in the generated layer but have no accessors yet, and handing one
-back would look like support without being it.
+Anything else raises `ArgumentError`, and the message says which of two things
+went wrong. `:worker`, `:websocket` and `:bindingcall` are **deferred**: the
+payload types exist in the generated layer but have no accessors yet, so the
+event would hand you back nothing usable. `:route` is deferred for the opposite
+reason — [`Route`](@ref) is wrapped and fully usable, but interception is
+[`route!`](@ref)/[`with_route`](@ref), and an event would hand you a route with
+no guarantee anyone settles it.
+
+`:dialog` is in neither list. Dialogs are answered through
+[`with_dialog`](@ref) and the handler registry, because on the wire subscribing
+is *what* disables the driver's auto-dismiss — see
+[Files, dialogs and uploads](@ref).
 
 ### The network events are the context's, even on a page
 
