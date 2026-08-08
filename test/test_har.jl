@@ -13,6 +13,7 @@ using Base64: base64encode, base64decode
 using Playwright: route_from_har, route!, unroute!, unroute_all!
 
 const HAR_FIXTURE = joinpath(@__DIR__, "fixtures", "api.har")
+const HAR_ZIP_FIXTURE = joinpath(@__DIR__, "fixtures", "api.har.zip")
 
 """
 A FakeDriver whose replies are chosen by method, so one test can hand
@@ -400,6 +401,77 @@ end
         close(f.conn)
     end
 
+    # --- .har.zip, and who owns the temp directory (T6, D3) ----------------
+
+    @testset "a .zip is unzipped by the driver, into a temp dir (T6, SC 6)" begin
+        f = har_fixture()
+        reg = route_from_har(f.context, HAR_ZIP_FIXTURE)
+
+        unzips = filter(m -> get(m, "method", "") == "harUnzip", f.requests)
+        @test length(unzips) == 1
+        params = unzips[1]["params"]
+        har_file = params["harFile"]
+        # The extracted .har and the resources must land in the *same*
+        # directory: harLookup resolves a content `_file` beside the .har, not
+        # under a resources/ subdirectory. Probed — pointing resourcesDir
+        # somewhere else makes every body an ENOENT at lookup time.
+        @test params["resourcesDir"] == dirname(har_file)
+        @test dirname(params["zipFile"]) == dirname(har_file)
+
+        # harOpen is pointed at the extraction, not at the zip.
+        opens = filter(m -> get(m, "method", "") == "harOpen", f.requests)
+        @test only(opens)["params"]["file"] == har_file
+        @test !endswith(har_file, ".zip")
+
+        unroute!(f.context, reg)
+        close(f.conn)
+    end
+
+    @testset "the caller's .zip is copied, never handed to harUnzip (T6)" begin
+        # harUnzip *deletes the zip it is given* — probed, and it cost the
+        # fixture once. Replaying an archive must not consume it, so what the
+        # driver gets is a copy inside the temp directory.
+        f = har_fixture()
+        before = read(HAR_ZIP_FIXTURE)
+        reg = route_from_har(f.context, HAR_ZIP_FIXTURE)
+
+        zip_sent =
+            only(filter(m -> get(m, "method", "") == "harUnzip", f.requests))["params"]["zipFile"]
+        @test zip_sent != abspath(HAR_ZIP_FIXTURE)
+        @test isfile(HAR_ZIP_FIXTURE)
+        @test read(HAR_ZIP_FIXTURE) == before
+
+        unroute!(f.context, reg)
+        @test isfile(HAR_ZIP_FIXTURE)
+        @test read(HAR_ZIP_FIXTURE) == before
+        close(f.conn)
+    end
+
+    @testset "the temp directory is gone after unroute! (T6, SC 6)" begin
+        f = har_fixture()
+        reg = route_from_har(f.context, HAR_ZIP_FIXTURE)
+
+        har_file =
+            only(filter(m -> get(m, "method", "") == "harUnzip", f.requests))["params"]["harFile"]
+        tmp = dirname(har_file)
+        @test isdir(tmp)
+
+        unroute!(f.context, reg)
+        # The registration owned two lifetimes and released both (D3, R5).
+        @test !isdir(tmp)
+        @test any(m -> get(m, "method", "") == "harClose", f.requests)
+
+        close(f.conn)
+    end
+
+    @testset "a plain .har is not unzipped (T6)" begin
+        f = har_fixture()
+        reg = route_from_har(f.context, HAR_FIXTURE)
+        @test isempty(filter(m -> get(m, "method", "") == "harUnzip", f.requests))
+        unroute!(f.context, reg)
+        close(f.conn)
+    end
+
     @testset "harOpen answering with `error` names the archive (T4, D5a)" begin
         fake = FakeDriver()
         conn = fake.connection
@@ -560,6 +632,58 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
             end
 
             Playwright._local_utils_har_close(utils; harId = har_id)
+        end
+    end
+
+    @testset "a .har.zip really replays through harUnzip (T6, SC 6)" begin
+        # The hermetic tests above assert the *shape* of the unzip call against
+        # canned replies. This asserts it works: the driver's own extraction,
+        # its own lookup, and bodies that live outside the JSON.
+        playwright() do pw
+            utils = Playwright.local_utils(pw.connection)
+            before = read(HAR_ZIP_FIXTURE)
+
+            tmp = mktempdir()
+            zip_copy = joinpath(tmp, "archive.har.zip")
+            cp(HAR_ZIP_FIXTURE, zip_copy)
+            har_file = joinpath(tmp, "har.har")
+            Playwright._local_utils_har_unzip(
+                utils;
+                zipFile = zip_copy,
+                harFile = har_file,
+                resourcesDir = tmp,
+            )
+
+            # The copy was consumed and the original was not.
+            @test !isfile(zip_copy)
+            @test read(HAR_ZIP_FIXTURE) == before
+
+            opened = Playwright._local_utils_har_open(utils; file = har_file)
+            @test opened.error === nothing
+            ask(url; navigation = false) = Playwright._local_utils_har_lookup(
+                utils;
+                harId = opened.harId,
+                url = url,
+                method = "GET",
+                headers = Any[],
+                isNavigationRequest = navigation,
+            )
+
+            # A text body, from a file beside the .har rather than inline.
+            items = ask("http://probe.test/api/items")
+            @test items.action == "fulfill"
+            @test String(copy(items.body)) == "[\"a\",\"b\"]"
+
+            # And a binary one, which is the reason content = attach exists.
+            logo = ask("http://probe.test/api/logo.png")
+            @test logo.action == "fulfill"
+            @test logo.body[1:4] == UInt8[0x89, 0x50, 0x4e, 0x47]
+
+            # The redirect and noentry paths survive the round trip too.
+            @test ask("http://probe.test/a"; navigation = true).action == "redirect"
+            @test ask("http://probe.test/nope").action == "noentry"
+
+            Playwright._local_utils_har_close(utils; harId = opened.harId)
         end
     end
 end

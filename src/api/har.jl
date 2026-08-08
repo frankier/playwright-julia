@@ -17,8 +17,13 @@ Serve `target`'s matching requests from the HAR archive at `har`, so a page can
 be driven with no backend running at all.
 
 `target` is a [`Page`](@ref) or [`BrowserContext`](@ref); `har` is a path to a
-`.har`. `url` restricts which requests are served — a glob, `Regex` or
-predicate, exactly as [`route!`](@ref) takes — and `nothing` serves all of them.
+`.har` or a `.har.zip`. `url` restricts which requests are served — a glob,
+`Regex` or predicate, exactly as [`route!`](@ref) takes — and `nothing` serves
+all of them.
+
+A `.har.zip` — what Playwright writes when response bodies are attached rather
+than embedded — is unzipped by the driver into a temp directory that goes away
+with the registration. Your archive is copied, not consumed.
 
 ```julia
 route_from_har(ctx, "test/fixtures/api.har"; url = "**/api/**")
@@ -59,17 +64,65 @@ function route_from_har(
     isfile(archive) ||
         throw(ArgumentError("no HAR archive at $(archive) — nothing to replay from"))
 
-    har_id = open_archive(utils, archive)
+    opened, workdir = open_maybe_zipped(utils, archive)
 
     return route!(
         target,
         url === nothing ? "**/*" : url,
-        route -> serve_from_har(route, utils, har_id, archive, not_found);
+        route -> serve_from_har(route, utils, opened, archive, not_found);
         # harOpen is per-registration, not per-request: the driver parses the
         # archive once and hands back an id, and releasing it is unroute!'s job
-        # (D3).
-        release = () -> _local_utils_har_close(utils; harId = har_id),
+        # (D3). For a .zip there is a second lifetime — the extraction — and it
+        # is released here too, which is R5's "two lifetimes, one owner".
+        release = () -> begin
+            _local_utils_har_close(utils; harId = opened)
+            workdir === nothing || rm(workdir; recursive = true, force = true)
+        end,
     )
+end
+
+"""
+Open `archive`, unzipping it first when it is one, and return
+`(harId, workdir)`. `workdir` is `nothing` for a plain `.har` and the temp
+directory to delete otherwise.
+
+Playwright writes a `.har.zip` whenever `content = :attach`, because the
+response bodies live beside the JSON as separate files.
+`LocalUtils.harUnzip` is the driver's own extraction, which is how Assumption 11
+can promise no new dependency: the alternative is a zip library in
+`Project.toml` to reimplement a call the driver already exposes (D3).
+
+Two things about `harUnzip` were found by probing rather than by reading, and
+both are load-bearing:
+
+  - **It deletes the zip it is given.** Replaying an archive must not consume
+    it, so the caller's file is copied into the temp directory and the copy is
+    what the driver eats.
+  - **`resourcesDir` must be the directory holding the extracted `.har`.**
+    `harLookup` resolves a content `_file` beside the `.har`; point the
+    resources somewhere else and every body comes back as an `ENOENT` at lookup
+    time, long after the call that got it wrong.
+"""
+function open_maybe_zipped(utils, archive::AbstractString)
+    endswith(lowercase(archive), ".zip") || return (open_archive(utils, archive), nothing)
+
+    workdir = mktempdir(; prefix = "playwright-jl-har-")
+    try
+        zip_copy = joinpath(workdir, "archive.har.zip")
+        cp(archive, zip_copy)
+        har_file = joinpath(workdir, "har.har")
+        _local_utils_har_unzip(
+            utils;
+            zipFile = zip_copy,
+            harFile = har_file,
+            resourcesDir = workdir,
+        )
+        return (open_archive(utils, har_file), workdir)
+    catch
+        # Nothing is registered yet, so nothing will ever release this.
+        rm(workdir; recursive = true, force = true)
+        rethrow()
+    end
 end
 
 """

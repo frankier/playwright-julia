@@ -38,7 +38,7 @@ ask about Part D — not at T20 (R1, Assumption 10).
       `not_found` validation (D2, D4) — SC 2, 3
 - [x] **T5** (M) `redirect` → one `continue!`; the driver's cycle error; the
       abort message that names the archive (D5, D5a) — SC 4, 5
-- [ ] **T6** (M) `.har.zip` via `harUnzip`; the temp dir owned by `unroute!`
+- [x] **T6** (M) `.har.zip` via `harUnzip`; the temp dir owned by `unroute!`
       (D3) — SC 6
 - [ ] **T7** (M) `with_har`; `update = true` refused; `harClose` on the wire
       (D2, D7) — SC 7, 8
