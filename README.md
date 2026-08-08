@@ -119,12 +119,16 @@ generated API would be a transliteration of TypeScript rather than Julia.
 
 ## Status
 
-Chromium and Firefox, on Linux, synchronous API. Milestones 1–7 are complete:
+Chromium and Firefox, on Linux, synchronous API. Milestones 1–8 are complete:
 the protocol and driver layer, the broad API, driver-side waiting and retrying
 assertions, artifacts and the failure path, the documentation site, the
 network — route interception, the four network events, and enough of
-`APIRequestContext` to fulfil a route from a real upstream response — and the
-file surfaces: downloads, JavaScript dialogs and uploads.
+`APIRequestContext` to fulfil a route from a real upstream response — the
+file surfaces: downloads, JavaScript dialogs and uploads — and milestone 8's
+three: HAR recording and replay (a page's whole network served from an archive
+with no backend running), persistent contexts (a profile that survives the
+browser closing), and WebSocket routing (mock a socket entirely, or proxy it
+and rewrite messages in flight).
 
 Two rounds of renaming, both without deprecation shims — the old spellings
 simply stop existing. Milestone 6 renamed twelve calls, so that every call
@@ -134,8 +138,10 @@ changing what the page can observe ends in `!`: `goto!`, `click!`, `close!`,
 `screenshot`/`pdf` split from `screenshot_bytes`/`pdf_bytes`, and `save_as!`
 takes its destination as a keyword.
 
-Not yet covered: WebKit; HAR recording and `route_from_har`; WebSocket routing;
-service workers; persistent contexts; a Julia trace *viewer* or any trace
+Not yet covered, each checked against `names(Playwright)` rather than against
+memory: WebKit — the `BrowserType` is in the driver's root initializer, but
+`PlaywrightAPI` has `chromium` and `firefox` fields only, so there is no
+`pw.webkit` to launch; service workers; a Julia trace *viewer* or any trace
 parsing; an async API.
 
 [`docs/bonnie-parity.md`](docs/bonnie-parity.md) records the driving use case:

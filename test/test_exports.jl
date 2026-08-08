@@ -220,6 +220,53 @@
         @test haskey(documented, Base.Docs.Binding(Playwright, :fetch))
     end
 
+    # M8 T24: the README's "not yet covered" list, checked against the export
+    # set rather than against memory.
+    #
+    # The failure this prevents has happened twice in this repo already, in
+    # different files: guide/network.md called `route_from_har` unwrapped for
+    # two milestones after it was wrapped, and DEFERRED_EVENTS[:dialog] told
+    # readers a documented type was unusable. A list of absences is the one
+    # kind of documentation that rots silently — nothing breaks when it goes
+    # stale, it just misinforms.
+    #
+    # Written as a function over its inputs, the shape `deferred_table_is_honest`
+    # uses, so the gate can be watched failing as well as passing.
+    @testset "the README's not-covered list is still true (T24, SC 33)" begin
+        # The phrase the list would use, and the exported name that exists if
+        # the thing is in fact covered.
+        claims = [
+            "HAR recording" => :start_har_recording!,
+            "route_from_har" => :route_from_har,
+            "WebSocket routing" => :route_web_socket!,
+            "persistent contexts" => :launch_persistent_context,
+        ]
+
+        "The `Not yet covered` paragraph alone — the covered prose above it
+        mentions the same features on purpose."
+        function not_covered_paragraph(text)
+            start = findfirst("Not yet covered", text)
+            start === nothing && return ""
+            rest = text[first(start):end]
+            stop = findfirst("\n\n", rest)
+            return stop === nothing ? rest : rest[1:first(stop)]
+        end
+
+        status_claims_are_honest(text, exported) = sort([
+            phrase for (phrase, name) in claims if
+            occursin(phrase, not_covered_paragraph(text)) && name in exported
+        ])
+
+        readme = read(joinpath(dirname(@__DIR__), "README.md"), String)
+        @test !isempty(not_covered_paragraph(readme))   # the walk is not vacuous
+        @test status_claims_are_honest(readme, names(Playwright)) == String[]
+
+        # The gate, watched failing: a list that still calls WebSocket routing
+        # uncovered must be caught, or this test is decoration.
+        stale = "Not yet covered: WebKit; WebSocket routing; service workers.\n\n"
+        @test status_claims_are_honest(stale, names(Playwright)) == ["WebSocket routing"]
+    end
+
     # ...and every one carries documentation. The generated channel types are
     # the trap here: they are defined in a file that is not hand-edited, so
     # their docstrings live in src/objects.jl and are easy to forget when a
