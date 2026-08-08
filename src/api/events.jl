@@ -369,6 +369,14 @@ const DEFERRED_EVENTS = Dict(
     # offered as an event, because `route!` is the supported path — an event
     # would hand you a route with no guarantee anyone settles it.
     :route => "Route is wrapped, but interception is `route!`/`with_route`, not an event",
+    # The same case as :route, and the one this table exists to catch. T14 took
+    # :dialog out on the assumption that it had become reachable; it had not,
+    # and for four commits the package answered a question about a wrapped,
+    # documented type with "unknown event". It cannot become an event either:
+    # subscribing to `dialog` is WHAT disables the driver's auto-dismiss, so the
+    # registry owns the subscription and an expect_event form would disarm the
+    # safety net by being used (D12).
+    :dialog => "Dialog is wrapped, but dialogs are answered with `on_dialog!`/`with_dialog`, not an event",
 )
 
 """

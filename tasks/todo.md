@@ -264,13 +264,12 @@ three before any smoke means debugging three new surfaces at once.
 
 ### Checkpoint C — the three surfaces work end to end
 
-- [x] SC 13–22 and 24 all pass on Chromium and Firefox — 102 smoke assertions
-      across T13, T15 and T17, 43s; hermetic 1933 at T18.
-      **SC 23 is half met and is not ticked** — see the table below and
-      `m7-api-gaps.md` gap 2. The three events are absent from
-      `DEFERRED_EVENTS` as required, but `:dialog` is not in
-      `events_for(::Page)` either, so the criterion's second half is false as
-      written. Found in T19, recorded rather than quietly ticked
+- [x] SC 13–24 all pass on Chromium and Firefox — 102 smoke assertions across
+      T13, T15 and T17, 43s; hermetic 1933 at T18, 1945 after T22.
+      **SC 23 was half met until T22** — `:dialog` was absent from
+      `DEFERRED_EVENTS` *and* from every event table, so the criterion's second
+      half was false as written. Found in T19, recorded as `m7-api-gaps.md`
+      gap 2 rather than quietly ticked, fixed in T22 on instruction
 - [x] No test needs a `sleep` to pass (R1 and R5's shared tripwire) — the only
       occurrences of the word in Part C's files are the comments naming the rule
 - [x] `tasks/m7-api-gaps.md` exists, whatever it contains — two entries
@@ -288,6 +287,8 @@ three before any smoke means debugging three new surfaces at once.
         `src/api/events.jl` in a docs task, which is the exact reflex R4 warns
         about. **The guide documents what the code does**, which is that the
         registry is the only path
+      - **fixed in T22**, on instruction. The guide's wording moved with it:
+        `:dialog` is deferred with a message now, not silently unknown
       - `api.md` needed **no new entries** — T12/T14/T16 added each name as they
         landed, because `checkdocs = :exports` would have failed their commits
         otherwise. The only thing missing was the page the `Dialog` docstring
@@ -323,18 +324,39 @@ three before any smoke means debugging three new surfaces at once.
 - [x] T21: final verification of all 30 criteria (M) — deps: everything
       - a criterion that cannot be met **says so** instead of being ticked —
         M6's Checkpoint A is the precedent
-      - **28 met, 2 partially met and named as such.** SC 7's second half is
-        unreachable *as written* (`UndefKeywordError`, not `MethodError` — the
-        keyword the same criterion requires is what makes it so), and SC 23's
-        second half is **false**: `:dialog` is in no owner's event table
+      - **28 met, 2 partially met and named as such** at the time of the run.
+        SC 7's second half is unreachable *as written* (`UndefKeywordError`,
+        not `MethodError` — the keyword the same criterion requires is what
+        makes it so). SC 23's second half was **false**: `:dialog` was in no
+        owner's event table. T22 fixed that one, so 29 are met now and SC 7
+        remains the only criterion that cannot be met as written
       - everything re-run at `911e63d` rather than cited from memory: hermetic
         1933, smoke 2776 both engines, docs build clean, `--check` in sync,
         `format(".")` true, `Project.toml` diff empty, all 8 example runs pass
+- [x] T22: `:dialog` says *deferred* rather than *unknown* (S) — SC 23, gap 2,
+      deps: T21 — **not in the plan**, added on instruction after T21 reported
+      the gap
+      - written test-first, and the red named the bug rather than a count:
+        ```
+        Expression: occursin("deferred", lowercase(err.msg))
+         Evaluated: occursin("deferred", "unknown event `:dialog` for page.
+                    supported: :close, :crash, :download, :filechooser, …")
+        ```
+      - the new testset asserts **the message a user sees**, on both owners.
+        Table membership was already covered by T18's gate, and the gate passed
+        throughout — `deferred_table_is_honest` checks that deferred entries are
+        not secretly supported, and an event missing from *both* tables is
+        invisible to it. That blind spot is the finding
+      - `test_events.jl` also asserts `:dialog` is in neither `PAGE_EVENTS` nor
+        `CONTEXT_EVENTS`, which is the fact T14's comment got wrong and what
+        made the removal look safe
+      - hermetic 1933 → **1945**; docs build clean
 
 ### Checkpoint D — milestone complete
 
-- [x] All 30 criteria verified, each by running it, in the table below — 28
-      met, SC 7 and SC 23 partially met with the unmet half stated
+- [x] All 30 criteria verified, each by running it, in the table below — 29
+      met after T22; **SC 7 alone cannot be met as written**, and its row says
+      why rather than being ticked
 - [x] Gates confirmed still on: `checkdocs = :exports`, `warnonly = false`,
       `doctest = true`, both engines in smoke and `runexamples.jl`
 - [x] `Project.toml` unchanged since M6 — no new dependency (SC 27):
@@ -368,7 +390,7 @@ Filled in by T21. A criterion that cannot be met says so.
 | 20 | `test_smoke_files.jl:300`, `:311`, `:323`, both engines. The fixture server records every multipart part into a `Ref` and the tests read **that**, not the DOM — filenames and full byte contents, for the single, multi and in-memory forms |
 | 21 | `test_smoke_files.jl:337`, both engines — the `ArgumentError` arrives before the wire, and the page is untouched by the call that never happened. Also hermetic in `test_uploads.jl`, where the assertion is that nothing was sent |
 | 22 | `test_smoke_files.jl:350` and `:365`, both engines. `false` for a plain input, `true` for `multiple`, **`false` for `webkitdirectory`** — asserted on purpose, not by omission: the probe found the engines in exact agreement, so `true` would be wrong on both rather than catching a divergence. `set_files!` through the chooser gets its own server-side leg |
-| 23 | ⚠️ **Half met, and not ticked.** First half holds: `:download`, `:dialog` and `:filechooser` are all absent from `DEFERRED_EVENTS` (`[:bindingcall, :route, :websocket, :worker]`), and the gate in `test_events.jl` is written as a function over its inputs so SC 24 can watch it fail. Second half is **false as written**: `:download` and `:filechooser` are in `events_for(::Page)`, but `:dialog` is in neither `PAGE_EVENTS` nor `CONTEXT_EVENTS`, so `expect_event(page, :dialog)` reports `unknown event` — a false "no such event" for a type that is wrapped and documented. Found in T19, recorded as `m7-api-gaps.md` gap 2, and left unfixed because it is a behaviour change discovered during a docs task. The fix is one `DEFERRED_EVENTS` entry parallel to `:route`'s, plus two test lines |
+| 23 | **Met, both halves — after a fix.** `:download` and `:filechooser` are absent from `DEFERRED_EVENTS` and present in `events_for(::Page)`. `:dialog` was absent from *both* tables at T21, so `expect_event(page, :dialog)` reported ``unknown event `:dialog` for Page`` — a false "no such event" for a wrapped, documented type. Recorded as `m7-api-gaps.md` gap 2, then fixed on instruction: one `DEFERRED_EVENTS` entry parallel to `:route`'s. The criterion's second half is met **as amended** — `:dialog` is deferred rather than in `events_for(::Page)`, because subscribing is what disarms the auto-dismiss, so it can never be an event. `test_events.jl` now asserts the error message a user sees, not just table membership |
 | 24 | `DEFERRED_EVENTS[:route]` reads: *Route is wrapped, but interception is `route!`/`with_route`, not an event*. The M4-era claim that `Artifact` was unwrapped is gone with `:download`'s entry |
 | 25 | Hermetic `Pkg.test()`: **1933 passed, 0 failed**, 3m48s. `PLAYWRIGHT_JL_SMOKE=1 Pkg.test()`: **2776 passed, 0 failed**, 11m40s, Chromium and Firefox |
 | 26 | `julia --project=docs docs/make.jl` — zero errors, zero warnings. `checkdocs = :exports`, `warnonly = false` and `doctest = true` all still on in `docs/make.jl`, none weakened; the size thresholds are the only tuned settings and predate M7 |

@@ -521,10 +521,16 @@ end
         # must no longer claim to be deferred.
         @test haskey(Playwright.events_for(f.page), :download)
         @test !haskey(Playwright.DEFERRED_EVENTS, :download)
-        # M7 T14 took :dialog out too. It is a *context* event, and it is
-        # reachable -- but on_dialog!/with_dialog is the documented path,
-        # because subscribing is what disarms the driver's auto-dismiss.
-        @test !haskey(Playwright.DEFERRED_EVENTS, :dialog)
+        # :dialog is NOT the same case, and T14 got it wrong by treating it as
+        # one. It is in no owner's event table -- not PAGE_EVENTS, not
+        # CONTEXT_EVENTS -- because subscribing is what disarms the driver's
+        # auto-dismiss, so the registry owns the subscription and no caller can
+        # reach it through expect_event. An entry that is absent from both
+        # tables at once is a false "no such event", which is exactly what T18
+        # kept :route's entry to avoid.
+        @test !haskey(Playwright.events_for(f.page), :dialog)
+        @test !haskey(Playwright.CONTEXT_EVENTS, :dialog)
+        @test haskey(Playwright.DEFERRED_EVENTS, :dialog)
         err = try
             expect_event(f.context, :download) do
             end
@@ -579,10 +585,42 @@ end
         for key in (:worker, :websocket, :bindingcall)
             @test occursin("no accessors yet", Playwright.DEFERRED_EVENTS[key])
         end
+        # :dialog is :route's case, not :worker's: the type is wrapped and
+        # usable, so the message must send the reader to the API that answers
+        # dialogs rather than imply none exists.
+        @test occursin("with_dialog", Playwright.DEFERRED_EVENTS[:dialog])
+        @test !occursin("no accessors yet", Playwright.DEFERRED_EVENTS[:dialog])
 
-        # And the three Part C events really are gone.
-        for gone in (:download, :dialog, :filechooser)
+        # And the two Part C events that really did become events are gone.
+        for gone in (:download, :filechooser)
             @test !haskey(Playwright.DEFERRED_EVENTS, gone)
+        end
+        close(f.conn)
+    end
+
+    # The bug this fixes: :dialog left DEFERRED_EVENTS in T14 without arriving
+    # in any event table, so for four commits the package answered a question
+    # about a wrapped, documented type with "unknown event". The gate below
+    # catches an entry that lies about being unsupported; nothing caught an
+    # event that was silently unmentioned, which is why this asserts on the
+    # message a user actually sees rather than on table membership.
+    @testset "asking for :dialog explains the registry (m7-api-gaps gap 2)" begin
+        f = event_fixture()
+        for owner in (f.page, f.context)
+            err = try
+                expect_event(owner, :dialog) do
+                end
+                nothing
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            # Deferred, not unknown -- the distinction is the whole fix.
+            @test occursin("deferred", lowercase(err.msg))
+            @test !occursin("unknown event", lowercase(err.msg))
+            # And it names the way out, so the error is a signpost rather than
+            # a dead end.
+            @test occursin("with_dialog", err.msg)
         end
         close(f.conn)
     end

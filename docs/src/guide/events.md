@@ -42,9 +42,9 @@ reason — [`Route`](@ref) is wrapped and fully usable, but interception is
 [`route!`](@ref)/[`with_route`](@ref), and an event would hand you a route with
 no guarantee anyone settles it.
 
-`:dialog` is in neither list. Dialogs are answered through
-[`with_dialog`](@ref) and the handler registry, because on the wire subscribing
-is *what* disables the driver's auto-dismiss — see
+`:dialog` is deferred for `:route`'s reason and permanently: dialogs are
+answered through [`with_dialog`](@ref) and the handler registry, because on the
+wire subscribing is *what* disables the driver's auto-dismiss — see
 [Files, dialogs and uploads](@ref).
 
 ### The network events are the context's, even on a page

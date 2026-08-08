@@ -84,6 +84,24 @@ a reason that predates the milestone. Everything else in Checkpoint B holds.
 
 ## 2. `:dialog` is neither supported nor deferred, so its error message is wrong
 
+> **RESOLVED, on the maintainer's instruction.** Recorded first as a gap, then
+> fixed when asked — the same distinction gap 1 kept, and the reason this file
+> records rather than acts. The entry below stands as written; what follows is
+> what the fix was.
+>
+> One entry in `DEFERRED_EVENTS` parallel to `:route`'s, and the message a user
+> now gets is *deferred: Dialog is wrapped, but dialogs are answered with
+> `on_dialog!`/`with_dialog`, not an event*. Written test-first: the red run
+> named the bug exactly — ``unknown event `:dialog` for Page`` — and the new
+> testset asserts on that message rather than on table membership, because
+> membership is what the existing gate already covered and the message is what
+> it missed. `test_events.jl` also asserts `:dialog` is in **neither**
+> `PAGE_EVENTS` nor `CONTEXT_EVENTS`, which is the fact T14's comment got
+> wrong. Hermetic 1933 → 1945.
+>
+> **SC 23 is fully met now**, both halves, and its row in `tasks/todo.md` says
+> so with the correction visible rather than rewritten away.
+
 Found while writing `docs/src/guide/files.md` (T19), which had to state what
 `expect_event(page, :dialog)` does. It says:
 
@@ -125,5 +143,5 @@ what that gate checks.
 warns about. The guide documents what the code actually does today: that
 `:dialog` is in neither list, and that the registry is the path.
 
-Recorded 2026-08-08, during T19.
+Recorded 2026-08-08, during T19. Fixed 2026-08-08, after T21, on instruction.
 

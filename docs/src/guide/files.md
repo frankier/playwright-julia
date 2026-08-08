@@ -154,8 +154,23 @@ So an event-shaped API would disarm the safety net simply by being used — an
 `expect_event(page, :dialog)` that timed out would leave the page stuck behind
 the next dialog, and a speculative subscription would do it to pages nobody was
 watching. The registry only subscribes once a handler actually exists to answer,
-and unsubscribes when the last one goes away. `:dialog` is therefore not offered
-in the [event table](@ref "What you can subscribe to") at all.
+and unsubscribes when the last one goes away.
+
+`:dialog` is therefore not in the
+[event table](@ref "What you can subscribe to"), and asking for it says so:
+
+```julia
+expect_event(page, :dialog) do
+    click!(locator(page, "#delete"))
+end
+# ArgumentError: event `:dialog` is not supported yet — deferred: Dialog is
+# wrapped, but dialogs are answered with `on_dialog!`/`with_dialog`, not an
+# event.
+```
+
+The error says *deferred* rather than *unknown*, which is the difference
+between "there is an API for this, but not an event-shaped one" and "you have
+made a typo". Those send a reader to different places.
 
 ## Uploads
 
