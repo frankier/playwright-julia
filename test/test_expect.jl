@@ -315,7 +315,10 @@ end
 
     @testset "a Regex expectation works, as it does for locators" begin
         f = timeout_fixture()
-        sent = waiting_request(f.fake, () -> expect(f.page; to_have_url = r"late-title\.html$"))
+        sent = waiting_request(
+            f.fake,
+            () -> expect(f.page; to_have_url = r"late-title\.html$"),
+        )
         expected = sent["params"]["expectedText"][1]
         @test expected["regexSource"] == "late-title\\.html\$"
         @test !haskey(expected, "string")

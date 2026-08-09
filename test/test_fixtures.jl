@@ -825,7 +825,10 @@ end
                     # fixture has to produce both.
                     @test js_wait(page, "window.__threwAt !== undefined")
                     @test !isempty(console_messages(page))
-                    @test any(e -> occursin("late-title fixture", e.message), page_errors(page))
+                    @test any(
+                        e -> occursin("late-title fixture", e.message),
+                        page_errors(page),
+                    )
 
                     # Enough rendered content that a screenshot and a PDF are
                     # more than a blank sheet.
