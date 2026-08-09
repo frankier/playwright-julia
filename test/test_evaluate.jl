@@ -5,7 +5,7 @@
 # proved here is the wiring — that a Julia value survives the trip out to the
 # page and back, and that handles are held and released correctly.
 
-@testset "evaluate ($(name))" for name in ("chromium", "firefox")
+@testset "evaluate ($(name))" for name in SMOKE_ENGINES
     with_fixture_server() do base_url
         playwright() do pw
             browser = launch(getfield(pw, Symbol(name)))

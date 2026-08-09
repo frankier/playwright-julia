@@ -35,11 +35,15 @@ jobs:
       - uses: julia-actions/julia-runtest@v1
 
   smoke:
-    # The job that makes CI mean something for this package: real Chromium and
-    # real Firefox, in one job, against the local fixture server.
-    name: Smoke (chromium + firefox)
+    # The job that makes CI mean something for this package: real browsers
+    # against the local fixture server, one job per engine.
+    name: Smoke (${{ matrix.engine }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox]
     env:
       # Relocate the browsers into the workspace so actions/cache can see them.
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
@@ -84,18 +88,24 @@ jobs:
       - name: Smoke tests
         env:
           PLAYWRIGHT_JL_SMOKE: "1"
+          PLAYWRIGHT_JL_ENGINE: ${{ matrix.engine }}
         run: julia --project=. -e 'using Pkg; Pkg.test()'
 
   examples:
-    # The four examples, on the committed Manifest, on both
-    # engines. Slow by nature: it loads Genie and Makie, and WGLMakie's first
-    # render costs about a minute on a cold runner while SwiftShader compiles
-    # shaders on the CPU.
-    name: Examples (chromium + firefox)
+    # The four examples, on the committed Manifest, one job per engine. Slow
+    # by nature: it loads Genie and Makie, and WGLMakie's first render costs
+    # about a minute on a cold runner while SwiftShader compiles shaders on
+    # the CPU.
+    name: Examples (${{ matrix.engine }})
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox]
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
+      PLAYWRIGHT_JL_ENGINE: ${{ matrix.engine }}
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v2
@@ -129,18 +139,35 @@ jobs:
         if: steps.browsers.outputs.cache-hit != 'true'
         run: julia bin/install.jl
 
+      - name: Install xvfb (firefox WebGL under a virtual display)
+        # Firefox's `--headless` is hit-or-miss for WebGL — sometimes it
+        # reports a WebGL context but paints only a flat background, which is
+        # just what WGLMakie's pixel assertion guards against. Running headed
+        # against a virtual X server lets Mesa's software GL stack take the
+        # whole path through, the same way it renders locally. Chromium's
+        # `--headless` ships SwiftShader and needs none of this.
+        if: matrix.engine == 'firefox'
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends xvfb
+
       - name: Instantiate the examples environment
         # No --update: the committed Manifest is the point.
         run: julia --project=examples -e 'using Pkg; Pkg.instantiate()'
 
-      - name: Run every example on both engines
-        run: julia --project=examples examples/runexamples.jl
+      - name: Run the examples
+        # Firefox runs headed under xvfb so its WebGL stack works; chromium
+        # runs headless as before.
+        run: |
+          if [ "$PLAYWRIGHT_JL_ENGINE" = "firefox" ]; then
+            PLAYWRIGHT_JL_HEADLESS=false xvfb-run -a julia --project=examples examples/runexamples.jl
+          else
+            julia --project=examples examples/runexamples.jl
+          fi
 
       - name: Upload the artifacts the examples wrote
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: example-artifacts
+          name: example-artifacts-${{ matrix.engine }}
           path: examples/output/
           if-no-files-found: warn
 

@@ -247,7 +247,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
     @testset "with_page, live" begin
         with_fixture_server() do base_url
             playwright() do pw
-                for engine in ("chromium", "firefox")
+                for engine in SMOKE_ENGINES
                     bt = getfield(pw, Symbol(engine))
 
                     @testset "$engine: a throwing body propagates and leaves evidence" begin
@@ -255,7 +255,11 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         dir = mktempdir()
 
                         err = try
-                            with_page(browser, "$base_url/late-title.html"; artifacts = dir) do page
+                            with_page(
+                                browser,
+                                "$base_url/late-title.html";
+                                artifacts = dir,
+                            ) do page
                                 expect(page; to_have_title = "Dashboard")
                                 error("the assertion I actually care about")
                             end
@@ -293,11 +297,14 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         browser = launch(bt; headless = true)
                         dir = mktempdir()
 
-                        result =
-                            with_page(browser, "$base_url/late-title.html"; artifacts = dir) do page
-                                expect(page; to_have_title = "Dashboard")
-                                return :passed
-                            end
+                        result = with_page(
+                            browser,
+                            "$base_url/late-title.html";
+                            artifacts = dir,
+                        ) do page
+                            expect(page; to_have_title = "Dashboard")
+                            return :passed
+                        end
 
                         @test result == :passed
                         @test isempty(readdir(dir))

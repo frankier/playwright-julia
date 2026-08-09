@@ -1,6 +1,14 @@
 using Test
 using Playwright
 
+# CI splits the smoke suite into one job per engine via PLAYWRIGHT_JL_ENGINE;
+# locally the env var is unset and both run. The const is module-level so the
+# smoke files included below can see it — `include` evaluates at module scope,
+# not inside the @testset's local scope.
+const SMOKE_ENGINES =
+    haskey(ENV, "PLAYWRIGHT_JL_ENGINE") ? [ENV["PLAYWRIGHT_JL_ENGINE"]] :
+    ["chromium", "firefox"]
+
 @testset "Playwright.jl" begin
     @testset "package loads" begin
         @test Playwright isa Module

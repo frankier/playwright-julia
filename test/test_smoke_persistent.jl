@@ -16,7 +16,7 @@ using Playwright: launch_persistent_context
 @testset "smoke: persistent contexts" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: the profile survives the process" begin

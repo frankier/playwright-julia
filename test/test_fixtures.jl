@@ -32,7 +32,7 @@ end
 @testset "engine metadata" begin
     playwright() do pw
         @testset "browser_name on a running Browser" begin
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
                 browser = launch(bt; headless = true)
                 @test browser_name(browser) == engine
@@ -53,7 +53,7 @@ end
                 chromium_sandbox = false,
                 firefox_user_prefs = Dict("dom.disable_beforeunload" => true),
             )
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
                 browser = launch(bt; headless = true, opts...)
                 @test browser_name(browser) == engine
@@ -72,7 +72,7 @@ end
 @testset "expect" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: expect retries until a late element arrives" begin
@@ -271,7 +271,7 @@ end
 @testset "closed pages" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: calls on a closed page raise TargetClosedError" begin
@@ -351,7 +351,7 @@ end
 @testset "locator ergonomics" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: evaluate on a Locator drives a range input" begin
@@ -466,7 +466,7 @@ end
 @testset "waiting" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: wait_for_selector waits for a late element" begin
@@ -616,7 +616,7 @@ end
 @testset "events" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: a popup arrives as a Page" begin
@@ -776,7 +776,7 @@ end
 @testset "the waiting and console fixtures" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: target.html — late element and window.ready" begin
@@ -825,7 +825,10 @@ end
                     # fixture has to produce both.
                     @test js_wait(page, "window.__threwAt !== undefined")
                     @test !isempty(console_messages(page))
-                    @test any(e -> occursin("late-title fixture", e.message), page_errors(page))
+                    @test any(
+                        e -> occursin("late-title fixture", e.message),
+                        page_errors(page),
+                    )
 
                     # Enough rendered content that a screenshot and a PDF are
                     # more than a blank sheet.

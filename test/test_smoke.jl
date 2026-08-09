@@ -85,7 +85,7 @@ tryrun(cmd) =
 
     with_fixture_server() do base_url
         playwright() do pw
-            for browser_name in ("chromium", "firefox")
+            for browser_name in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(browser_name))
 
                 @testset "$browser_name: launch → new_page → goto! → title → close!" begin

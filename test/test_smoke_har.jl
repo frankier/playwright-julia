@@ -78,7 +78,7 @@ end
 
 @testset "smoke: HAR round trip" begin
     playwright() do pw
-        for engine in ("chromium", "firefox")
+        for engine in SMOKE_ENGINES
             bt = getfield(pw, Symbol(engine))
 
             @testset "$engine: record, stop the server, replay" begin
