@@ -33,6 +33,7 @@
       // what the *page* saw rather than on what the test thinks it sent. An
       // aborted request lands in #failure, which is what abort! is asserted on.
       async function load(url, into) {
+        status.textContent = "loading";
         try {
           const response = await fetch(url);
           const body = await response.text();
