@@ -35,11 +35,15 @@ jobs:
       - uses: julia-actions/julia-runtest@v1
 
   smoke:
-    # The job that makes CI mean something for this package: real Chromium and
-    # real Firefox, in one job, against the local fixture server.
-    name: Smoke (chromium + firefox)
+    # The job that makes CI mean something for this package: real browsers
+    # against the local fixture server, one job per engine.
+    name: Smoke (${{ matrix.engine }})
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [chromium, firefox]
     env:
       # Relocate the browsers into the workspace so actions/cache can see them.
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
@@ -84,6 +88,7 @@ jobs:
       - name: Smoke tests
         env:
           PLAYWRIGHT_JL_SMOKE: "1"
+          PLAYWRIGHT_JL_ENGINE: ${{ matrix.engine }}
         run: julia --project=. -e 'using Pkg; Pkg.test()'
 
   examples:

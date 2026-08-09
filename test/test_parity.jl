@@ -117,7 +117,7 @@ end
 # against a page where everything asserted on is absent at load.
 @testset "the waiting and events walkthrough" begin
     with_fixture_server() do base_url
-        for engine in ("chromium", "firefox")
+        for engine in SMOKE_ENGINES
             @testset "$engine" begin
                 url = "$base_url/waiting.html"
 
@@ -187,7 +187,7 @@ end
 # refuses. Every other line is shared.
 @testset "the artifacts walkthrough" begin
     with_fixture_server() do base_url
-        for engine in ("chromium", "firefox")
+        for engine in SMOKE_ENGINES
             @testset "$engine" begin
                 probe_url = "$base_url/late-title.html"
                 fixture = joinpath(@__DIR__, "fixtures", "late-title.html")

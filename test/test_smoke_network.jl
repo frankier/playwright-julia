@@ -153,7 +153,7 @@ todo_texts(page) =
 @testset "smoke: network" begin
     with_network_server() do base_url, hits, seen_headers
         playwright() do pw
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: with_route fulfils with no server behind it" begin

@@ -3,7 +3,7 @@
 # This is the case Bonnie's CDP shim could not express: reaching into a
 # same-origin iframe, driving something in it, and reading the result back.
 
-@testset "frames ($(browser_name))" for browser_name in ("chromium", "firefox")
+@testset "frames ($(browser_name))" for browser_name in SMOKE_ENGINES
     with_fixture_server() do base_url
         playwright() do pw
             browser = launch(getfield(pw, Symbol(browser_name)))

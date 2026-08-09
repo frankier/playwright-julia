@@ -88,7 +88,7 @@ end
 @testset "smoke: WebSocket routing" begin
     with_websocket_server() do base_url, connections
         playwright() do pw
-            for engine in ("chromium", "firefox")
+            for engine in SMOKE_ENGINES
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: a context-armed pattern delivers on the context" begin

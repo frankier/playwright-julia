@@ -81,7 +81,7 @@ end
 "Run `body(browser, base_url, uploads)` on both engines, naming the engine."
 function on_both_engines(body::Function, label::AbstractString)
     playwright() do pw
-        for engine in ("chromium", "firefox")
+        for engine in SMOKE_ENGINES
             bt = engine == "chromium" ? pw.chromium : pw.firefox
             @testset "$label ($engine)" begin
                 with_files_server() do base_url, uploads

@@ -610,7 +610,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
         mkpath(ARTIFACT_DIR)
         with_fixture_server() do base_url
             playwright() do pw
-                for engine in ("chromium", "firefox")
+                for engine in SMOKE_ENGINES
                     bt = getfield(pw, Symbol(engine))
 
                     @testset "$engine: tracing round-trip" begin
