@@ -1,15 +1,13 @@
 # URL matchers: Playwright's glob dialect, and the three-way matcher union.
 #
-# Everything here is pure. No driver, no browser, no connection — which is why
-# it is the first thing in Part B and the only piece that can be finished and
-# reviewed on its own.
+# Everything here is pure. No driver, no browser, no connection.
 #
 # The dialect is not invented. It is a port of `globToRegexPattern` in
 # playwright-core 1.61.1 (`lib/coreBundle.js`), read out of the pinned driver
 # rather than remembered, because "* does not cross / but ** does" is the kind
 # of rule that passes six hand-written tests and fails on the seventh real URL.
 #
-# D9: matchers are evaluated *client-side*. The driver only ever receives the
+# Matchers are evaluated *client-side*. The driver only ever receives the
 # union of the live registrations' globs, because `setNetworkInterceptionPatterns`
 # replaces the whole pattern set and so cannot express per-handler filtering
 # once there are two handlers.
@@ -56,7 +54,7 @@ A malformed group raises `ArgumentError` rather than compiling to something
 that quietly matches the wrong thing: `{` cannot nest, and both braces must be
 matched.
 
-See the network guide for the full case table. `route!` (M6 T10) is the main
+See the network guide for the full case table. [`route!`](@ref) is the main
 consumer of this.
 """
 function glob_to_regex(glob::AbstractString)
@@ -150,11 +148,10 @@ Left alone: a glob starting with `*` (it is already origin-agnostic), one with
 its own scheme, and the opaque schemes (`about:`, `data:`, …). `base_url` of
 `nothing` or `""` is a no-op.
 
-Upstream also normalises dot segments and lower-cases the origin through a
-real URL parser. This does neither — the package has no URL dependency
-(SPEC-M6 assumption 9) — so it joins origin and path and leaves the rest. The
-cases it does not cover resolve to themselves rather than to something subtly
-different.
+Upstream also normalises dot segments and lower-cases the origin through a real
+URL parser. This does neither, because the package depends on no URL library.
+It joins origin and path and leaves the rest. The cases it does not cover
+resolve to themselves rather than to something subtly different.
 """
 function resolve_glob_base(base_url, glob::AbstractString)
     (base_url === nothing || isempty(base_url)) && return String(glob)
@@ -178,7 +175,7 @@ function resolve_glob_base(base_url, glob::AbstractString)
     return origin * dir * glob
 end
 
-# --- The matcher union (D9) ------------------------------------------------
+# --- The matcher union ------------------------------------------------
 
 """
     UrlMatcher
@@ -194,8 +191,8 @@ const UrlMatcher = Union{AbstractString,Regex,Function}
 Whether `url` satisfies `matcher`. Internal — it is the dispatcher's mechanism,
 not something a caller needs, since route registration takes the matcher itself.
 
-A glob is compiled and anchored (see [`glob_to_regex`](@ref)); a `Regex` is an
-unanchored `occursin`, matching Playwright, so `r"/api/"` matches mid-URL; a
+A glob is compiled and anchored (see [`glob_to_regex`](@ref)). A `Regex` is an
+unanchored `occursin`, matching Playwright, so `r"/api/"` matches mid-URL. A
 `Function` is called with the URL string and must return `Bool`.
 """
 matches(matcher::AbstractString, url::AbstractString; base_url = nothing) =
@@ -217,7 +214,7 @@ end
 """
     driver_pattern(matcher) -> String
 
-The glob this matcher contributes to the union sent to the driver (D9).
+The glob this matcher contributes to the union sent to the driver.
 
 A `Regex` or a predicate cannot be expressed as a driver glob, so either one
 widens the union to `"**/*"` — every request is then delivered to the client
@@ -228,14 +225,14 @@ driver_pattern(matcher::AbstractString) = String(matcher)
 driver_pattern(::Regex) = "**/*"
 driver_pattern(::Function) = "**/*"
 
-# --- The shared case table (SC 17) -----------------------------------------
+# --- The shared case table -------------------------------------------------
 
 """
     GLOB_CASES
 
-The glob dialect's behaviour, as data. Read by `test/test_globs.jl` and by
-`docs/src/guide/network.md`, so that a case which is documented but untested —
-or tested but undocumented — cannot exist (SPEC-M6 SC 17).
+The glob dialect's behaviour, as data. Both `test/test_globs.jl` and
+`docs/src/guide/network.md` read it, so the tests and the documented case table
+cannot disagree.
 
 Each entry is `(glob, url, matches, note)`.
 """

@@ -1,4 +1,4 @@
-# T2: timeout settings and the resolver cascade. Hermetic — the object graph
+# Timeout settings and the resolver cascade. Hermetic — the object graph
 # comes from FakeDriver (see test_connection.jl), so there is no driver and no
 # browser here, only real Page/BrowserContext/Frame objects with real
 # parent/child links.
@@ -10,7 +10,7 @@ function timeout_fixture()
     fake = FakeDriver()
     conn = fake.connection
     # The real Browser initializer carries `name`; the fixture carries it too
-    # so that anything resolving the engine client-side (D7's Chromium-only
+    # so that anything resolving the engine client-side (the Chromium-only
     # `pdf` check) can be tested without a driver.
     send_create(fake, "", "Browser", "browser@1", Dict("name" => "chromium"))
     send_create(fake, "browser@1", "BrowserContext", "context@1")
@@ -18,7 +18,7 @@ function timeout_fixture()
     # shape you would guess: a page's MAIN frame is parented to the browser
     # context, not to the page, and arrives before the page does. Only child
     # frames (iframes) are parented to the page. Verified against both engines
-    # — see the T2b notes in tasks/plan.md. A fixture that parents the main
+    # A fixture that parents the main
     # frame to the page hides the one bug that matters, because
     # `locator(page, …)` always goes through the main frame.
     send_create(fake, "context@1", "Frame", "frame@1")
@@ -303,14 +303,14 @@ end
     end
 end
 
-# --- D7: the strictness cascade --------------------------------------------
+# --- The strictness cascade ------------------------------------------------
 #
 # Same machinery as the timeout cascade, pointed at the other keyword. The
 # resolution order is the whole feature, so it is tested by reaching each of
 # the five levels in turn, overriding exactly one thing at a time -- a test
 # that set them all at once would pass with the precedence backwards.
 
-@testset "strictness cascade (D7, SC 10)" begin
+@testset "strictness cascade" begin
     @testset "the package default is true" begin
         f = timeout_fixture()
         @test locator(f.page, "tr").strict == true

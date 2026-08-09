@@ -3,10 +3,10 @@
 Some things a page does are not requests you make — a popup opening, a console
 message, an uncaught error. Those arrive as events.
 
-The one thing to understand about them is a race: **you must be subscribed
-before the action that triggers the event**. An event fired synchronously by a
-click is gone before a subscription made afterwards exists. That is why the
-primary form takes a block.
+The one thing to understand about them is a race: **subscribe before the action
+that triggers the event**. A click can fire an event synchronously, and that
+event is gone before a later subscription exists. So the primary form takes a
+block.
 
 ```julia
 popup = expect_event(ctx, :page) do
@@ -14,8 +14,8 @@ popup = expect_event(ctx, :page) do
 end
 ```
 
-[`expect_event`](@ref) subscribes, runs the block, and then waits for the
-event. Nothing the block does can be missed.
+[`expect_event`](@ref) subscribes, runs the block, then waits for the event. It
+cannot miss anything the block does.
 
 ## What you can subscribe to
 
@@ -35,36 +35,39 @@ event. Nothing the block does can be missed.
 | `BrowserContext` or `Page` | `:requestfailed` | [`RequestFailure`](@ref) |
 
 Anything else raises `ArgumentError`, and the message says which of two things
-went wrong. `:worker` and `:bindingcall` are **deferred**: the payload types
-exist in the generated layer but have no accessors yet, so the event would hand
-you back nothing usable. `:route` is deferred for the opposite reason —
-[`Route`](@ref) is wrapped and fully usable, but interception is
-[`route!`](@ref)/[`with_route`](@ref), and an event would hand you a route with
-no guarantee anyone settles it.
+went wrong. Some events are **deferred**, and they come in two kinds.
 
-`:websocket` is deferred for a bit of both, and the distinction matters because
-the wrong half is easy to read into it. Observing a socket yields a `WebSocket`
-with no accessors, so that event stays deferred — but sockets themselves are
-fully supported, through [`route_web_socket!`](@ref) rather than through an
-event. "No accessors yet" is about the observation, not about WebSockets.
+The first kind has no readable payload. `:worker` and `:bindingcall` are here.
+Their payload types exist in the generated layer but have no accessors, so the
+event would hand you back nothing usable.
 
-`:dialog` is deferred for `:route`'s reason and permanently: dialogs are
-answered through [`with_dialog`](@ref) and the handler registry, because on the
-wire subscribing is *what* disables the driver's auto-dismiss — see
+The second kind has a payload you can read, but no event-shaped API. `:route` is
+here: [`Route`](@ref) is wrapped and fully usable, but you intercept with
+[`route!`](@ref) or [`with_route`](@ref). An event would hand you a route with
+no guarantee that anyone settles it.
+
+`:websocket` sits in both kinds, and it is easy to read the wrong half into it.
+Observing a socket yields a `WebSocket` with no accessors, so that event stays
+deferred. Sockets themselves work: use [`route_web_socket!`](@ref) instead of an
+event. "No accessors yet" describes the observation, not WebSockets.
+
+`:dialog` is `:route`'s case, and permanently so. Answer dialogs through
+[`with_dialog`](@ref) and the handler registry. On the wire, subscribing is
+*what* disables the driver's auto-dismiss — see
 [Files, dialogs and uploads](@ref).
 
 ### The network events are the context's, even on a page
 
-There are no request or response events on a page in the protocol — only on the
-`BrowserContext`, each carrying the page it belongs to. So
+The protocol puts no request or response event on a page. They live on the
+`BrowserContext`, and each one carries the page it belongs to. So
 `expect_event(page, :request)` subscribes to the page's *context* and filters
 out the other pages' traffic. Two pages in one context each see their own.
 
-That is worth knowing for one practical reason: a request that belongs to no
-page — a service worker's — reaches the context form and not the page form.
+That matters for one practical reason. A request that belongs to no page — a
+service worker's — reaches the context form and not the page form.
 
-For the common cases there is sugar, because the predicate is the part that is
-easy to get wrong:
+The two common cases have sugar, because the predicate is the part people get
+wrong:
 
 ```julia
 request = expect_request(ctx, "**/api/todos") do
@@ -81,9 +84,9 @@ Both take the same matcher union as [`route!`](@ref): a glob, a `Regex`, or a
 
 ## Filtering
 
-`predicate` picks the event you meant out of several of the same kind. The
-first payload it accepts is returned; rejected payloads are consumed, not
-requeued.
+`predicate` picks the event you meant out of several of the same kind. The first
+payload it accepts is the one you get. It consumes the payloads it rejects, and
+does not requeue them.
 
 ```julia
 msg = expect_event(ctx, :console; predicate = m -> m.text == "ready") do
@@ -93,9 +96,9 @@ end
 
 ## Waiting for something already in flight
 
-When the trigger is not yours — a page closing itself after a countdown that is
-already running — there is nothing to put in a block, and
-[`wait_for_event`](@ref) is the form to use:
+Sometimes the trigger is not yours: a page closes itself after a countdown that
+is already running. There is nothing to put in a block, so use
+[`wait_for_event`](@ref):
 
 ```julia
 wait_for_event(page, :close; timeout = 10_000)
@@ -117,21 +120,21 @@ errors = with_events(ctx, :pageerror) do stream
 end
 ```
 
-The buffer is **unbounded** and attached before the block runs, so nothing that
-happens inside is dropped while you are not looking. It is released when the
-block ends, however it ends.
+The buffer is **unbounded**, and it attaches before the block runs, so it drops
+nothing that happens inside while you are not looking. `with_events` releases it
+when the block ends, however it ends.
 
-Two ways to read it, and the difference matters:
+Three ways to read it, and the difference matters:
 
-- [`length`](@ref) **peeks** — it counts without consuming, so it is the thing
-  to poll on;
-- [`pending_events`](@ref) **drains** — everything buffered right now, and a
-  second call returns only what arrived since;
-- [`next_event`](@ref) blocks for one at a time, with its own `timeout` and
-  `predicate`.
+- [`length`](@ref) **peeks**. It counts without consuming, so this is the one to
+  poll on.
+- [`pending_events`](@ref) **drains**. It returns everything buffered right now,
+  and a second call returns only what arrived since.
+- [`next_event`](@ref) blocks for one payload at a time, with its own `timeout`
+  and `predicate`.
 
-Polling `pending_events` in a loop waiting for a count to be reached does not
-work, because each call empties the buffer it is counting. Poll `length`.
+Do not poll `pending_events` in a loop waiting for a count. Each call empties
+the buffer it is counting. Poll `length` instead.
 
 ## Postmortem, not events
 
@@ -145,9 +148,8 @@ for err in page_errors(page)
 end
 ```
 
-These are safe to call from a `finally` while a more important error is in
-flight — they return an empty vector rather than raising once the page has
-closed. See [Artifacts](@ref).
+Call these from a `finally` while a more important error is in flight. Once the
+page closes they return an empty vector rather than raising. See
+[Artifacts](@ref).
 
-Use events when you need to *catch the moment*; use these when you need to
-*explain a failure afterwards*.
+Use events to *catch the moment*. Use these to *explain a failure afterwards*.

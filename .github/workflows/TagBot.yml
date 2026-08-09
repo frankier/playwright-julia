@@ -1,6 +1,6 @@
 # Creates a GitHub release and a git tag when a registered version is merged
 # into the General registry. Standard form; nothing here bumps a version or
-# submits anything (D9 — ready for registration, not registered).
+# submits anything: the package is ready for registration, not registered.
 name: TagBot
 
 on:

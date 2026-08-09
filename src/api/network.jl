@@ -1,12 +1,12 @@
 # Request and Response: what the browser asked for, and what came back.
 #
-# D10: both carry nearly everything in their initializer, which is already in
+# Both carry nearly everything in their initializer, which is already in
 # memory by the time the event that delivered them arrives. The accessors read
 # it directly. Only `body`, `response` and the two raw-header calls go to the
 # wire, and each of those says so in its docstring — a round trip inside a
 # routing handler is a cost worth being able to see at the call site.
 
-# --- Headers (D10) ---------------------------------------------------------
+# --- Headers ---------------------------------------------------------
 #
 # Three functions, because there are genuinely three questions: what is the
 # value of this header, what did the wire literally carry, and what did the
@@ -147,7 +147,7 @@ redirected_from(req::Request) =
 The request body as bytes, or `nothing` for a request that carries none.
 
 Bytes, because that is what a request body is — a form upload is not text.
-[`post_data_string`](@ref) decodes UTF-8 and [`json`](@ref) parses; three
+[`post_data_string`](@ref) decodes UTF-8 and [`json`](@ref) parses. Three
 names for three return types rather than one name that changes its mind.
 """
 function post_data(req::Request)
@@ -246,7 +246,7 @@ text(resp::Response) = String(body(resp))
     json(resp::Response)
     json(req::Request)
 
-The body parsed as JSON. **The response form costs a round trip**; the request
+The body parsed as JSON. **The response form costs a round trip**. The request
 form does not, since a request body is already in the initializer.
 
 Raises if the body is not valid JSON, which is the useful behaviour: a test
@@ -288,7 +288,7 @@ error_text(f::RequestFailure) = f.error_text
 Base.show(io::IO, f::RequestFailure) =
     print(io, "RequestFailure(", repr(url(f.request)), ", ", repr(f.error_text), ")")
 
-# --- expect_request / expect_response (D11) --------------------------------
+# --- expect_request / expect_response --------------------------------
 #
 # Sugar over expect_event with a matcher-derived predicate. They exist because
 # the predicate spelling is the part users get wrong, and because these two are
@@ -312,7 +312,7 @@ method(request)      # "GET"
 ```
 
 `target` may be a [`BrowserContext`](@ref) or a [`Page`](@ref). The page form
-watches the page's *context* and keeps only that page's traffic (D11), so with
+watches the page's *context* and keeps only that page's traffic, so with
 two pages open each sees its own.
 """
 function expect_request(

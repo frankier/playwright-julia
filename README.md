@@ -96,15 +96,15 @@ $ PLAYWRIGHT_JL_SMOKE=1 julia --project=. -e 'using Pkg; Pkg.test()' # + real br
 The hermetic suite needs no Node.js and no browsers. The smoke suite launches
 headless Chromium and Firefox against local HTML fixtures served in-process.
 
-Build the docs locally with `julia --project=docs docs/make.jl`; the build
+Build the docs locally with `julia --project=docs docs/make.jl`. That build
 never launches a browser.
 
 ## The channel layer is generated
 
 `src/generated/channels.jl` — one type per protocol interface, one function per
 protocol command — is generated from Playwright's own protocol spec, vendored
-under `protocol/spec/` at the pinned version. The generated code is checked in;
-the generator never runs at build or load time and adds no runtime dependency.
+under `protocol/spec/` at the pinned version. The generated code is checked in.
+The generator never runs at build or load time, and adds no runtime dependency.
 
 ```console
 $ julia --project=gen gen/fetch_spec.jl        # re-vendor protocol/spec/*.yml
@@ -119,33 +119,27 @@ generated API would be a transliteration of TypeScript rather than Julia.
 
 ## Status
 
-Chromium and Firefox, on Linux, synchronous API. Milestones 1–8 are complete:
-the protocol and driver layer, the broad API, driver-side waiting and retrying
-assertions, artifacts and the failure path, the documentation site, the
-network — route interception, the four network events, and enough of
-`APIRequestContext` to fulfil a route from a real upstream response — the
-file surfaces: downloads, JavaScript dialogs and uploads — and milestone 8's
-three: HAR recording and replay (a page's whole network served from an archive
-with no backend running), persistent contexts (a profile that survives the
-browser closing), and WebSocket routing (mock a socket entirely, or proxy it
-and rewrite messages in flight).
+Chromium and Firefox, on Linux, through a synchronous API. What the package
+covers:
 
-Two rounds of renaming, both without deprecation shims — the old spellings
-simply stop existing. Milestone 6 renamed twelve calls, so that every call
-changing what the page can observe ends in `!`: `goto!`, `click!`, `close!`,
-`set_value!` and so on. Milestone 7 took the remaining names that shadowed
-`Base` or read as something they were not: `name` → `frame_name`,
-`screenshot`/`pdf` split from `screenshot_bytes`/`pdf_bytes`, and `save_as!`
-takes its destination as a keyword.
+- Locators, JavaScript evaluation and the frame tree.
+- Driver-side waiting, and assertions that retry until they hold.
+- Artifacts: screenshots, PDFs, video and traces.
+- Events: popups, console output and page errors.
+- The network: route interception, the four network events, and enough of
+  `APIRequestContext` to fulfil a route from a real upstream response.
+- Downloads, JavaScript dialogs and uploads.
+- HAR recording and replay, so a page's whole network can come from an archive
+  with no backend running.
+- Persistent contexts, so a profile survives the browser closing.
+- WebSocket routing: mock a socket, or proxy it and rewrite messages in flight.
 
-Not yet covered, each checked against `names(Playwright)` rather than against
-memory: WebKit — the `BrowserType` is in the driver's root initializer, but
-`PlaywrightAPI` has `chromium` and `firefox` fields only, so there is no
-`pw.webkit` to launch; service workers; a Julia trace *viewer* or any trace
-parsing; an async API.
+Naming follows one rule: a call that changes what the page can observe ends in
+`!` — `goto!`, `click!`, `close!`, `set_value!`.
 
-[`docs/bonnie-parity.md`](docs/bonnie-parity.md) records the driving use case:
-replacing a hand-rolled CDP test harness with public API, row by row.
+Not yet covered: WebKit, because `PlaywrightAPI` carries `chromium` and
+`firefox` fields only, so there is no `pw.webkit` to launch. Also service
+workers, a Julia trace *viewer* or any trace parsing, and an async API.
 
 ## Licence
 

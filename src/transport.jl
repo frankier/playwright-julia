@@ -7,7 +7,7 @@
 
 Frame transport reading protocol messages from `input` and writing them to
 `output`. `on_message(msg::AbstractDict)` is called for every received frame
-(from the reader task); `on_close()` is called exactly once when the stream
+(from the reader task). `on_close()` is called exactly once when the stream
 ends — EOF, driver crash, or explicit `close`.
 
 Call [`start_reading!`](@ref) to launch the reader task.

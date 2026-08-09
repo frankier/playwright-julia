@@ -1,12 +1,11 @@
-# Downloads (SPEC-M7.md D10, D11).
+# Downloads: the event payload, and the artifact behind it.
 #
 # A `download` event carries three things — a url, a suggested filename and an
 # Artifact — and only the artifact survives if the event yields a bare
 # Artifact. `suggestedFilename` is the single most-used download field: it is
 # what the server named the file, and nothing else on the wire knows it.
 #
-# Everything here is shaped by the probe (tasks/m7-probe.md), which found two
-# things that are not guessable:
+# Two driver behaviours shape everything here, and neither is guessable:
 #
 #   * a download refused by `accept_downloads = false` STILL delivers the
 #     event, with a correct url and suggested filename. The refusal surfaces
@@ -83,8 +82,7 @@ page(dl::Download) = dl.page
 
 url(dl::Download) = dl.url
 
-# The three artifact verbs, forwarded. D6 landed first precisely so `path` is
-# already a keyword here rather than becoming one later.
+# The three artifact verbs, forwarded.
 path(dl::Download) = path(dl.artifact)
 save_as!(dl::Download; path::AbstractString) = save_as!(dl.artifact; path)
 delete_file!(dl::Download) = delete_file!(dl.artifact)
@@ -109,7 +107,7 @@ end
 Why the download failed, or `nothing` if it succeeded.
 
 **This is the only way to ask that does not throw.** A download refused by
-`accept_downloads = false` still arrives as a perfectly ordinary `Download`;
+`accept_downloads = false` still arrives as a perfectly ordinary `Download`.
 the refusal appears here, as the driver's own sentence, while [`path`](@ref)
 and [`save_as!`](@ref) raise a [`DriverError`](@ref) carrying the same text.
 
@@ -156,7 +154,7 @@ save_as!(dl; path = joinpath(dir, suggested_filename(dl)))
 ```
 
 `timeout` is in milliseconds and defaults to the
-[`set_default_timeout!`](@ref) cascade; [`TimeoutError`](@ref) is raised if no
+[`set_default_timeout!`](@ref) cascade. [`TimeoutError`](@ref) is raised if no
 download starts.
 
 !!! note "A refused download is still a download"
@@ -166,7 +164,7 @@ download starts.
 expect_download(f::Function, page::Page; timeout = nothing) =
     expect_event(f, page, :download; timeout)
 
-# --- accept_downloads (D10, probed) -----------------------------------------
+# --- accept_downloads ------------------------------------------------------
 
 """
 Map the Julia `accept_downloads` keyword onto the protocol's enum.
@@ -178,8 +176,8 @@ page appears to do nothing and the caller waits out a full timeout with no
 diagnostic. It is the value a "default" keyword is most likely to be mapped
 onto by someone being helpful, so the mapping refuses to produce it.
 
-Omitting the parameter already means accept: probed on both engines, an
-unset `acceptDownloads` downloads normally.
+Omitting the parameter already means accept. On both engines, an unset
+`acceptDownloads` downloads normally.
 """
 accept_downloads_option(::Nothing) = nothing
 accept_downloads_option(accept::Bool) = accept ? "accept" : "deny"

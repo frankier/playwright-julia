@@ -79,7 +79,7 @@ function start_playwright()
     firefox = from_channel(conn, root.initializer["firefox"])::BrowserType
     # `utils` is LocalUtils? in the protocol, so the key can be absent as well
     # as null — get, not indexing. The absent case is answered once, by
-    # local_utils (D1), rather than at each of HAR replay's call sites.
+    # local_utils, rather than at each of HAR replay's call sites.
     utils = from_channel(
         conn,
         get(root.initializer, "utils", nothing),
@@ -120,7 +120,7 @@ function record_video_option(opt)
     return out
 end
 
-# --- Shared option builders (D10) ------------------------------------------
+# --- Shared option builders ------------------------------------------
 #
 # `launchPersistentContext` takes LaunchOptions *and* ContextOptions, so a third
 # entry point written by hand would be the union of `launch`'s twelve keywords
@@ -128,10 +128,8 @@ end
 # apart. So the defaults and the snake_case → wire-name mapping live here once,
 # and all three entry points call these.
 #
-# This is a refactor of code that already worked, which is normally out of scope
-# — it is in scope because the alternative is 28 copy-pasted keyword defaults,
-# and because `test_connection.jl` pins the exact wire params for both existing
-# callers *before* the refactor rather than after (R4, SC 16).
+# `test_connection.jl` pins the exact wire params for every caller, so a change
+# here that alters what goes out is a test failure rather than a surprise.
 
 """
 The wire options for a browser launch, from this package's snake_case keywords.
@@ -295,7 +293,7 @@ end
 
 Open a fresh browser context — an isolated profile with its own cookies,
 storage and permissions, and the unit of isolation between tests. Contexts are
-cheap; a new browser is not.
+cheap. A new browser is not.
 
 Options (all optional, omitted from the wire when unset): `viewport` (a `Dict`
 or `NamedTuple` of `width`/`height`), `user_agent`, `locale`, `timezone_id`,
@@ -320,10 +318,10 @@ ctx = new_context(browser; record_video = (dir = "artifacts/video",))
 ```
 
 `accept_downloads` is a convenience rather than boilerplate: **downloads
-already work with it unset**, on both engines (probed). Pass `false` to make
+already work with it unset**, on both engines. Pass `false` to make
 the browser refuse them — which does not stop the [`Download`](@ref) arriving,
 only makes [`failure`](@ref) non-`nothing`. Leaving it unset omits the
-parameter from the wire entirely; see [`Download`](@ref).
+parameter from the wire entirely. See [`Download`](@ref).
 
 To choose where the driver puts downloaded files, pass `downloads_path` to
 [`launch`](@ref) — the protocol carries it as a launch option, not a context
@@ -347,7 +345,7 @@ what a real browser does.
 ```julia
 ctx = launch_persistent_context(pw.chromium, "/tmp/profile"; headless = true)
 # A persistent context arrives with a page already open — use it rather than
-# calling new_page, which would open a blank second one (D9).
+# calling new_page, which would open a blank second one.
 page = first(pages(ctx))
 goto!(page, url)
 click!(locator(page, "#accept-cookies"))
@@ -357,19 +355,18 @@ close!(ctx)
 ctx = launch_persistent_context(pw.chromium, "/tmp/profile"; headless = true)
 ```
 
-Takes the keywords of [`launch`](@ref) **and** [`new_context`](@ref) together;
+Takes the keywords of [`launch`](@ref) **and** [`new_context`](@ref) together.
 see those for what each does.
 
 `user_data_dir` is positional because it is the entire reason the function
 exists and there is no sensible default. Playwright allows an empty string,
-meaning a temporary profile; this package raises instead, because a *persistent*
+meaning a temporary profile. This package raises instead, because a *persistent*
 context whose profile evaporates is a call nobody meant to make.
 
 !!! note "It comes with a page, and `close!` takes the browser with it"
-    `length(pages(ctx)) == 1` immediately after this returns — probed on both
-    engines — which is the one way this function differs from every other
-    context in the package. Reach for `first(pages(ctx))`, not
-    [`new_page`](@ref).
+    `length(pages(ctx)) == 1` immediately after this returns, on both engines.
+    That is the one way this function differs from every other context in the
+    package. Reach for `first(pages(ctx))`, not [`new_page`](@ref).
 
     [`close!`](@ref) on the returned context takes the browser down with it —
     the *driver* does that, not this package, verified on both engines. So
@@ -420,21 +417,19 @@ end
 
 # PERSISTENT_BROWSERS: deliberately absent.
 #
-# SPEC-M8 D9 says a persistent context must own its browser, because "otherwise
-# every use leaks a browser process, and the leak is invisible because the
-# context — the thing the caller is holding — did close". **That premise is
-# false on this driver**, probed on both engines (tasks/m8-probe.md, T15/T16
-# addendum): closing a persistent context already takes the browser process with
-# it, disposes the Browser object, and makes an explicit close! raise
-# TargetClosedError.
+# A persistent context might be expected to need an ownership table, so that
+# closing it also closes the browser process behind it. **This driver needs no
+# such thing.** On both engines, closing a persistent context already takes the
+# browser process with it, disposes the Browser object, and makes an explicit
+# close! raise TargetClosedError.
 #
 # So there is no ownership table and close!(::BrowserContext) is unchanged. The
 # claim is not merely assumed either — test_smoke_persistent.jl asserts on the
-# *process* that nothing is left behind (SC 20), so a driver that ever stops
+# *process* that nothing is left behind, so a driver that ever stops
 # doing this is a test failure here rather than a leak in the wild.
 
 # Pages opened by new_page(::Browser) own the context created for them, so
-# close!(page) can tear it down (D7). A Page is a generated struct with a fixed
+# close!(page) can tear it down. A Page is a generated struct with a fixed
 # field layout, so the association lives here rather than on the object.
 const IMPLICIT_CONTEXTS = Dict{String,BrowserContext}()
 const IMPLICIT_CONTEXTS_LOCK = ReentrantLock()
@@ -499,14 +494,14 @@ length(pages(ctx))   # 1
 ```
 
 A popup opened by the page under test shows up here once it exists — though
-`expect_event(ctx, :page)` is the way to *wait* for one; see
+`expect_event(ctx, :page)` is the way to *wait* for one. See
 [`expect_event`](@ref).
 """
 pages(context::BrowserContext) = live_children(context, Page)
 
 """
 Children of `parent` of type `T` that are still alive. Disposed objects leave
-a stale guid behind in the parent's child list, so liveness is decided by the
+a stale guid behind in the parent's child list, so liveness comes from the
 object registry rather than by that list.
 """
 function live_children(parent::ChannelOwner, ::Type{T}) where {T}
@@ -525,11 +520,10 @@ end
     close!(browser::Browser)
 
 Close a page, a context and all of its pages, or a browser and everything in
-it. This is Playwright's `close`; the bang is D1's rule — it changes what the
+it. This is Playwright's `close`. It takes the bang because it changes what the
 page can observe, in the most final way available.
 
-Unlike the `close` it replaces, this extends nothing in `Base`, so it is an
-ordinary export: `names(Playwright)` sees it and `checkdocs` covers it.
+It extends nothing in `Base`, so it is an ordinary export.
 `close(sub)` on a `Subscription` keeps its old spelling, because detaching a
 client-side buffer changes nothing the browser can see. Closing a page that `new_page(browser)` created also closes the context
 that was created to hold it.

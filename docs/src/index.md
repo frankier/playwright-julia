@@ -65,8 +65,9 @@ expect(locator(page, "#status"); to_have_text = "ready")
 
 ## Status
 
-Milestones 1–5 are complete: the protocol layer, locators and evaluation,
-waiting and assertions, artifacts and the failure path, and this
-documentation. The package is not registered yet.
+This package supports Chromium and Firefox on Linux. It does not support
+WebKit, service workers or an async API. See the README for the full list of
+what it covers.
 
-Chromium and Firefox are supported on Linux. WebKit is not tested.
+It is not registered yet, so install it by URL — see
+[Getting started](@ref).

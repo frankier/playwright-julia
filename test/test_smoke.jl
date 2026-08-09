@@ -112,7 +112,7 @@ tryrun(cmd) =
                 end
 
                 @testset "$browser_name: set_default_timeout! shortens a real miss" begin
-                    # SC 3. The point of the cascade is that a missing selector
+                    # The point of the cascade is that a missing selector
                     # fails in the time you asked for, not in 30 s. Measuring
                     # the elapsed time is the only way to tell a resolved
                     # timeout from a hardcoded one that happens to raise.
@@ -177,7 +177,7 @@ tryrun(cmd) =
                     @test occursin("Timeout 500ms exceeded", err.message)
                     @test occursin("does-not-exist", err.message)   # via the call log
 
-                    # SC 4: a selector that never appears and a JS exception are
+                    # a selector that never appears and a JS exception are
                     # different types, both under PlaywrightError. Asserted live
                     # on both engines, since classification rests on the name
                     # the driver puts on the reply.
@@ -381,7 +381,7 @@ tryrun(cmd) =
                     @test length(Playwright.contexts(browser)) == 1
 
                     close!(page)
-                    # The milestone-1 leak: close!(page) left the implicitly
+                    # The leak this guards: close!(page) left the implicitly
                     # created context behind for the life of the browser.
                     @test isempty(Playwright.contexts(browser))
 
@@ -449,7 +449,7 @@ tryrun(cmd) =
                     goto!(page, "$base_url/")
 
                     path = joinpath(mktempdir(), "example.png")
-                    # D5: the write returns its destination, so the assertion
+                    # the write returns its destination, so the assertion
                     # is on the returned path rather than on a length.
                     @test screenshot(page; path) == path
                     @test isfile(path)

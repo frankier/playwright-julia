@@ -1,13 +1,13 @@
-# Retrying assertions, driver-side (D3).
+# Retrying assertions, driver-side.
 #
 # `frame.expect` re-checks the condition in the browser until it holds or the
 # timeout runs out, so a value that is merely late passes without the test
 # sleeping for it. That is the whole point: `sleep(1); @test text_content(x) ==
 # "y"` is either slower than it needs to be or flaky, and usually both.
 #
-# The expression strings below and the shape of a failure were probed against
-# the live 1.61.1 driver before any of this was written — see T6 in
-# tasks/plan.md. Two findings shape the code:
+# The expression strings below and the shape of a failure come from the live
+# 1.61.1 driver rather than from the protocol spec, which describes neither.
+# Two findings shape the code:
 #
 #   * A failed assertion arrives as an *error reply*, not a result with
 #     `matches: false`. There is nothing to inspect on success, so the API is
@@ -55,7 +55,7 @@ negated(x::Not) = (x.expected, true)
 negated(x) = (x, false)
 
 """
-An `ExpectedTextValue` (playwright.yml:240). A `String` matches exactly; a
+An `ExpectedTextValue` (playwright.yml:240). A `String` matches exactly. A
 `Regex` is sent as a pattern and flags so the *driver* does the matching, which
 keeps the retry loop in the browser rather than shipping text back per attempt.
 """
@@ -69,7 +69,7 @@ expected_text(x) = expected_text(string(x))
 # keyword => (wire expression, how to fill the params, how to describe it)
 #
 # Closed on purpose. A bogus expression fails on the wire with exactly the same
-# generic "Expect failed" as a real mismatch (probed), so a typo'd matcher name
+# generic "Expect failed" as a real mismatch, so a typo'd matcher name
 # has to be caught here or it will masquerade as a failing assertion.
 const MATCHERS = Dict{Symbol,Any}(
     :to_have_text => (
@@ -102,13 +102,13 @@ const MATCHERS = Dict{Symbol,Any}(
     ),
 )
 
-# Document-level matchers (D2). Same protocol command, same table shape — the
+# Document-level matchers. Same protocol command, same table shape — the
 # only difference is what they run against.
 #
 # The selector for these is the **empty string**, which is the one thing here
-# that could not be guessed: probed on both engines (T1, tasks/m4-probe.md),
-# `":root"` and `"html"` both fail, and they fail with the same generic "Expect
-# failed" a real mismatch gives. Hence a closed table here too.
+# that could not be guessed. On both engines `":root"` and `"html"` both fail,
+# and they fail with the same generic "Expect failed" a real mismatch gives.
+# Hence a closed table here too.
 const DOCUMENT_MATCHERS = Dict{Symbol,Any}(
     :to_have_title => (
         expression = "to.have.title",
@@ -163,7 +163,7 @@ const BOOLEAN_MATCHERS =
     expect(loc::Locator; timeout=nothing, matchers...) -> loc
 
 Assert something about `loc`, retrying in the browser until it holds or
-`timeout` runs out. Returns `loc` on success, so assertions chain; raises
+`timeout` runs out. Returns `loc` on success, so assertions chain. Raises
 [`AssertionFailure`](@ref) on failure, with a message naming both what was
 expected and what was actually there.
 
@@ -189,7 +189,7 @@ expect(locator(page, "#link"); to_have_attribute = "href" => "/somewhere")
 | `to_be_enabled`, `to_be_disabled` | `true`/`false` |
 | `to_be_checked` | `true`/`false` |
 
-Wrap any expectation in [`Not`](@ref) to negate it; for the boolean matchers,
+Wrap any expectation in [`Not`](@ref) to negate it. For the boolean matchers,
 `= false` does the same thing more readably.
 
 Several matchers in one call are checked one after another, and the first
@@ -243,12 +243,12 @@ end
 
 Assert something about the *document* rather than about an element, retrying in
 the browser until it holds or `timeout` runs out. Returns its target, so
-assertions chain; raises [`AssertionFailure`](@ref) on failure, carrying the
+assertions chain. Raises [`AssertionFailure`](@ref) on failure, carrying the
 value that was actually there.
 
 ```julia
-expect(page; to_have_title = "M4")
-expect(page; to_have_url = r"m4\\.html\$")
+expect(page; to_have_title = "Dashboard")
+expect(page; to_have_url = r"/dashboard\$")
 ```
 
 | Matcher | Expects |
@@ -256,7 +256,7 @@ expect(page; to_have_url = r"m4\\.html\$")
 | `to_have_title` | the document title — a `String` or a `Regex` |
 | `to_have_url` | the current URL — a `String` or a `Regex` |
 
-`expect(page; …)` delegates to the page's main frame; pass a `Frame` directly
+`expect(page; …)` delegates to the page's main frame. Pass a `Frame` directly
 to assert about an iframe's document instead.
 
 Matchers are partitioned by target: the element matchers
@@ -321,8 +321,8 @@ function run_expect(
     return nothing
 end
 
-# SC 7: the message has to carry the expected *and* the received value, or the
-# reader is back to re-running the test by hand to find out what was there.
+# The message carries the expected *and* the received value. Without both, the
+# reader has to re-run the test by hand to find out what was there.
 function assertion_failure(
     e::ExpectFailure,
     described::AbstractString,
@@ -359,8 +359,7 @@ end
 # `:false` quotes to `false::Bool`, while `:throw` and `:retry` really are
 # Symbols. The keyword therefore takes `Union{Symbol,Bool}` and `on_timeout =
 # :false` and `on_timeout = false` are the same thing — which is what a reader
-# expects them to be anyway. SPEC-M4.md spells it `:false` throughout, so that
-# spelling has to work.
+# expects them to be anyway.
 const ON_TIMEOUT_VALUES = (:throw, false)
 const ON_ERROR_VALUES = (:throw, :retry)
 
@@ -422,7 +421,7 @@ end
 !!! note "`:false` is the boolean `false`"
     Unlike `:throw` and `:retry`, `:false` is not a `Symbol` — `false` is a
     boolean literal, so Julia parses `:false` as `false`. Both spellings are
-    accepted and mean the same thing; `:false` is written here only because it
+    accepted and mean the same thing. `:false` is written here only because it
     lines up with the other values at the call site.
 
 ## What happens when the predicate throws

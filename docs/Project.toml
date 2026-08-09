@@ -1,9 +1,9 @@
 # Docs-only environment. Playwright.jl comes in by relative path so the site
 # always documents this checkout, never a registered release.
 #
-# D4: the docs build never launches a browser, which is what lets the whole
-# docs chain proceed without a working smoke job and keeps browser flake out
-# of a documentation failure.
+# The docs build never launches a browser. That lets the whole docs chain run
+# without a working smoke job, and keeps browser flake out of a documentation
+# failure.
 
 [deps]
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"

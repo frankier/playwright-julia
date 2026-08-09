@@ -2,7 +2,7 @@
 #
 # This is the plumbing beneath expect_event / wait_for_event: it routes named
 # driver events to buffers and, above all, makes sure those buffers die when
-# they stop being needed. Buffers are unbounded by design (D1) — no event is
+# they stop being needed. Buffers are unbounded by design — no event is
 # ever dropped — which makes lifetime load-bearing rather than cosmetic: an
 # unbounded buffer left attached to a chatty page is an unbounded leak.
 #
@@ -33,7 +33,7 @@ mutable struct Subscription
     # see the note on EventSpec for why not at take! time.
     owner::ChannelOwner
     payload::Function
-    # M6 D11: a filter applied at delivery, before the payload is buffered.
+    # A filter applied at delivery, before the payload is buffered.
     # The network events live on the BrowserContext and carry an optional
     # `page`, so a Page subscription is really a context subscription that
     # drops other pages' traffic. Filtering here rather than at `take!` keeps
@@ -114,7 +114,7 @@ Detach `sub` from the registry **without** draining its buffer. Idempotent.
 
 `close` does both, which is right when the channel belongs to the subscription
 alone. It is wrong when the channel is *shared*: a `WebSocketRoute`'s four
-subscriptions feed their owner's dispatcher queue rather than one each (D13), so
+subscriptions feed their owner's dispatcher queue rather than one each, so
 draining on release would throw away another socket's pending messages — and,
 worse, the route arrivals the dispatcher has not handled yet.
 """
@@ -172,7 +172,7 @@ function deliver_event(
         # a channel nobody holds — harmless, and cheaper than holding the
         # connection lock across the put!.
         try
-            # D11's filter runs before the mapping and before the buffering, so
+            # The filter runs before the mapping and before the buffering, so
             # a page-scoped subscription never holds another page's payloads.
             sub.accept(sub.owner, params) || continue
             # Mapping here rather than at take! time is what lets a payload
@@ -240,7 +240,7 @@ end
 #   that triggers the event, or an event fired synchronously inside that action
 #   is gone before anyone is listening. Taking the action as a block is the only
 #   shape that makes that ordering impossible to get wrong.
-# * Only events whose payload is useful with the types this milestone ships are
+# * Only events whose payload is useful with the types this package wraps are
 #   supported. Handing back a bare `RemoteObject` for `:request` would look like
 #   support while giving the caller something they cannot read a URL off, so
 #   those raise instead — naming the event and saying it is deferred.
@@ -264,7 +264,7 @@ struct EventSpec
     # `console` is supported here. `page`, `close`, `crash`, `pageError` and
     # the frame events fire unconditionally.
     opt_in::Bool
-    # M6 D11: the owner whose channel actually carries this event, and the
+    # The owner whose channel actually carries this event, and the
     # filter that decides which of its payloads this target wants.
     #
     # This is the first event whose subscription owner differs from the owner
@@ -307,9 +307,9 @@ const PAGE_EVENTS = Dict{Symbol,EventSpec}(
     :crash => EventSpec("crash", owner_payload),
     :frameattached => EventSpec("frameAttached", channel_payload("frame", Frame)),
     :framedetached => EventSpec("frameDetached", channel_payload("frame", Frame)),
-    # M7 D11. NOT opt-in: `download` is absent from page.yml's
-    # updateSubscription enum, so the driver sends it unconditionally (probed,
-    # tasks/m7-probe.md). Its payload reaches into params for `url` and
+    # NOT opt-in: `download` is absent from page.yml's updateSubscription
+    # enum, so the driver sends it unconditionally. Its payload reaches into
+    # params for `url` and
     # `suggestedFilename`, which exist nowhere else -- the same shape
     # :requestfailed needed for its failure text.
     # Wrapped in a closure, not passed by name: download_payload lives in
@@ -319,7 +319,7 @@ const PAGE_EVENTS = Dict{Symbol,EventSpec}(
     # call time, long after every include has run.
     :download =>
         EventSpec("download", (owner, params) -> download_payload(owner, params)),
-    # M7 D13. Opt-in, unlike :download -- `fileChooser` IS in page.yml's
+    # Opt-in, unlike :download -- `fileChooser` IS in page.yml's
     # updateSubscription enum, so the driver stays silent until asked.
     :filechooser => EventSpec(
         "fileChooser",
@@ -339,7 +339,7 @@ const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
         "pageError",
         (_owner, params) -> page_error(get(params, "error", params)),
     ),
-    # M6 T12 (D11). All four are opt-in: the driver stays silent until the
+    # All four are opt-in: the driver stays silent until the
     # client asks, and the existing ref-counted enable/disable already handles
     # overlapping blocks.
     :request => EventSpec("request", channel_payload("request", Request), true),
@@ -363,12 +363,10 @@ const CONTEXT_EVENTS = Dict{Symbol,EventSpec}(
 # Named separately so the error can say "deferred" rather than "no such event"
 # — the difference between a roadmap entry and a typo.
 #
-# M7 D14 re-read every entry against the source rather than trusting it. The
-# table had drifted: `:download` said "Artifact is not wrapped yet" when
-# Artifact had been wrapped since M4, so the error told users something false
-# about why their event was unsupported. Three entries left in Part C; the
-# remaining four are re-checked here, and `deferred_table_is_honest` below is
-# the gate that stops the table drifting again.
+# Each message has to stay true as the package grows, because a wrong one tells
+# a user a type is unusable when it is not. `deferred_table_is_honest` below is
+# the gate: it re-checks every entry against the exports rather than trusting
+# the text.
 #
 # The messages distinguish "no API for this type" from "there is an API, but
 # not an event-shaped one", because those send a reader to different places.
@@ -377,31 +375,24 @@ const DEFERRED_EVENTS = Dict(
     # handed to a caller yet.
     :worker => "Worker has no accessors yet, so the event would yield nothing usable",
     :bindingcall => "BindingCall has no accessors yet, so the event would yield nothing usable",
-    # M8 D14, and :route's case rather than :worker's after Part D. `WebSocket`
-    # the *observation* type still has no accessors — that much of the old
-    # message was true — but a reader who has just written `route_web_socket!`
-    # reads "no accessors yet" as "WebSockets are unsupported", which is now
-    # simply wrong. The entry stays, because subscribing to a socket is still
-    # not something this package offers; only the message moves.
+    # Observing a socket has no accessors. Intercepting one does, so the message
+    # names `route_web_socket!` — a reader who has just used it would otherwise
+    # read "no accessors yet" as "WebSockets are unsupported".
     :websocket => "WebSocket observation has no accessors yet; to intercept a socket use route_web_socket!",
-    # The subtler kind of stale, and the reason this entry is rewritten rather
-    # than deleted: `Route` IS wrapped (M6) and fully usable. It is simply not
-    # offered as an event, because `route!` is the supported path — an event
-    # would hand you a route with no guarantee anyone settles it.
+    # `Route` is wrapped and fully usable. It is not offered as an *event*,
+    # because an event would hand you a route with no guarantee anyone settles
+    # it. `route!` is the supported path.
     :route => "Route is wrapped, but interception is `route!`/`with_route`, not an event",
-    # The same case as :route, and the one this table exists to catch. T14 took
-    # :dialog out on the assumption that it had become reachable; it had not,
-    # and for four commits the package answered a question about a wrapped,
-    # documented type with "unknown event". It cannot become an event either:
-    # subscribing to `dialog` is WHAT disables the driver's auto-dismiss, so the
-    # registry owns the subscription and an expect_event form would disarm the
-    # safety net by being used (D12).
+    # `Dialog` is wrapped too, and cannot become an event: subscribing to
+    # `dialog` is WHAT disables the driver's auto-dismiss, so the registry owns
+    # the subscription. An `expect_event` form would disarm the safety net by
+    # being used.
     :dialog => "Dialog is wrapped, but dialogs are answered with `on_dialog!`/`with_dialog`, not an event",
 )
 
 """
 Whether `table` names only events that are genuinely absent from `owner`'s
-event table (D14).
+event table.
 
 Written as a function over its inputs so the gate can be tested *both* ways:
 against the real table, which must pass, and against a table with a supported
@@ -415,7 +406,7 @@ deferred_table_is_honest(table, owner) =
 
 """
 The four network events as seen from a `Page`: subscribed on the page's
-context, filtered down to that page's own traffic (D11).
+context, filtered down to that page's own traffic.
 
 Built from the context table so the payload mapping cannot drift between the
 two spellings of the same event.
@@ -527,7 +518,7 @@ with_events(ctx, :pageerror) do stream
 end
 ```
 
-For one event at a time, blocking, use [`next_event`](@ref); see
+For one event at a time, blocking, use [`next_event`](@ref). See
 [`EventStream`](@ref).
 """
 function pending_events(stream::EventStream)
@@ -545,7 +536,7 @@ Take the next event off `stream`, waiting up to `timeout` ms for one to arrive.
 Raises [`TimeoutError`](@ref) if none does. `timeout` defaults to the
 [`set_default_timeout!`](@ref) cascade.
 
-`predicate` skips payloads it returns `false` for; they are consumed, not
+`predicate` skips payloads it returns `false` for. They are consumed, not
 requeued — so a rejected payload is gone, not left for the next call.
 
 ```julia
@@ -556,7 +547,7 @@ with_events(page, :console) do stream
 end
 ```
 
-Blocking and one at a time; [`pending_events`](@ref) is the drain-everything
+Blocking and one at a time. [`pending_events`](@ref) is the drain-everything
 form, and [`EventStream`](@ref) has the pair side by side.
 """
 next_event(stream::EventStream; timeout = nothing, predicate = nothing) =
@@ -627,12 +618,12 @@ end
 title(popup)
 ```
 
-`f`'s own return value is discarded; the event payload is what comes back. An
+`f`'s own return value is discarded. The event payload is what comes back. An
 exception from `f` propagates unchanged, and the subscription is released
 either way.
 
 `predicate` filters payloads — the first one it accepts is returned. `timeout`
-is in milliseconds and defaults to the [`set_default_timeout!`](@ref) cascade;
+is in milliseconds and defaults to the [`set_default_timeout!`](@ref) cascade.
 [`TimeoutError`](@ref) is raised if no matching event arrives.
 
 Supported events, by owner:
@@ -677,7 +668,7 @@ end
 # `expect_event(ctx, :console)` blocks must not have the inner one switch the
 # outer one's events off when it finishes.
 function subscribe_spec(target::ChannelOwner, spec::EventSpec)
-    # D11: for the page-scoped network events this is the page's context, not
+    # For the page-scoped network events this is the page's context, not
     # the page. Everything else subscribes to the owner the user named.
     owner = spec.subscription_owner(target)
     spec.opt_in && update_subscription(owner, spec.wire, true)

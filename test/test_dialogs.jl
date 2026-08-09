@@ -1,7 +1,7 @@
-# Dialogs (SPEC-M7.md D12), against the fake connection.
+# Dialogs, against the fake connection.
 #
 # The lifetime is tested before the behaviour, which is the ordering that made
-# M6's equivalent work: a registry whose dispatcher leaks, dies or deadlocks
+# Same as route interception: a registry whose dispatcher leaks, dies or deadlocks
 # fails in ways that look like the page's fault rather than the package's.
 #
 # `timeout_fixture`, not `event_fixture`: these tests answer the driver by
@@ -70,7 +70,7 @@ collect_requests!(f) = autoreply!(f.fake)
 "Wait for `cond`, failing the test rather than hanging if it never holds."
 bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
 
-@testset "dialogs (T14)" begin
+@testset "dialogs" begin
     # --- The lifetime, first ------------------------------------------------
 
     @testset "nothing is subscribed until a handler exists" begin
@@ -123,7 +123,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
     end
 
     @testset "the dispatcher survives a handler that throws" begin
-        # M6 D7's rule. The exception must not kill the task -- a dead
+        # the rule. The exception must not kill the task -- a dead
         # dispatcher hangs every later dialog on the page.
         f = timeout_fixture()
         collect_requests!(f)
@@ -195,7 +195,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
     end
 
     @testset "a handler that answers nothing gets a dismissal and one warning" begin
-        # M6 D6's rule for dialogs. The page proceeds either way; the warning
+        # the rule for dialogs. The page proceeds either way; the warning
         # is once per registration, because a page firing alerts in a loop
         # would otherwise bury its own signal.
         f = timeout_fixture()
@@ -265,7 +265,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
     end
 
     @testset "a dialog for another page is not this page's to answer" begin
-        # M6 D11's filter. The event is declared on the context, so without a
+        # the filter. The event is declared on the context, so without a
         # filter a two-page context would have every handler answering every
         # page's dialogs.
         f = timeout_fixture()

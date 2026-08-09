@@ -1,6 +1,6 @@
 # Bonnie.jl parity
 
-[`tasks/bonnie_needs.md`](../tasks/bonnie_needs.md) audited Bonnie.jl's
+[`bonnie_needs.md`](bonnie_needs.md) audited Bonnie.jl's
 CDP-based e2e suite against Playwright.jl at milestone 1 and found three
 blockers plus a comfort list. This records, row by row, where each one now
 lands.
@@ -56,7 +56,7 @@ state, the slow response — which are one line each now.
 
 **No row above changes, and that is the finding.** M7 shipped downloads, file
 choosers and JavaScript dialogs; the audit in
-[`tasks/bonnie_needs.md`](../tasks/bonnie_needs.md) asks for none of the three,
+[`bonnie_needs.md`](bonnie_needs.md) asks for none of the three,
 and re-reading it for them turns up nothing — Bonnie's suite renders pages and
 asserts on them, and never moves a file in either direction. Writing a row here
 anyway would be scoring a capability against a need that does not exist.
@@ -76,7 +76,7 @@ repeat.
 
 **No row changes, and none is added.** M8 shipped HAR recording and replay,
 persistent contexts and WebSocket routing;
-[`tasks/bonnie_needs.md`](../tasks/bonnie_needs.md) asks for none of the three,
+[`bonnie_needs.md`](bonnie_needs.md) asks for none of the three,
 and re-reading it looking for them turns up nothing. This is M7's finding for
 the second time, and it is recorded rather than skipped because a table that
 only ever grows stops being a score.

@@ -1,4 +1,4 @@
-# A separate project from the package (D2), with a committed Manifest.
+# A separate project from the package, with a committed Manifest.
 #
 # The examples drive four heavy web stacks. Keeping them out of the package's
 # own Project.toml means a Genie release cannot redden `Pkg.test()`, and the

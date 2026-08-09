@@ -1,13 +1,13 @@
 # Route interception: the Route wrapper, the per-owner registry, and the
 # dispatcher task that runs user handlers.
 #
-# This file is written lifetime-first on purpose (R1). Three of its failure
+# This file is written lifetime-first on purpose. Three of its failure
 # modes — a dispatcher that leaks, one that dies, one that deadlocks — present
 # to a user identically: requests hang and an unrelated `goto!` times out
 # thirty seconds later, metres from the cause. So the task's birth and death
 # come before anything it does.
 #
-# Why a task at all (D5): `src/api/events.jl` opens with "Nothing here invokes
+# Why a task at all: `src/api/events.jl` opens with "Nothing here invokes
 # user code. The transport reader task cannot call closures defined after it
 # started (world age)". A route handler is user code that must *also* call back
 # into the driver — `fulfill!` is a protocol command. Running it on the reader
@@ -62,28 +62,28 @@ end
 
 One live `route!` call. Returned so it can be passed back to [`unroute!`](@ref).
 
-It also carries the exceptions its handler threw (D7). They are not raised
+It also carries the exceptions its handler threw. They are not raised
 where they happen — there is no user task there — so they are collected and
 rethrown when the registration is released.
 
 `release` is an optional zero-argument callable run by [`unroute!`](@ref) once
 the registration is gone and any in-flight route has settled. It exists so a
-registration can *own* a resource for its lifetime — M8's HAR replay owns an
-open archive and a temp directory that way (D3) — without a second handle type
-and a second thing for the caller to remember to close.
+registration can *own* a resource for its lifetime — HAR replay owns an open
+archive and a temp directory that way — without a second handle type and a
+second thing for the caller to remember to close.
 """
 mutable struct RouteRegistration
     matcher::Any
     handler::Any
     exceptions::Vector{Any}
-    warned::Bool          # D6: one warning per registration, not per request
+    warned::Bool          # one warning per registration, not per request
     active::Bool
     release::Union{Function,Nothing}
     released::Bool        # so a second unroute! does not release twice
     # Whether this registration arms the driver's interception. False for a
     # registration that exists *only* to own a release hook —
     # `route_from_har(…; update = true)` is a recording, not a replay, and must
-    # not put a handler in front of the traffic it is recording (D7).
+    # not put a handler in front of the traffic it is recording.
     intercepts::Bool
 end
 
@@ -103,7 +103,7 @@ mutable struct RouteRegistry
     lock::ReentrantLock
     # Held by the dispatcher for the whole of one route's handling, so
     # `unroute!` can wait for an in-flight route to settle before it returns
-    # (D8). Without it, unregistering while a handler is mid-flight returns to
+    #. Without it, unregistering while a handler is mid-flight returns to
     # a caller whose next line races a `fulfill!` it thought was finished.
     #
     # Re-entrant on purpose: a handler that calls `unroute!` on its own
@@ -128,7 +128,7 @@ registry_for(owner::ChannelOwner) =
         get(ROUTE_REGISTRIES, owner.guid, nothing)
     end
 
-# --- The dispatcher's lifetime (R1) ----------------------------------------
+# --- The dispatcher's lifetime ---------------------------------------------
 
 """
 Start the dispatcher for `registry` if it is not already running.
@@ -149,11 +149,11 @@ end
 Stop the dispatcher and wait for it to finish.
 
 Closing the channel is what wakes it: `take!` on a closed channel raises, which
-is the loop's exit. No sentinel value, no polling, and above all no `sleep` —
-R1's tripwire says a lifetime that needs one is the wrong lifetime.
+is the loop's exit. No sentinel value, no polling, and above all no `sleep`: a
+lifetime that needs one is the wrong lifetime.
 
 `close(sub)` first, so the reader task stops delivering into a channel that is
-about to close; `deliver_event` already treats a put! into a dead subscription
+about to close. `deliver_event` already treats a put! into a dead subscription
 as a no-op rather than an error, so the race is closed on both sides.
 """
 function stop_dispatcher!(registry::RouteRegistry)
@@ -163,7 +163,7 @@ function stop_dispatcher!(registry::RouteRegistry)
     registry.subscription = nothing
     sub === nothing || (close(sub); close(sub.channel))
     if task !== nothing
-        # The dispatcher never rethrows a handler's exception (D7), so a
+        # The dispatcher never rethrows a handler's exception, so a
         # failure here would be a bug in the dispatcher itself. Surface it.
         wait(task)
     end
@@ -172,7 +172,7 @@ end
 
 """
 The dispatcher loop: one per routed owner, handlers run sequentially in arrival
-order (D5).
+order.
 
 Sequential is a decision, not an accident. It makes ordering deterministic,
 stops one handler's `fulfill!` interleaving with the next request's handler,
@@ -207,7 +207,7 @@ end
 
 """
 Run the matching handler for `route`, and guarantee the route is settled
-whatever happens (D6).
+whatever happens.
 
 Every path out of this function settles: no matcher matched, a handler returned
 without settling, a handler threw. A route nobody settles is the worst failure
@@ -227,12 +227,12 @@ function handle_route_inner(registry::RouteRegistry, route::Route)
     target = url(request(route))
     base = base_url_for(registry.owner)
 
-    # Snapshot under the lock, then run user code with no lock held (D5).
+    # Snapshot under the lock, then run user code with no lock held.
     live = lock(registry.lock) do
         [reg for reg in registry.registrations if reg.active]
     end
 
-    for reg in Iterators.reverse(live)      # newest registration first (D5)
+    for reg in Iterators.reverse(live)      # newest registration first
         matched = try
             # invokelatest for the same reason as the handler below: a
             # predicate matcher is user code too.
@@ -247,7 +247,7 @@ function handle_route_inner(registry::RouteRegistry, route::Route)
         matched || continue
 
         try
-            # R4: anything the handler fetches with Playwright.fetch is disposed
+            # Anything the handler fetches with Playwright.fetch is disposed
             # when it returns. The driver buffers an unfetched body until it is
             # told otherwise, so without this every mock-from-upstream leaks one.
             with_fetch_scope() do
@@ -263,7 +263,7 @@ function handle_route_inner(registry::RouteRegistry, route::Route)
             end
         catch e
             record_exception!(reg, e)
-            settle_default!(route)          # D7: the page proceeds regardless
+            settle_default!(route)          # the page proceeds regardless
             return nothing
         end
 
@@ -287,7 +287,7 @@ function record_exception!(reg::RouteRegistration, e)
 end
 
 """
-D6: one warning per registration, naming the URL — never one per request.
+Warn once per registration, naming the URL — never once per request.
 
 The failure this catches is a handler that is wrong for every request. On a
 page loading fifty assets, a per-request warning buries its own signal.
@@ -296,7 +296,7 @@ function warn_unsettled!(reg::RouteRegistration, target::AbstractString)
     reg.warned && return nothing
     reg.warned = true
     @warn """
-    A route handler returned without settling the route; it has been continued.
+    A route handler returned without settling the route. It has been continued.
     Call abort!, continue! or fulfill! on the route. This is reported once per
     registration, not once per request.""" url = target
     return nothing
@@ -315,10 +315,10 @@ function settle_default!(route::Route)
     return nothing
 end
 
-"The base URL a scheme-less glob resolves against (D9), or `nothing`."
+"The base URL a scheme-less glob resolves against, or `nothing`."
 base_url_for(owner::ChannelOwner) = nothing
 
-# --- Registration API (D8) -------------------------------------------------
+# --- Registration API -------------------------------------------------
 
 """
     route!(target, matcher, handler) -> RouteRegistration
@@ -329,8 +329,8 @@ each one.
 
 `matcher` is a glob string (see [`glob_to_regex`](@ref)), a `Regex`, or a
 `url -> Bool` predicate. `handler` must settle the route with
-[`abort!`](@ref), [`continue!`](@ref) or [`fulfill!`](@ref); one that returns
-without settling gets a warning and the route is continued for it (D6).
+[`abort!`](@ref), [`continue!`](@ref) or [`fulfill!`](@ref). One that returns
+without settling gets a warning and the route is continued for it.
 
 ```julia
 reg = route!(ctx, "**/api/items", route -> fulfill!(route; json = ["a", "b"]))
@@ -357,7 +357,7 @@ is released, by [`unroute!`](@ref) or at the end of [`with_route`](@ref) — see
 
 `release` is an optional zero-argument callable run once when the registration
 goes away, for a handler that owns a resource for the registration's lifetime.
-[`route_from_har`](@ref) uses it to close the archive; most callers do not need
+[`route_from_har`](@ref) uses it to close the archive. Most callers do not need
 it.
 """
 function route!(
@@ -388,7 +388,7 @@ end
 Remove a registration made by [`route!`](@ref), or every registration on
 `target` when none is named.
 
-**Exceptions thrown by the handler are rethrown here** (D7): one directly,
+**Exceptions thrown by the handler are rethrown here**: one directly,
 several as a `CompositeException`. A handler that throws cannot raise where it
 happens — it runs on the dispatcher task, with no user task to raise into — so
 a silently broken mock would otherwise surface as a puzzling failure somewhere
@@ -412,14 +412,14 @@ function unroute!(target::Union{Page,BrowserContext}, reg::RouteRegistration)
     push_patterns!(registry)
     empty_now && retire!(registry)
 
-    # D8: a route already in the handler settles before this returns. The
+    # A route already in the handler settles before this returns. The
     # registration is deactivated above, so this waits for at most the one
     # dispatch that was already under way.
     settle_in_flight!(registry)
 
     # After the last dispatch, never before: the hook frees what the handler was
     # using, so releasing early would pull an open archive out from under a
-    # route still being served (D3). Before raise_collected, so a handler that
+    # route still being served. Before raise_collected, so a handler that
     # threw does not also leak the resource.
     run_release!(registry, reg)
 
@@ -453,7 +453,7 @@ function unroute!(target::Union{Page,BrowserContext})
 end
 
 """
-Run a registration's release hook, at most once (D3).
+Run a registration's release hook, at most once.
 
 The flag flips under the registry's lock so two concurrent `unroute!` calls
 cannot both release, while the hook itself runs outside it — releasing talks to
@@ -479,7 +479,7 @@ Remove every route registration on `target`. The same as the one-argument
 unroute_all!(target::Union{Page,BrowserContext}) = unroute!(target)
 
 """
-Block until any route currently being handled has settled (D8).
+Block until any route currently being handled has settled.
 
 Cheap when nothing is in flight — the lock is uncontended — and bounded by one
 handler, because the registration was deactivated before this was called.
@@ -551,7 +551,7 @@ function with_route(
     end
 end
 
-# --- The driver pattern union (D9) -----------------------------------------
+# --- The driver pattern union -----------------------------------------
 
 """
 Re-send the union of every live registration's glob.
@@ -564,7 +564,7 @@ function push_patterns!(registry::RouteRegistry)
     globs = lock(registry.lock) do
         # `intercepts` as well as `active`: an update-mode HAR registration owns
         # a release hook and nothing else, and must not arm the driver against
-        # the traffic it is there to record (D7).
+        # the traffic it is there to record.
         unique(
             String[
                 driver_pattern(r.matcher) for
@@ -607,7 +607,7 @@ The intercepted request's URL, shorthand for `url(request(route))`.
 url(route::Route) = url(request(route))
 
 # Playwright's own set. A typo'd code should be an ArgumentError here rather
-# than mysterious browser-side behaviour later (D15).
+# than mysterious browser-side behaviour later.
 const ABORT_ERROR_CODES = (
     "aborted",
     "accessdenied",
@@ -640,7 +640,7 @@ $(join(["`\"" * c * "\"`" for c in ABORT_ERROR_CODES], ", ")).
 route!(ctx, "**/*.png", route -> abort!(route))    # no images in this test
 ```
 
-A route can be settled exactly once; a second settle raises.
+A route can be settled exactly once. A second settle raises.
 """
 function abort!(route::Route; error_code::AbstractString = "failed")
     code = String(error_code)
@@ -660,7 +660,7 @@ end
 
 Let the request proceed, optionally rewriting it on the way through.
 
-This is Playwright's `route.continue()`; `playwright-python` spells it
+This is Playwright's `route.continue()`. `playwright-python` spells it
 `continue_` because Python has no escape from the keyword. Julia does: the
 lexer reads an identifier greedily, so `continue!` is a name and never the
 `continue` keyword followed by `!`.
@@ -674,7 +674,7 @@ route!(ctx, "**/api/**", route -> continue!(route;
 `headers` replaces the whole set rather than merging, which is why the example
 merges explicitly. `post_data` takes a `String` or a `Vector{UInt8}`.
 
-A route that no handler settles is continued for you (D6) — this is the call
+A route that no handler settles is continued for you — this is the call
 that does it.
 """
 function continue!(
@@ -794,7 +794,7 @@ function fulfill_body(body, json, path)
 end
 
 """
-Extended in `apirequest.jl` for `APIResponse` (D12). Anything else is a
+Extended in `apirequest.jl` for `APIResponse`. Anything else is a
 mistake worth naming at the call site.
 """
 fetch_response_uid(x) = throw(

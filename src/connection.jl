@@ -4,7 +4,7 @@
 
 """
 Remote object owned by the protocol connection. Concrete channel-owner types
-(`Browser`, `Page`, …) are registered in `CHANNEL_TYPES` (see objects.jl);
+(`Browser`, `Page`, …) are registered in `CHANNEL_TYPES` (see objects.jl).
 protocol types without a registered wrapper become plain `RemoteObject`s.
 """
 abstract type ChannelOwner end
@@ -44,7 +44,7 @@ mutable struct Connection
     # The driver's LocalUtils, resolved once by start_playwright from the root
     # initializer. Typed as the abstract ChannelOwner only because the concrete
     # LocalUtils is generated and this file is included before it; read it
-    # through local_utils, which owns the absent case (D1).
+    # through local_utils, which owns the absent case.
     local_utils::Union{ChannelOwner,Nothing}
 
     function Connection(transport::Transport)
@@ -101,7 +101,7 @@ The driver's `LocalUtils` object, which owns HAR lookup and zip extraction.
 Optional in the protocol (`playwright.yml:36`) and present in every driver build
 this package pins, so its absence means the driver is not the one we think it
 is — which is worth saying once, here, rather than as a `MethodError` inside a
-route handler three frames down (D1).
+route handler three frames down.
 
 It hangs off the `Connection` rather than [`PlaywrightAPI`](@ref) because a
 `Route` handler has a `Route`, and from a `Route` the connection is one field
@@ -137,7 +137,7 @@ to_wire(d::AbstractDict) = Dict{String,Any}(String(k) => to_wire(v) for (k, v) i
     send_message(conn, guid, method, params) -> result
 
 Send one protocol request and block until the driver replies. Returns the
-`result` payload (an `AbstractDict` or `nothing`); raises `PlaywrightError`
+`result` payload (an `AbstractDict` or `nothing`). Raises `PlaywrightError`
 for error replies and when the connection closes mid-call.
 """
 function send_message(
@@ -290,13 +290,13 @@ function dispose_locked(conn::Connection, guid::String)
     filter!(pair -> last(pair) != guid, conn.settings_parents)
     # Side tables keyed by guid have to be pruned here too, or they grow for
     # the life of the connection. Subscriptions matter most: their buffers are
-    # unbounded, so a dropped owner must not keep its backlog alive (D1a).
+    # unbounded, so a dropped owner must not keep its backlog alive.
     delete!(conn.timeouts, guid)
     filter!(pair -> first(first(pair)) != guid, conn.event_optins)
     close_subscriptions_locked(conn, guid)
     # A WebSocketRoute disposed without closing first — the page navigated away,
     # say — leaves callbacks and a connected flag behind. api/websockets.jl owns
-    # both tables; this is the hook that keeps them bounded (D13).
+    # both tables; this is the hook that keeps them bounded.
     forget_ws_route_state!(guid)
     return
 end

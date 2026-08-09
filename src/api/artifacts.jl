@@ -8,7 +8,7 @@
 # Everything here writes only to a path the caller supplied. The package never
 # chooses a location of its own.
 
-# --- The Artifact surface (A4) --------------------------------------------
+# --- The Artifact surface --------------------------------------------------
 #
 # A driver-side file that is still being written. Tracing and video both hand
 # one back, and the same three verbs serve both.
@@ -16,7 +16,7 @@
 # The distinction that makes this a wrapper rather than three field reads: the
 # initializer's `absolutePath` says where the file *will* be, and is there
 # before the file is. `pathAfterFinished` is the call that waits for it. Video
-# in particular does not finish until the page closes (D6), so reading the
+# in particular does not finish until the page closes, so reading the
 # initializer would hand back a path to a file that does not exist yet.
 
 """
@@ -61,17 +61,16 @@ close!(page)
 
 a test rather than a race.
 
-The path is on the machine running the driver. That is this machine — the
-driver is a child process (`SPEC-M4.md` assumption 7) — so the file is readable
-from Julia directly. Use [`save_as!`](@ref) to put a copy somewhere of your own
-choosing instead.
+The path is on the machine running the driver. The driver runs as a child
+process of this one, so the file is readable from Julia directly. Use
+[`save_as!`](@ref) to put a copy somewhere of your own choosing instead.
 """
 path(a::Artifact) = _artifact_path_after_finished(a)::String
 
 """
     delete_file!(a::Artifact)
 
-Delete the artifact's driver-side file. This is Playwright's `delete`; the name
+Delete the artifact's driver-side file. This is Playwright's `delete`. The name
 differs because `delete!` would have been ambiguous with the exported
 `Base.delete!`, and because removing a file from disk is not what
 `Base.delete!` means. Worth calling for artifacts a passing test does not need
@@ -88,7 +87,7 @@ else
 end
 ```
 
-This deletes the *driver's* copy; a file already copied out with
+This deletes the *driver's* copy. A file already copied out with
 [`save_as!`](@ref) is yours and is untouched. See [`Artifact`](@ref).
 """
 function delete_file!(a::Artifact)
@@ -96,10 +95,10 @@ function delete_file!(a::Artifact)
     return nothing
 end
 
-# --- Tracing (A1, D1) ------------------------------------------------------
+# --- Tracing ---------------------------------------------------------------
 #
-# The stop path is not a guess. Probed against the live 1.61.1 driver before
-# any of this was written (T1, tasks/m4-probe.md): `tracingStopChunk` with
+# The stop path comes from the live 1.61.1 driver rather than from the protocol
+# spec: `tracingStopChunk` with
 # mode="archive" returns a real Artifact whose `saveAs` writes a valid zip, on
 # Chromium and Firefox alike, with or without `tracesDir` set at launch. The
 # alternative the protocol also offers — mode="entries" plus `localUtils.zip`
@@ -113,7 +112,7 @@ tracing_channel(ctx::BrowserContext) =
     start_tracing!(ctx::BrowserContext; screenshots=true, snapshots=true,
                   name=nothing, title=nothing)
 
-Begin recording a Playwright trace on `ctx` — the full record of what the
+Start recording a Playwright trace on `ctx` — the full record of what the
 browser did, viewable afterwards in Playwright's own trace viewer. Pair with
 [`stop_tracing!`](@ref), or use [`with_tracing`](@ref) to guarantee the pairing
 even when the block throws, which is the run worth tracing.
@@ -139,17 +138,15 @@ opened. `stop_tracing!` closes the chunk, and a stop with no chunk open has
 nothing to archive.
 
 !!! note "`sources` is not accepted"
-    A reader coming from `playwright-python` will look for it, so its absence
-    is documented rather than left to be discovered. Upstream clients embed
-    calling source files by passing `includeSources` to `localUtils.zip`, which
-    they use because they assemble the zip themselves. This package lets the
-    driver assemble it (`tracingStopChunk(mode="archive")` — see D1), and the
-    1.61.1 `tracingStart` protocol carries no `sources` flag.
+    `playwright-python` takes it, so a reader coming from there will look for
+    it. Upstream clients embed calling source files by passing `includeSources`
+    to `localUtils.zip`, which they can do because they assemble the zip
+    themselves. This package lets the driver assemble it, through
+    `tracingStopChunk(mode="archive")`, and the 1.61.1 `tracingStart` protocol
+    carries no `sources` flag.
 
-    The keyword is therefore not in the signature at all. It used to be
-    accepted and rejected at runtime with an `ArgumentError`; not accepting it
-    is a `MethodError` from the same call, which is the same answer delivered
-    earlier and by the language rather than by a hand-written check.
+    The keyword is not in the signature at all, so passing it raises a
+    `MethodError`.
 """
 function start_tracing!(
     ctx::BrowserContext;
@@ -184,7 +181,7 @@ for you. Open the result with:
 npx playwright@1.61.1 show-trace artifacts/trace.zip
 ```
 
-The zip is assembled by the driver, not by Julia — this package has no zip
+The driver assembles the zip, not Julia — this package has no zip
 dependency and does not parse the trace. It is an opaque artifact for the
 upstream viewer.
 """
@@ -223,8 +220,8 @@ end
 Returns whatever `f()` returned. Open the trace with
 `npx playwright show-trace artifacts/trace.zip`.
 
-Options other than `path` are passed straight to [`start_tracing!`](@ref); the
-zip is written by [`stop_tracing!`](@ref). For a whole test wrapped in a trace
+Options other than `path` are passed straight to [`start_tracing!`](@ref). The
+zip comes from [`stop_tracing!`](@ref). For a whole test wrapped in a trace
 *and* a screenshot on failure, see [`with_page`](@ref).
 
 !!! note "A failed save never replaces your exception"
@@ -249,7 +246,7 @@ function with_tracing(f, ctx::BrowserContext; path::AbstractString, kw...)
     end
 end
 
-# --- Video (A2, D6) --------------------------------------------------------
+# --- Video -----------------------------------------------------------------
 
 """
     video(page::Page) -> Union{Artifact,Nothing}
@@ -287,7 +284,7 @@ function video(page::Page)
     return from_channel(page.connection, raw)::Artifact
 end
 
-# --- PDF (A3) --------------------------------------------------------------
+# --- PDF -------------------------------------------------------------------
 
 """
     pdf(page::Page; path, kwargs...) -> String
@@ -299,13 +296,13 @@ Render `page` to PDF, write it to `path`, and return `path` — the same shape a
 pdf(page; path = "artifacts/page.pdf", format = "A4")   # -> "artifacts/page.pdf"
 ```
 
-`path` is required; for the bytes in memory call [`pdf_bytes`](@ref). Both take
+`path` is required. For the bytes in memory call [`pdf_bytes`](@ref). Both take
 the same options, listed below.
 
 | Option | Meaning |
 |---|---|
 | `format` | paper size, e.g. `"A4"` or `"Letter"` |
-| `width`, `height` | explicit paper size, as CSS lengths; override `format` |
+| `width`, `height` | explicit paper size, as CSS lengths, override `format` |
 | `landscape` | rotate the paper |
 | `margin` | a `NamedTuple` or `Dict` of `top`/`bottom`/`left`/`right` |
 | `print_background` | include background graphics, off by default upstream |
@@ -358,7 +355,7 @@ function pdf_bytes(
     outline::Union{Bool,Nothing} = nothing,
     tagged::Union{Bool,Nothing} = nothing,
 )
-    # D7: knowable without asking, so ask nobody.
+    # Knowable without asking, so ask nobody.
     engine = browser_name(page)
     engine == "chromium" || throw(
         ArgumentError(

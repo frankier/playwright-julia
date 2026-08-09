@@ -1,7 +1,7 @@
 # Request and Response accessors, hermetically. No driver and no browser: the
 # objects are created over a FakeDriver with the initializers the protocol
 # would really deliver (protocol/spec/network.yml Request/Response), which is
-# what D10 means by "the accessors read the initializer".
+# what "the accessors read the initializer" means.
 #
 # The wire-going calls (body, raw_headers, response) are exercised against
 # canned replies rather than skipped — getting the round trip wrong is exactly
@@ -37,7 +37,7 @@ Run `f` on a task and fail — rather than hang — if it takes longer than
 The three testsets below block on a canned driver reply. When the reply never
 comes, the bare call blocks forever: this file cost a 25-minute hung CI run
 before this guard existed, because a responder task that threw looked exactly
-like a slow one. R3's rule for the routing tests is the same rule, and it
+like a slow one. the rule for the routing tests is the same rule, and it
 applies here for the same reason.
 """
 function within(f, seconds = 10.0)
@@ -94,7 +94,7 @@ function fake_response(fake, guid = "response@1"; init = Dict{String,Any}())
 end
 
 @testset "network" begin
-    @testset "Request reads its initializer (D10)" begin
+    @testset "Request reads its initializer" begin
         fake = FakeDriver()
         req = fake_request(fake)
 
@@ -190,7 +190,7 @@ end
 
     @testset "the three body forms return three types" begin
         fake = FakeDriver()
-        # gap 3's lesson: one function, one return type. Bytes, String, parsed.
+        # One function, one return type. Bytes, String, parsed.
         payload = "{\"items\":[1,2],\"ok\":true}"
         req = fake_request(
             fake;

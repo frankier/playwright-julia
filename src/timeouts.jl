@@ -17,7 +17,7 @@ const DEFAULT_NAVIGATION_TIMEOUT = 30_000
 # playwright() session inherit the first one's settings; and it puts the
 # settings under the connection's own lock, so pruning them from dispose_locked
 # needs no second lock and cannot invert a lock order.
-# One non-timeout setting shares this table: `strict` (D7). It cascades the
+# One non-timeout setting shares this table: `strict`. It cascades the
 # same way, prunes the same way, and lives under the same lock, so giving it a
 # second table would be duplication rather than separation.
 const NO_SETTINGS = (action = nothing, navigation = nothing, strict = nothing)
@@ -25,7 +25,8 @@ const NO_SETTINGS = (action = nothing, navigation = nothing, strict = nothing)
 "Owners that can carry a timeout setting."
 const TimeoutOwner = Union{Page,BrowserContext}
 
-# Frames included, unlike TimeoutOwner: D7's cascade has a frame level, and a
+# Frames included, unlike TimeoutOwner: the strictness cascade has a frame
+# level, and a
 # frame is the one place a caller can say "everything inside this iframe works
 # with lists" without saying it about the whole page.
 "Owners that can carry a strictness setting."
@@ -67,7 +68,7 @@ page = new_page(ctx)
 set_default_timeout!(page, 5_000)  # ...but this page gets 5 s
 ```
 
-Milliseconds; `0` means no timeout. See also
+Milliseconds. `0` means no timeout. See also
 [`set_default_navigation_timeout!`](@ref).
 """
 set_default_timeout!(target::TimeoutOwner, milliseconds::Integer) =
@@ -83,7 +84,7 @@ Navigations fall back to the [`set_default_timeout!`](@ref) setting when no
 navigation-specific one is in force, so setting only the action default also
 shortens navigations rather than leaving them at 30 s.
 
-Milliseconds; `0` means no timeout.
+Milliseconds. `0` means no timeout.
 
 ```julia
 set_default_navigation_timeout!(ctx, 60_000)   # a slow app to first paint
@@ -91,7 +92,7 @@ set_default_timeout!(ctx, 5_000)               # but assertions stay snappy
 goto!(page, url)                                # gets the 60s budget
 ```
 
-Set on a context it applies to every page in it; set on a page it applies to
+Set on a context it applies to every page in it. Set on a page it applies to
 that page only. A `timeout` keyword on [`goto!`](@ref) itself beats both.
 """
 set_default_navigation_timeout!(target::TimeoutOwner, milliseconds::Integer) =
@@ -155,7 +156,7 @@ resolve_timeout(loc::Locator, kwarg) = resolve_timeout(loc.frame, kwarg)
 resolve_navigation_timeout(loc::Locator, kwarg) =
     resolve_navigation_timeout(loc.frame, kwarg)
 
-# --- strictness (D7) --------------------------------------------------------
+# --- strictness --------------------------------------------------------
 
 """
     set_default_strict!(target, strict::Bool)
@@ -165,7 +166,7 @@ Set the default strictness for [`locator`](@ref)s created on a
 
 Strictness is otherwise a per-call keyword, so a suite that works with lists
 says `strict = false` on every single call. This is the same cascade
-[`set_default_timeout!`](@ref) already provides, pointed at the other keyword.
+[`set_default_timeout!`](@ref) already gives, pointed at the other keyword.
 
 ```julia
 ctx = new_context(browser)

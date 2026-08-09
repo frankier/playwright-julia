@@ -1,8 +1,8 @@
-# T0 fixtures: pages exercising waiting, events and assertions.
+# Fixture pages exercising waiting, events and assertions.
 #
-# These assert the *fixtures* behave as the milestone-3 tasks assume — before the
+# These assert the *fixtures* behave as the tests below assume — before the
 # APIs that consume them exist. Waiting here is done driver-side with a JS promise
-# rather than `sleep`, so the tests stay honest about SC 2 (no sleeping for the
+# rather than `sleep`, so the tests stay honest about never sleeping for the
 # DOM) even though `wait_for_selector` is not written yet.
 
 "Resolve once `predicate` (a JS expression string) is truthy, driver-side."
@@ -27,11 +27,11 @@ function js_wait(page, predicate; timeout_ms = 5_000)
     )
 end
 
-# --- T8: engine metadata and launch options -------------------------------
+# --- Engine metadata and launch options ------------------------------------
 
-@testset "engine metadata (T8)" begin
+@testset "engine metadata" begin
     playwright() do pw
-        @testset "browser_name on a running Browser (SC 9)" begin
+        @testset "browser_name on a running Browser" begin
             for engine in ("chromium", "firefox")
                 bt = getfield(pw, Symbol(engine))
                 browser = launch(bt; headless = true)
@@ -43,8 +43,8 @@ end
             end
         end
 
-        @testset "one shared option set launches both engines (SC 11)" begin
-            # The docstring branch D5 selected: engine-irrelevant options are
+        @testset "one shared option set launches both engines" begin
+            # The documented rule: engine-irrelevant options are
             # ignored rather than rejected, so this option set — half of which
             # applies to neither engine — must work on both. If a future driver
             # starts rejecting them, this is what says so.
@@ -67,9 +67,9 @@ end
     end
 end
 
-# --- T6: retrying assertions against real browsers ------------------------
+# --- Retrying assertions against real browsers -----------------------------
 
-@testset "expect (T6)" begin
+@testset "expect" begin
     with_fixture_server() do base_url
         playwright() do pw
             for engine in ("chromium", "firefox")
@@ -82,7 +82,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     late = locator(page, "#late")
                     @test expect(late; to_have_text = "late arrival") === late
@@ -95,7 +95,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     expect(locator(page, "h1"); to_have_text = "Hello")
                     expect(locator(page, "h1"); to_have_text = r"^Hel")
@@ -116,7 +116,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     expect(locator(page, "h1"); to_have_text = Not("Goodbye"))
                     expect(locator(page, "#nope"); to_be_visible = false)
@@ -127,12 +127,12 @@ end
                 end
 
                 @testset "$engine: a failure names expected AND received" begin
-                    # SC 7. Without the received value the reader has to re-run
+                    # Without the received value the reader has to re-run
                     # the test by hand to find out what was actually there.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     err = try
                         expect(locator(page, "h1"); to_have_text = "Goodbye", timeout = 1_000)
@@ -153,7 +153,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     err = try
                         expect(
@@ -176,7 +176,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     err = try
                         expect(
@@ -199,7 +199,7 @@ end
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 1_000)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     elapsed = @elapsed @test_throws Playwright.AssertionFailure expect(
                         locator(page, "h1");
@@ -210,19 +210,19 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: expect on the document (M4 T8, SC 6)" begin
+                @testset "$engine: expect on the document" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m4.html")
+                    goto!(page, "$base_url/late-title.html")
 
-                    # m4.html loads as "M4 (loading)" and renames itself 300ms
+                    # late-title.html loads as "Dashboard (loading)" and renames itself 300ms
                     # later, so this can only pass by retrying driver-side.
-                    @test expect(page; to_have_title = "M4") === page
+                    @test expect(page; to_have_title = "Dashboard") === page
                     @test evaluate(page, "() => window.__titleAt > window.__parsedAt")
 
-                    expect(page; to_have_url = r"m4\.html$")
-                    expect(page; to_have_url = "$base_url/m4.html")
+                    expect(page; to_have_url = r"late-title\.html$")
+                    expect(page; to_have_url = "$base_url/late-title.html")
                     expect(page; to_have_title = Not("something else"))
 
                     # A mismatch names what was actually there.
@@ -234,10 +234,10 @@ end
                     end
                     @test err isa Playwright.AssertionFailure
                     @test occursin("Not The Title", err.message)  # expected
-                    @test occursin("M4", err.message)             # received
+                    @test occursin("Dashboard", err.message)             # received
 
-                    # And the wrong-target matcher is refused locally (SC 6).
-                    @test_throws ArgumentError expect(page; to_have_text = "M4")
+                    # And the wrong-target matcher is refused locally.
+                    @test_throws ArgumentError expect(page; to_have_text = "Dashboard")
 
                     close!(browser)
                 end
@@ -246,7 +246,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     # A condition expect cannot express: a JS flag flipping.
                     @test retry_until(; timeout = 10_000, interval = 50) do
@@ -266,9 +266,9 @@ end
     end
 end
 
-# --- T11: calls on a closed page ------------------------------------------
+# --- Calls on a closed page ------------------------------------------------
 
-@testset "closed pages (T11)" begin
+@testset "closed pages" begin
     with_fixture_server() do base_url
         playwright() do pw
             for engine in ("chromium", "firefox")
@@ -278,8 +278,8 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
-                    @test title(page) == "Milestone 3 fixture"
+                    goto!(page, "$base_url/waiting.html")
+                    @test title(page) == "Waiting fixture"
 
                     close!(page)
 
@@ -289,7 +289,7 @@ end
                         p -> title(p),
                         p -> evaluate(p, "1 + 1"),
                         p -> locator(p, "h1"),
-                        p -> goto!(p, "$base_url/m3.html"),
+                        p -> goto!(p, "$base_url/waiting.html"),
                         p -> wait_for_selector(p, "h1"),
                     )
                         err = try
@@ -309,7 +309,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     close!(ctx)
                     @test_throws Playwright.TargetClosedError title(page)
@@ -317,14 +317,14 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: the postmortem readers survive a closed context (T3)" begin
-                    # SC 10, against a real driver. This is the regression B5
+                @testset "$engine: the postmortem readers survive a closed context" begin
+                    # Against a real driver. This is the regression
                     # reported: these two are what a `finally` block calls, and
                     # a throw here masks the failure that sent it there.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m4.html")
+                    goto!(page, "$base_url/late-title.html")
 
                     # Alive: they report what the page really produced.
                     @test js_wait(page, "window.__threwAt !== undefined")
@@ -346,22 +346,22 @@ end
     end
 end
 
-# --- T7: Locator ergonomics against real browsers -------------------------
+# --- Locator ergonomics against real browsers ------------------------------
 
-@testset "locator ergonomics (T7)" begin
+@testset "locator ergonomics" begin
     with_fixture_server() do base_url
         playwright() do pw
             for engine in ("chromium", "firefox")
                 bt = getfield(pw, Symbol(engine))
 
                 @testset "$engine: evaluate on a Locator drives a range input" begin
-                    # SC 5. A range input cannot be clicked to an exact value,
+                    # A range input cannot be clicked to an exact value,
                     # so this is the case that forced private-field access
-                    # before T7.
+                    # without it.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     slider = locator(page, "#first")
                     evaluate(slider, "(el, v) => el.value = v", 7)
@@ -380,7 +380,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     @test evaluate(locator(page, "h1"), "el => el.textContent") == "Hello"
                     @test evaluate(locator(page, "#first"), "el => el.max") == "10"
@@ -392,7 +392,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     strict_multi = locator(page, "input[type=range]")
                     @test_throws PlaywrightError evaluate(strict_multi, "el => el.value")
@@ -404,7 +404,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     sliders = locator(page, "input[type=range]"; strict = false)
                     @test evaluate_all(sliders, "els => els.length") == 2
@@ -425,7 +425,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     handle = element_handle(locator(page, "h1"))
                     @test handle isa Playwright.ElementHandle
@@ -441,7 +441,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     loc = locator(page, "#first")
                     @test frame(loc) === Playwright.main_frame(page)
@@ -461,9 +461,9 @@ end
     end
 end
 
-# --- T5: driver-side waiting against real browsers ------------------------
+# --- Driver-side waiting against real browsers -----------------------------
 
-@testset "waiting (T5)" begin
+@testset "waiting" begin
     with_fixture_server() do base_url
         playwright() do pw
             for engine in ("chromium", "firefox")
@@ -473,10 +473,10 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     # #late is appended 300ms after parse. No sleep here: the
-                    # driver holds the call open until it lands (SC 2).
+                    # driver holds the call open until it lands.
                     el = wait_for_selector(page, "#late")
                     @test el isa Playwright.ElementHandle
                     @test text_content(locator(page, "#late")) == "late arrival"
@@ -492,7 +492,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     @test wait_for_selector(page, "#late"; state = :visible) isa
                           Playwright.ElementHandle
@@ -507,7 +507,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     el = wait_for_selector(locator(page, "#late"); state = :visible)
                     @test el isa Playwright.ElementHandle
@@ -516,12 +516,12 @@ end
                 end
 
                 @testset "$engine: a missing selector raises TimeoutError, not DriverError" begin
-                    # SC 4. Branching on "is my element late?" versus "did the
+                    # Branching on "is my element late?" versus "did the
                     # page break?" is the whole point of the taxonomy.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     err = try
                         wait_for_selector(page, "#never-arrives"; timeout = 1_000)
@@ -539,7 +539,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     handle = wait_for_function(page, "() => window.ready === true")
                     @test handle !== nothing
@@ -552,7 +552,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     wait_for_function(
                         page,
@@ -566,12 +566,12 @@ end
                 end
 
                 @testset "$engine: a throwing predicate raises DriverError, not TimeoutError" begin
-                    # The other half of SC 4: a predicate that can never
+                    # The other half: a predicate that can never
                     # succeed must not masquerade as one that is merely late.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     err = try
                         wait_for_function(
@@ -595,7 +595,7 @@ end
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 1_000)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     elapsed =
                         @elapsed @test_throws Playwright.TimeoutError wait_for_selector(
@@ -611,9 +611,9 @@ end
     end
 end
 
-# --- T4: the event surface against real browsers --------------------------
+# --- The event surface against real browsers -------------------------------
 
-@testset "events (T4)" begin
+@testset "events" begin
     with_fixture_server() do base_url
         playwright() do pw
             for engine in ("chromium", "firefox")
@@ -623,7 +623,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     popup = expect_event(ctx, :page) do
                         click!(locator(page, "#open-popup"))
@@ -639,13 +639,13 @@ end
                 end
 
                 @testset "$engine: a synchronously-fired console event is caught" begin
-                    # SC 6, the regression this fixture exists for: #shout logs
+                    # The regression this fixture exists for: #shout logs
                     # inside its click handler, so the message is emitted before
                     # `click!` returns. Subscribing after the click would miss it.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3-events.html")
+                    goto!(page, "$base_url/console-events.html")
 
                     msg =
                         expect_event(ctx, :console; predicate = m -> m.text == "shouted") do
@@ -662,7 +662,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3-events.html")
+                    goto!(page, "$base_url/console-events.html")
 
                     floods = with_events(ctx, :console) do stream
                         click!(locator(page, "#flood"))
@@ -682,7 +682,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     closed = expect_event(page, :close) do
                         close!(page)
@@ -696,7 +696,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     err = expect_event(ctx, :pageerror) do
                         # setTimeout so the throw escapes evaluate's own reply
@@ -716,7 +716,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     elapsed = @elapsed @test_throws Playwright.TimeoutError expect_event(
                         ctx,
@@ -737,7 +737,7 @@ end
                 @testset "$engine: an unsupported event is refused, not faked" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
-                    # `:request` used to be here. M6 T12 shipped it, so the
+                    # `:request` is supported now, so the
                     # examples are now events that really are still deferred —
                     # the ones whose payload types have no accessors.
                     @test_throws ArgumentError expect_event(ctx, :download) do
@@ -751,7 +751,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3-events.html")
+                    goto!(page, "$base_url/console-events.html")
                     conn = page.connection
 
                     expect_event(ctx, :console) do
@@ -773,7 +773,7 @@ end
     end
 end
 
-@testset "m3 fixtures" begin
+@testset "the waiting and console fixtures" begin
     with_fixture_server() do base_url
         playwright() do pw
             for engine in ("chromium", "firefox")
@@ -783,7 +783,7 @@ end
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3.html")
+                    goto!(page, "$base_url/waiting.html")
 
                     # The h1 the target snippet asserts on is there immediately.
                     @test text_content(locator(page, "h1")) == "Hello"
@@ -809,23 +809,23 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: m4.html — late title, console and a page error" begin
+                @testset "$engine: late-title.html — late title, console and a page error" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m4.html")
+                    goto!(page, "$base_url/late-title.html")
 
                     # The title is wrong at parse and right later. Asserted from
-                    # the page's own clock, as m3.html's late element is, rather
+                    # the page's own clock, as waiting.html's late element is, rather
                     # than by racing goto to observe the absence.
-                    @test js_wait(page, "document.title === 'M4'")
+                    @test js_wait(page, "document.title === 'Dashboard'")
                     @test evaluate(page, "() => window.__titleAt > window.__parsedAt")
 
-                    # T9's report_diagnostics dumps both of these, so the
+                    # report_diagnostics dumps both of these, so the
                     # fixture has to produce both.
                     @test js_wait(page, "window.__threwAt !== undefined")
                     @test !isempty(console_messages(page))
-                    @test any(e -> occursin("m4 fixture", e.message), page_errors(page))
+                    @test any(e -> occursin("late-title fixture", e.message), page_errors(page))
 
                     # Enough rendered content that a screenshot and a PDF are
                     # more than a blank sheet.
@@ -834,11 +834,11 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: m3-events.html — sync and flooded console" begin
+                @testset "$engine: console-events.html — sync and flooded console" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
-                    goto!(page, "$base_url/m3-events.html")
+                    goto!(page, "$base_url/console-events.html")
 
                     # #shout logs synchronously inside its own click handler: the
                     # message must already exist by the time the handler returns.

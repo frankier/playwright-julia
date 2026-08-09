@@ -1,4 +1,4 @@
-# T5: wait_for_selector / wait_for_function. Hermetic — these assert the
+# wait_for_selector / wait_for_function. Hermetic — these assert the
 # protocol frame each entry point sends, which is where an option that is
 # silently dropped (or a timeout that never consulted the cascade) shows up.
 # The behaviour against a real DOM is in the smoke suite.

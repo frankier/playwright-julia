@@ -113,31 +113,20 @@ paint took 57.9 seconds.
 end
 ```
 
-Prefer [`expect`](@ref) whenever it fits. `retry_until` round-trips per attempt
-and can miss a state that flickers between polls; `expect` re-checks inside the
-browser and cannot.
+Prefer [`expect`](@ref) whenever it fits. `retry_until` makes a round trip per
+attempt, so it can miss a state that flickers between polls. `expect` re-checks
+inside the browser, so it cannot.
 
-## Timeouts cascade
+## How long each wait gets
 
-Every `timeout` keyword falls back through a chain: the call's own keyword,
-then the page's setting, then the context's, then 30 seconds.
+Every `timeout` keyword falls back through a chain: the call's own keyword, then
+the page's setting, then the context's, then 30 seconds. Set it once on the
+context with [`set_default_timeout!`](@ref):
 
 ```julia
 ctx = new_context(browser)
 set_default_timeout!(ctx, 2_000)       # a missing element fails in 2 s
-page = new_page(ctx)
-set_default_timeout!(page, 5_000)      # ...but this page gets 5 s
 ```
 
-Setting it once on the context is usually right: the default of 30 seconds per
-miss is generous for a passing suite and painful for a failing one.
-
-[`set_default_navigation_timeout!`](@ref) does the same for navigations, which
-fall back to the action setting when they have none of their own — so setting
-only the action default also shortens navigations rather than leaving them at
-30 seconds.
-
-`launch`'s own `timeout` is deliberately outside the cascade: it bounds browser
-*startup*, where there is no page or context to inherit from.
-
-See [Errors and timeouts](@ref) for what happens when the budget runs out.
+See [Errors and timeouts](@ref) for the whole cascade, and for what happens when
+the budget runs out.

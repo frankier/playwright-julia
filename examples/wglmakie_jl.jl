@@ -16,17 +16,10 @@
 #     byte-identical screenshot to passing nothing.
 #   * **Firefox renders it too, as of the build this repo pins.**
 #
-# The second bullet used to say the opposite, and the change is worth keeping
-# rather than quietly overwriting. `tasks/m5-probe.md` found Firefox with *no*
-# WebGL context at all — not a slow one, not a broken one, none, with the
-# console reporting "Exhausted GL driver options" — so M4 asserted the absence
-# and ran a structural-only leg on Firefox. M7 re-probed and found
-# `has_webgl == true` and 1625 distinct colours, against Chromium's ~1690.
-#
-# So the pixel assertion now runs on both engines, and the no-WebGL fallback
-# branch is gone. An example whose Firefox leg asserts a browser limitation
-# that no longer exists is worse than no Firefox leg: it passes for the wrong
-# reason until the day it fails for the right one.
+# Firefox is worth measuring rather than assuming: older builds had no WebGL
+# context at all here, reporting "Exhausted GL driver options" in the console.
+# The pinned build gives `has_webgl == true` and 1625 distinct colours, against
+# Chromium's ~1690, so the pixel assertion runs on both engines.
 
 using Bonito
 using WGLMakie
@@ -51,7 +44,6 @@ const OUTPUT = joinpath(@__DIR__, "output")
 # three states are an order of magnitude apart, measured:
 #
 #     Bonito still loading    123 distinct colours
-#     Firefox's old fallback  241   (no longer reachable — see the note above)
 #     fully rendered         1625 on Firefox, ~1690 on Chromium
 #
 const RENDERED_COLOURS = 500
@@ -123,8 +115,8 @@ try
                         )
                         @test has_webgl == true
 
-                        # The pixel assertion. Budget 90 seconds: the probe
-                        # measured 57.9s for a cold first render on Chromium —
+                        # The pixel assertion. Budget 90 seconds: a cold first
+                        # render on Chromium measures 57.9s —
                         # Bonito serving its bundle, the browser compiling the
                         # WGLMakie JS, and SwiftShader compiling shaders on the
                         # CPU, all at once — against 1.8s warm. Firefox warm is

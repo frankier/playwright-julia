@@ -1,8 +1,8 @@
-# T3: event registry and subscription lifetime. Hermetic — canned protocol
+# Event registry and subscription lifetime. Hermetic — canned protocol
 # traces over FakeDriver, no driver and no browser.
 #
 # Lifetime is asserted directly against the registry rather than inferred from
-# behaviour (SC 7): "no event arrived" is also what a silently-broken
+# behaviour: "no event arrived" is also what a silently-broken
 # subscription looks like, so the tests check the registry and the buffer.
 
 """
@@ -107,7 +107,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
     end
 
     @testset "no event is dropped — 5 000 messages, 5 000 received" begin
-        # SC 6. Buffers are unbounded precisely so this holds.
+        # Buffers are unbounded precisely so this holds.
         f = event_fixture()
         sub = Playwright.subscribe(f.page, "console")
         for i = 1:5_000
@@ -179,7 +179,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
     end
 
     @testset "a dropped page does not keep its backlog alive" begin
-        # D1a: buffers are unbounded, so an owner going away has to drop them.
+        # buffers are unbounded, so an owner going away has to drop them.
         # "Drop" means the *connection* lets go — that is what makes the
         # backlog collectable. The buffer itself stays readable for whoever
         # still holds the handle, and dies with it; draining eagerly here would
@@ -258,7 +258,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
     end
 end
 
-# --- T4: the user-facing surface over the T3 registry ----------------------
+# --- The user-facing surface over the registry -----------------------------
 #
 # Still hermetic: canned traces prove the name mapping, payload mapping,
 # predicate filtering and lifetime. Only the things that need a real browser
@@ -268,7 +268,7 @@ end
     @testset "an event fired inside the body is caught, not missed" begin
         # The whole reason expect_event takes a do-block: subscribing must
         # happen before the body runs, or an event the body triggers
-        # synchronously is gone before anyone is listening (SC 6).
+        # synchronously is gone before anyone is listening.
         f = event_fixture()
         msg = expect_event(f.context, :console) do
             send_event(
@@ -319,7 +319,7 @@ end
         close(f.conn)
     end
 
-    @testset "payloads arrive as the milestone's own types" begin
+    @testset "payloads arrive as their own wrapper types" begin
         f = event_fixture()
 
         # :page hands back a Page, resolved through the registry
@@ -340,7 +340,7 @@ end
                 f.fake,
                 "context@1",
                 "pageError",
-                # Shape probed off the live driver: the SerializedError sits
+                # Shape read off the live driver: the SerializedError sits
                 # one level deeper than in the buffered `page_errors` getter.
                 Dict(
                     "error" => Dict(
@@ -488,10 +488,8 @@ end
 
     @testset "an unsupported event names itself and says it is deferred" begin
         f = event_fixture()
-        # M6 T12 removed :request, :response, :requestfinished and
-        # :requestfailed from DEFERRED_EVENTS (SC 13) — they are supported now,
-        # and are asserted as such below. What remains deferred is what still
-        # has no wrapper type.
+        # What stays deferred is what still has no wrapper type. The four
+        # network events are supported, and are asserted as such below.
         for bad in (:websocket, :worker, :bindingcall)
             err = try
                 expect_event(f.context, bad) do
@@ -504,30 +502,27 @@ end
             @test occursin(String(bad), lowercase(err.msg))
             @test occursin("deferred", lowercase(err.msg))
         end
-        # SC 13: the four network events are gone from DEFERRED_EVENTS, so
-        # asking for one is no longer an ArgumentError. It reaches the wait and
-        # times out instead, which is what "supported but nothing happened"
-        # looks like.
+        # The four network events are absent from DEFERRED_EVENTS, so asking for
+        # one is not an ArgumentError. It reaches the wait and times out instead,
+        # which is what "supported but nothing happened" looks like.
         for supported in (:request, :response, :requestfinished, :requestfailed)
             @test haskey(Playwright.CONTEXT_EVENTS, supported)
             @test !haskey(Playwright.DEFERRED_EVENTS, supported)
             # ...and on a Page too, where it is the context subscription with a
-            # page filter (D11).
+            # page filter.
             @test haskey(Playwright.events_for(f.page), supported)
         end
 
-        # M7 T12 did the same for :download, which is a *Page* event -- so on a
-        # context it is now an ordinary "no such event for this owner", and
-        # must no longer claim to be deferred.
+        # :download is a *Page* event, so on a context it is an ordinary "no such
+        # event for this owner" and must not claim to be deferred.
         @test haskey(Playwright.events_for(f.page), :download)
         @test !haskey(Playwright.DEFERRED_EVENTS, :download)
-        # :dialog is NOT the same case, and T14 got it wrong by treating it as
-        # one. It is in no owner's event table -- not PAGE_EVENTS, not
-        # CONTEXT_EVENTS -- because subscribing is what disarms the driver's
-        # auto-dismiss, so the registry owns the subscription and no caller can
-        # reach it through expect_event. An entry that is absent from both
-        # tables at once is a false "no such event", which is exactly what T18
-        # kept :route's entry to avoid.
+        # :dialog is a different case. It is in no owner's event table -- not
+        # PAGE_EVENTS, not CONTEXT_EVENTS -- because subscribing is what disarms
+        # the driver's auto-dismiss, so the registry owns the subscription and no
+        # caller can reach it through expect_event. It must therefore stay in
+        # DEFERRED_EVENTS: absent from every table at once would answer a
+        # question about a wrapped, documented type with "unknown event".
         @test !haskey(Playwright.events_for(f.page), :dialog)
         @test !haskey(Playwright.CONTEXT_EVENTS, :dialog)
         @test haskey(Playwright.DEFERRED_EVENTS, :dialog)
@@ -555,11 +550,10 @@ end
         close(f.conn)
     end
 
-    # M7 T18 (D14). The table had drifted: :download claimed "Artifact is not
-    # wrapped yet" long after Artifact was wrapped, so the error told users
-    # something false about why their event was unsupported. The drift was the
-    # finding, not the entry -- a table that drifts once will drift again.
-    @testset "the deferred table names only unsupported events (SC 23, 24)" begin
+    # A message here can go stale without anything breaking, and then it tells
+    # users something false about why their event is unsupported. So each entry
+    # is checked against what the package actually offers.
+    @testset "the deferred table names only unsupported events" begin
         f = event_fixture()
 
         # The gate itself, on both owners.
@@ -568,7 +562,7 @@ end
                   Symbol[]
         end
 
-        # SC 24: prove the gate fails when it should. Re-adding a supported
+        # prove the gate fails when it should. Re-adding a supported
         # event to a *copy* of the table must be caught -- a gate nobody has
         # watched fail is a gate nobody knows works.
         tampered = merge(
@@ -585,15 +579,14 @@ end
         for key in (:worker, :bindingcall)
             @test occursin("no accessors yet", Playwright.DEFERRED_EVENTS[key])
         end
-        # :websocket is :route's case as of M8 T21, not :worker's. The
-        # observation type still has no accessors, but a reader who has just
-        # used route_web_socket! reads "no accessors yet" as "WebSockets are
-        # unsupported" — which is the half-wrong message m7-api-gaps.md gap 2
-        # was written about. Asserted on the message a user actually sees.
+        # :websocket is :route's case, not :worker's. The observation type has no
+        # accessors, but a reader who has just used route_web_socket! would read
+        # "no accessors yet" as "WebSockets are unsupported". So this asserts on
+        # the message a user actually sees.
         @test haskey(Playwright.DEFERRED_EVENTS, :websocket)
         @test occursin("route_web_socket!", Playwright.DEFERRED_EVENTS[:websocket])
-        # The qualifier is the whole fix: it is *observation* that has no
-        # accessors, not WebSockets that have no support.
+        # The qualifier carries it: *observation* has no accessors, WebSockets
+        # are not unsupported.
         @test occursin("WebSocket observation", Playwright.DEFERRED_EVENTS[:websocket])
         # :dialog is :route's case, not :worker's: the type is wrapped and
         # usable, so the message must send the reader to the API that answers
@@ -601,20 +594,18 @@ end
         @test occursin("with_dialog", Playwright.DEFERRED_EVENTS[:dialog])
         @test !occursin("no accessors yet", Playwright.DEFERRED_EVENTS[:dialog])
 
-        # And the two Part C events that really did become events are gone.
+        # And the two that really are events are gone from the table.
         for gone in (:download, :filechooser)
             @test !haskey(Playwright.DEFERRED_EVENTS, gone)
         end
         close(f.conn)
     end
 
-    # The bug this fixes: :dialog left DEFERRED_EVENTS in T14 without arriving
-    # in any event table, so for four commits the package answered a question
-    # about a wrapped, documented type with "unknown event". The gate below
-    # catches an entry that lies about being unsupported; nothing caught an
-    # event that was silently unmentioned, which is why this asserts on the
-    # message a user actually sees rather than on table membership.
-    @testset "asking for :dialog explains the registry (m7-api-gaps gap 2)" begin
+    # The gate above catches an entry that lies about being unsupported. Nothing
+    # catches an event that is silently unmentioned by every table, which is why
+    # this asserts on the message a user actually sees rather than on table
+    # membership.
+    @testset "asking for :dialog explains the registry" begin
         f = event_fixture()
         for owner in (f.page, f.context)
             err = try

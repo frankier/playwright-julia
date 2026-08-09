@@ -1,8 +1,8 @@
-# Downloads (SPEC-M7.md D10, D11), against the fake connection.
+# Downloads, against the fake connection.
 #
 # Everything here is assertable without a browser: the payload mapping, the
 # three forwarded verbs, failure's two answers, and the keyword mapping whose
-# third case is a silent-timeout trap. The real-browser legs are T13's, in
+# third case is a silent-timeout trap. The real-browser legs are in
 # test_smoke_files.jl.
 #
 # `timeout_fixture` rather than `event_fixture`, and the difference is not
@@ -50,7 +50,7 @@ function fire_download(
     return nothing
 end
 
-@testset "downloads (T12)" begin
+@testset "downloads" begin
     @testset "the event payload carries what the artifact cannot" begin
         # url and suggestedFilename live on the event and nowhere else, so a
         # bare Artifact would lose both -- which is the whole reason Download
@@ -87,7 +87,7 @@ end
         @test msg["method"] == "saveAs"
         @test msg["params"]["path"] == dest
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
-        # D6 again: path is a keyword and comes back, inherited unchanged.
+        # path is a keyword and comes back, inherited unchanged.
         @test fetch(task) == dest
 
         task = @async delete_file!(dl)
@@ -113,7 +113,7 @@ end
     end
 
     @testset "failure is nothing on success and a string on refusal" begin
-        # The probe's finding, pinned: a refused download still arrives as an
+        # Pinned: a refused download still arrives as an
         # ordinary Download, and `failure` is the only non-throwing way to tell.
         f = timeout_fixture()
         dl = expect_download(f.page; timeout = 5_000) do

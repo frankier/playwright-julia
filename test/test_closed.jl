@@ -1,4 +1,4 @@
-# T11: calls on a closed page must raise TargetClosedError.
+# Calls on a closed page must raise TargetClosedError.
 #
 # Hermetic — a canned __dispose__ trace stands in for the browser. The bug this
 # guards against is not "the call fails" but "the call fails with a *Julia*
@@ -109,7 +109,7 @@
     end
 
     @testset "lazy calls raise as eagerly as round-tripping ones" begin
-        # `locator` does no protocol call, so before T11 it happily handed back
+        # `locator` does no protocol call, so without a guard it would hand back
         # an object for a page that no longer existed and failed confusingly
         # much later. The registry is the only thing it can consult.
         f = close_page!(timeout_fixture())
@@ -132,13 +132,13 @@
         close(f.fake.connection)
     end
 
-    # --- T3: the postmortem readers are no-throw (SPEC-M4.md B5, D4) ------
+    # --- The postmortem readers are no-throw ------------------------------
     #
     # These live here rather than in a test_diagnostics.jl of their own
     # because the thing under test *is* the closed-target behaviour, and
     # close_page!/close_context! above are what reproduce it faithfully.
     #
-    # B5 is the masked-failure bug: console_messages and page_errors are
+    # The masked-failure bug: console_messages and page_errors are
     # exactly what a `finally` block calls, and exactly when the page may
     # already be gone. Throwing there replaces the caller's real failure with
     # a less interesting one.
@@ -172,7 +172,7 @@
     end
 
     @testset "...and on a closed context" begin
-        # SC 10's shape: close the context, then read. The frame is gone here
+        # the shape: close the context, then read. The frame is gone here
         # too, which is the harder case.
         f = close_context!(timeout_fixture())
         @test isempty(console_messages(f.page))
@@ -183,7 +183,7 @@
     @testset "a page that closes mid-call is swallowed too" begin
         # The race the guard alone cannot cover: the page was alive when the
         # message went out and gone by the time the reply came back. This is
-        # the shape B5 actually reported from a real suite.
+        # the shape a real suite actually reported.
         for reader in (console_messages, page_errors)
             f = timeout_fixture()
             task = @async reader(f.page)
@@ -257,7 +257,7 @@
     @testset "screenshot still throws on a closed target" begin
         # Resolved open question 2: screenshot returns bytes, so it has no
         # natural empty answer, and it is a real action rather than a buffer
-        # read. It keeps throwing; report_diagnostics (T9) catches for it.
+        # read. It keeps throwing, and report_diagnostics catches for it.
         f = timeout_fixture()
         task = @async screenshot_bytes(f.page)
         msg = take!(f.fake.client_messages)

@@ -14,17 +14,17 @@ Playwright.jl is not registered yet, so it installs from the repository.
 There is no browser in this package, and no browser in its artifacts. On first
 use it fetches two things:
 
-- the upstream **`playwright-core` npm package** — the same driver the Node,
-  Python and .NET clients drive — at a pinned version;
+- the upstream **`playwright-core` npm package**, at a pinned version. This is
+  the same driver the Node, Python and .NET clients use.
 - a pinned **Node.js binary** from nodejs.org to run it.
 
-They are assembled into a Julia scratch space keyed by both versions. Browsers
-themselves are downloaded by the driver into the standard Playwright cache
-(`~/.cache/ms-playwright`), shared with any other Playwright installation on
-the machine.
+The package assembles both into a Julia scratch space keyed by the two versions.
+The driver then downloads the browsers themselves into the standard Playwright
+cache, `~/.cache/ms-playwright`, which it shares with any other Playwright
+installation on the machine.
 
-This means the very first `launch` on a clean machine can take a couple of
-minutes. Nothing is wrong; it is downloading a browser.
+So the very first `launch` on a clean machine can take a couple of minutes.
+Nothing is wrong. It is downloading a browser.
 
 ```julia
 using Playwright
@@ -32,8 +32,8 @@ install()                            # driver + Chromium + Firefox, ahead of tim
 install(; browsers = ["chromium"])   # or just the one you need
 ```
 
-[`Playwright.browsers_path`](@ref) reports where browsers will be looked for,
-which is the first thing to check when a launch cannot find one.
+[`Playwright.browsers_path`](@ref) reports where the package looks for browsers.
+Check that first when a launch cannot find one.
 
 ## A first test
 
@@ -59,24 +59,24 @@ end
 
 Three things in that shape are deliberate and worth copying:
 
-1. **[`playwright`](@ref) takes a block.** The driver subprocess is shut down
-   on the way out however the block ends. There is no `playwright()` that
-   returns a handle for you to remember to close.
-2. **`close!(browser)` is in a `finally`.** A browser left running outlives the
-   test process on some platforms.
-3. **The assertions are [`expect`](@ref), not `@test title(page) == …`.**
-   `expect` retries until the condition holds; the `@test` form reads once and
-   fails if the page was a few milliseconds slow. This is the single most
-   important habit in the package — see [Assertions](@ref).
+1. **[`playwright`](@ref) takes a block.** It shuts the driver subprocess down on
+   the way out, however the block ends. There is no `playwright()` that returns a
+   handle for you to remember to close.
+2. **`close!(browser)` sits in a `finally`.** On some platforms a browser left
+   running outlives the test process.
+3. **The assertions use [`expect`](@ref), not `@test title(page) == …`.**
+   `expect` retries until the condition holds. The `@test` form reads once, and
+   fails if the page was a few milliseconds slow. This is the most important
+   habit in the package — see [Assertions](@ref).
 
-For a test that also collects a screenshot and a trace when it fails, use the
-[`with_page`](@ref) fixture instead of the `try`/`finally` above; see
+To collect a screenshot and a trace when a test fails, use the
+[`with_page`](@ref) fixture instead of the `try`/`finally` above. See
 [Artifacts](@ref).
 
 ## Choosing an engine
 
 `pw.chromium` and `pw.firefox` are the two supported engines. WebKit exists in
-the protocol but is not tested by this package.
+the protocol, but this package does not test it.
 
 ```julia
 playwright() do pw
@@ -91,27 +91,27 @@ playwright() do pw
 end
 ```
 
-[`browser_name`](@ref) tells you which one you are on, for the rare case where
-the engines genuinely differ and a test has to say so out loud.
+[`browser_name`](@ref) tells you which one you are on. Use it for the rare case
+where the engines genuinely differ and a test has to say so out loud.
 
 ## Browsers in CI
 
-[`install`](@ref) needs Playwright.jl to be loadable, which is exactly what a
-project carrying it as a **test** dependency does not have outside `Pkg.test()`.
-`bin/install.jl` is the way in — it runs standalone, activating the checkout
-itself if the active environment cannot load the package:
+[`install`](@ref) needs to load Playwright.jl, which a project carrying it as a
+**test** dependency cannot do outside `Pkg.test()`. Use `bin/install.jl` instead.
+It runs standalone, and activates the checkout itself when the active environment
+cannot load the package:
 
 ```console
 $ julia bin/install.jl                 # driver + Chromium + Firefox
 $ julia bin/install.jl chromium        # just the one you need
 ```
 
-An unknown browser name is rejected before anything downloads.
+It rejects an unknown browser name before anything downloads.
 
-Set `PLAYWRIGHT_BROWSERS_PATH` to put browsers somewhere you control, which is
-far easier to cache and restore than a path in the home directory. Installing
-and launching both read it — the driver subprocess inherits Julia's environment
-— so set it once and the two agree:
+Set `PLAYWRIGHT_BROWSERS_PATH` to put browsers somewhere you control. That is far
+easier to cache and restore than a path in the home directory. Installing and
+launching both read it, because the driver subprocess inherits Julia's
+environment, so set it once and the two agree:
 
 ```console
 $ export PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright"
@@ -150,20 +150,19 @@ jobs:
 
 Two things that are easy to get wrong:
 
-- **Check that the cache actually hits.** A key that never matches is a cache
-  that never saves you anything, and it fails silently — the job just stays
-  slow. Read the log of a second run and confirm the install step was skipped.
+- **Check that the cache hits.** A key that never matches saves you nothing, and
+  it fails silently: the job only stays slow. Read the log of a second run and
+  check that it skipped the install step.
 - **The driver bundle is separate from the browsers.** It lives in a Julia
-  scratch space, which `julia-actions/cache@v2` already covers by default.
-  Caching it yourself as well means two actions writing the same path.
+  scratch space, which `julia-actions/cache@v2` already covers. Caching it
+  yourself as well puts two actions on one path.
 
 ## Headless, and the display
 
-Everything here passes `headless = true`, and on a CI runner there is no
-alternative. Headless Chromium in particular ships a software rasteriser, so
-even WebGL content renders with no GPU and no X display. Headless Firefox has
-no WebGL at all — see [WGLMakie.jl](@ref) for what that does and does not
-cover.
+Everything here passes `headless = true`, and a CI runner leaves no alternative.
+Headless Chromium ships a software rasteriser, so even WebGL content renders with
+no GPU and no X display. The pinned headless Firefox renders WebGL too. See
+[WGLMakie.jl](@ref) for the measurements.
 
 ## Where to go next
 

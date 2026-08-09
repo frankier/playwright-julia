@@ -54,7 +54,7 @@ title(page)                                   # "Home"
 expect(page; to_have_title = "Home")          # waits for it to become "Home"
 ```
 
-See [`expect`](@ref); the URL equivalent is [`url`](@ref).
+See [`expect`](@ref). The URL equivalent is [`url`](@ref).
 """
 title(page::Page) = _frame_title(main_frame(page))
 
@@ -71,7 +71,7 @@ screenshot(page; path = "artifacts/checkout.png")   # -> "artifacts/checkout.png
 call [`screenshot_bytes`](@ref) — the name says which one you get, so neither
 function has to return `Union{String,Vector{UInt8}}` depending on whether a
 keyword was passed. That is the artifact family's rule: **if you named a
-destination you get the destination back; if you want bytes you call the
+destination you get the destination back. If you want bytes you call the
 function that says bytes.**
 
 The viewport only — this package does not expose full-page or element

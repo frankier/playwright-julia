@@ -77,20 +77,16 @@ to catch.
     trip, when the loop starts — a page that adds or removes matching elements
     mid-loop can leave later iterations resolving elsewhere, or nowhere.
 
-!!! note "These names are public but invisible to `checkdocs`"
+!!! note "These names are public, but not in `names(Playwright)`"
     `count`, `length`, `first`, `last`, `iterate` and `getindex` extend their
-    `Base` counterparts rather than taking new names, so they work unqualified
-    and do **not** appear in `names(Playwright)`. The documentation gate is
-    `checkdocs = :exports`, so it cannot see them: they are public surface
-    standing outside the check that guarantees public surface is documented.
+    `Base` counterparts rather than taking new names. So they work unqualified,
+    and they do **not** appear in `names(Playwright)`.
 
-    That hole is real and accepted rather than unnoticed. Extending `Base` is
-    the correct Julia design for the iteration and indexing protocol, and
-    exporting these names would shadow `Base` for the whole session — a
-    concretely worse trade, as the package found when `fill` became
-    [`set_value!`](@ref) rather than an exported `fill`. The
-    [API reference](@ref "Base extensions") lists them explicitly so that
-    being outside the gate does not also mean being undocumented.
+    Extending `Base` is the right Julia design for the iteration and indexing
+    protocol. Exporting these names instead would shadow `Base` for the whole
+    session, which is a worse trade. The
+    [API reference](@ref "Base extensions") lists them explicitly, so a name
+    outside the export list is still a documented name.
 
 ## Reading
 
@@ -178,7 +174,7 @@ finally
 end
 ```
 
-[`element_handle`](@ref) does not wait; [`wait_for_selector`](@ref) is the form
+[`element_handle`](@ref) does not wait. [`wait_for_selector`](@ref) is the form
 that does. See [Waiting](@ref).
 
 ## Reading a locator back

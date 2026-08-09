@@ -21,7 +21,7 @@ using Playwright
     include("test_network.jl")
     include("test_events.jl")
     include("test_routing.jl")
-    # After test_routing.jl: HAR replay is a route! handler (D2), so its tests
+    # After test_routing.jl: HAR replay is a route! handler, so its tests
     # reuse send_route and last_patterns from there.
     include("test_har.jl")
     # After test_har.jl: reuses its har_fixture, which is the only fake-driver
@@ -46,7 +46,7 @@ using Playwright
         include("test_parity.jl")
         include("test_smoke_network.jl")
         # After test_smoke_network.jl: reuses its with_browser, within_deadline
-        # and todo_texts helpers, and its m6.html fixture page.
+        # and todo_texts helpers, and its network.html fixture page.
         include("test_smoke_har.jl")
         # After test_smoke.jl and test_smoke_network.jl: uses the former's
         # fixture server and playwright_browser_pids, the latter's
@@ -61,7 +61,7 @@ using Playwright
         @info "Skipping smoke tests (set PLAYWRIGHT_JL_SMOKE=1 to enable)"
     end
 
-    # Milestone 4's artifact tests are mostly hermetic, so this always runs —
+    # The artifact tests are mostly hermetic, so this always runs —
     # but the few legs that need a real browser are gated inside the file and
     # use test_smoke.jl's fixture server, which is why it comes last.
     include("test_artifacts.jl")

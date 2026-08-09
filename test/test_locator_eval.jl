@@ -1,4 +1,4 @@
-# T7: Locator ergonomics — evaluate/evaluate_all/element_handle on a Locator,
+# Locator ergonomics — evaluate/evaluate_all/element_handle on a Locator,
 # and the accessors that make `loc.frame`/`loc.selector` unnecessary.
 #
 # Hermetic: what matters here is that the locator's own selector and strictness
@@ -87,7 +87,7 @@ using Playwright: evaluate_all, element_handle, frame, selector, is_strict
     end
 
     @testset "the accessors are exported, so no caller needs the private fields" begin
-        # SC 5 in miniature: everything the SPEC-M2 fill_range! helper reached
+        # In miniature: everything a range-input helper once reached
         # into is now reachable through the public surface.
         for name in (:evaluate_all, :element_handle, :frame, :selector, :is_strict)
             @test name in names(Playwright)

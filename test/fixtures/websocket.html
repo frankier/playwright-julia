@@ -2,14 +2,14 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Playwright.jl M8 Fixture</title>
+    <title>WebSocket fixture</title>
   </head>
   <body>
-    <h1>M8</h1>
+    <h1>WebSocket</h1>
 
     <!-- Everything the page observes about its socket lands in the DOM, so a
          test asserts on what the *page* saw rather than on what the test
-         believes it sent. That is the same discipline m6.html uses for fetch. -->
+         believes it sent. That is the same discipline network.html uses for fetch. -->
     <p id="status">idle</p>
     <ul id="received"></ul>
     <p id="binary">none</p>
@@ -55,7 +55,7 @@
           }
         });
 
-        // The code and reason are the assertion for close_ws! (SC 25), so both
+        // The code and reason are the assertion for close_ws!, so both
         // are reported rather than just the fact of closing.
         socket.addEventListener("close", (event) => {
           closed.textContent = "closed:" + event.code + ":" + event.reason;

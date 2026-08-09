@@ -1,8 +1,8 @@
-# HAR archives: replaying one (Part A) and recording one (Part B).
+# HAR archives: replaying one, and recording one.
 #
 # Replay is not a mechanism of its own — there is no server-side "replay this
 # archive" command. It is `harOpen` once, `harLookup` per request, `harClose` at
-# the end, and the thing that produces the requests is M6's `route!` (D2). So
+# the end, and the thing that produces the requests is `route!`. So
 # everything here is a route handler and a lifetime, and `unroute!` is what owns
 # the lifetime.
 #
@@ -16,7 +16,7 @@
 Serve `target`'s matching requests from the HAR archive at `har`, so a page can
 be driven with no backend running at all.
 
-`target` is a [`Page`](@ref) or [`BrowserContext`](@ref); `har` is a path to a
+`target` is a [`Page`](@ref) or [`BrowserContext`](@ref). `har` is a path to a
 `.har` or a `.har.zip`. `url` restricts which requests are served — a glob,
 `Regex` or predicate, exactly as [`route!`](@ref) takes — and `nothing` serves
 all of them.
@@ -32,7 +32,7 @@ goto!(page, "https://app.example.com")
 
 `not_found` decides what happens to a request the archive has no entry for:
 `:abort` (the default) fails it, `:fallback` lets it reach the real network.
-The default is `:abort` on purpose (D4) — `:fallback` makes an incomplete
+The default is `:abort` on purpose — `:fallback` makes an incomplete
 archive pass on a machine where the real server happens to be up, which is the
 failure this feature exists to prevent. `:fallback` is offered anyway, because
 "archive the API, let the CDN through" is a real configuration.
@@ -50,8 +50,8 @@ function route_from_har(
 )
     # `update = true` does not replay. It *records*, into the same file,
     # replacing it — the name says "route" and the behaviour is "trace", which
-    # is confusing enough to be worth stating twice (D7). So it is Part B's
-    # machinery under Part A's name, and it returns early: none of the replay
+    # is confusing enough to be worth stating twice. So it is the recording
+    # machinery under replay's name, and it returns early: none of the replay
     # setup below applies to it.
     update && return record_into_har(target, har; url)
 
@@ -69,7 +69,7 @@ function route_from_har(
     archive = abspath(String(har))
     # Looking before asking: harOpen on a missing file raises the driver's
     # ENOENT, which does not name the archive in terms the caller recognises
-    # (D5a).
+    #.
     isfile(archive) ||
         throw(ArgumentError("no HAR archive at $(archive) — nothing to replay from"))
 
@@ -81,8 +81,8 @@ function route_from_har(
         route -> serve_from_har(route, utils, opened, archive, not_found);
         # harOpen is per-registration, not per-request: the driver parses the
         # archive once and hands back an id, and releasing it is unroute!'s job
-        # (D3). For a .zip there is a second lifetime — the extraction — and it
-        # is released here too, which is R5's "two lifetimes, one owner".
+        #. For a .zip there is a second lifetime — the extraction — and it
+        # is released here too: two lifetimes, one owner.
         release = () -> begin
             _local_utils_har_close(utils; harId = opened)
             workdir === nothing || rm(workdir; recursive = true, force = true)
@@ -133,7 +133,7 @@ Playwright writes a `.har.zip` whenever `content = :attach`, because the
 response bodies live beside the JSON as separate files.
 `LocalUtils.harUnzip` is the driver's own extraction, which is how Assumption 11
 can promise no new dependency: the alternative is a zip library in
-`Project.toml` to reimplement a call the driver already exposes (D3).
+`Project.toml` to reimplement a call the driver already exposes.
 
 Two things about `harUnzip` were found by probing rather than by reading, and
 both are load-bearing:
@@ -142,14 +142,14 @@ both are load-bearing:
     it, so the caller's file is copied into the temp directory and the copy is
     what the driver eats.
   - **`resourcesDir` must be the directory holding the extracted `.har`.**
-    `harLookup` resolves a content `_file` beside the `.har`; point the
+    `harLookup` resolves a content `_file` beside the `.har`. Point the
     resources somewhere else and every body comes back as an `ENOENT` at lookup
     time, long after the call that got it wrong.
 
-Whether it *is* a zip is decided by the file's first bytes, not by its name.
-A `.har` that is really a zip is not hypothetical — it is what
-`harExport(mode = "archive")` produces, and it is exactly the confusion T11 hit.
-The extension is a guess; the content is the fact.
+The file's first bytes decide whether it *is* a zip, not its name.
+A `.har` that is really a zip is not hypothetical: it is what
+`harExport(mode = "archive")` produces. The extension is a guess, the content is
+the fact.
 """
 function open_maybe_zipped(utils, archive::AbstractString)
     is_zip_file(archive) || return (open_archive(utils, archive), nothing)
@@ -179,7 +179,7 @@ Open `archive` in the driver and return its `harId`.
 `harOpen` reports failure two ways and only one of them is declared: a broken
 archive comes back in the `error` field, but a *missing* one raises. Both are
 checked, because code that checks only the declared field never sees the common
-failure (D5a).
+failure.
 """
 function open_archive(utils, archive::AbstractString)
     result = _local_utils_har_open(utils; file = archive)
@@ -200,14 +200,14 @@ end
 """
 Answer one intercepted request from the archive.
 
-The four `harLookup` actions map onto M6's three settle verbs (D2):
+The four `harLookup` actions map onto the three ways a route can settle:
 
 | `action` | Response |
 |---|---|
 | `fulfill` | [`fulfill!`](@ref) with the archived response |
-| `redirect` | [`continue!`](@ref) at `redirectURL` — navigations only (D5) |
+| `redirect` | [`continue!`](@ref) at `redirectURL` — navigations only |
 | `error` | a `DriverError`. The archive is broken, not the request |
-| `noentry` | `not_found` decides (D4) |
+| `noentry` | `not_found` decides |
 """
 function serve_from_har(route::Route, utils, har_id, archive, not_found::Symbol)
     req = request(route)
@@ -233,7 +233,7 @@ function serve_from_har(route::Route, utils, har_id, archive, not_found::Symbol)
             body = result.body,
         )
     elseif action == "redirect"
-        # One branch, no hop counter and no re-lookup (D5). For a sub-resource
+        # One branch, no hop counter and no re-lookup. For a sub-resource
         # the driver resolves the chain itself and answers `fulfill` with the
         # final response, so `redirect` only ever arrives for a navigation, and
         # what it asks for is that the navigation be re-issued at the new URL.
@@ -257,7 +257,7 @@ function serve_from_har(route::Route, utils, har_id, archive, not_found::Symbol)
             # about, or the warning below stops meaning anything.
             continue!(route)
         else
-            # D5a: harOpen succeeds on a file that is not a HAR, so a typo'd or
+            # harOpen succeeds on a file that is not a HAR, so a typo'd or
             # truncated archive opens cleanly and then misses *everything*.
             # Under :abort that is a page whose every request fails with no clue
             # why. Naming both the URL and the archive is what makes "your HAR
@@ -282,15 +282,15 @@ function serve_from_har(route::Route, utils, har_id, archive, not_found::Symbol)
     return nothing
 end
 
-# --- Recording (Part B) -----------------------------------------------------
+# --- Recording -------------------------------------------------------------
 #
-# D6: a start!/stop! pair, not a `new_context` keyword. There is no `recordHar`
+# A start!/stop! pair, not a `new_context` keyword. There is no `recordHar`
 # in `ContextOptions` — checked against mixins.yml:98 and browser.yml:62 — so
 # other bindings' `record_har_path` is client-side sugar that calls `harStart`
-# after the context exists. M8 declines the sugar, for three reasons in order of
-# weight:
+# after the context exists. This package declines the sugar, for three reasons
+# in order of weight:
 #
-#   1. start_tracing!/stop_tracing! already made this decision in M4, for the
+#   1. start_tracing!/stop_tracing! already made this decision, for the
 #      identical protocol shape: a Tracing command pair producing an Artifact.
 #      A second feature on the same object with the opposite spelling would be
 #      the package disagreeing with itself.
@@ -330,8 +330,8 @@ end
     start_har_recording!(ctx; path, content = :embed, mode = :full, url = nothing)
         -> HarRecording
 
-Begin recording `ctx`'s network into a HAR archive, to be written to `path` by
-[`stop_har_recording!`](@ref).
+Start recording `ctx`'s network into a HAR archive.
+[`stop_har_recording!`](@ref) writes it to `path`.
 
 ```julia
 rec = start_har_recording!(ctx; path = "api.har", url = "**/api/**")
@@ -346,14 +346,14 @@ body throws.
 |---|---|
 | `content` | `:embed` (bodies inline), `:attach` (bodies beside the JSON, so a `.har.zip`), `:omit` (no bodies) |
 | `mode` | `:full`, or `:minimal` for just enough to replay |
-| `url` | Record only matching requests — a glob string or a `Regex`; `nothing` records everything |
+| `url` | Record only matching requests — a glob string or a `Regex`, `nothing` records everything |
 
 `content` and `mode` are `Symbol`s validated here into the wire's string enums,
 so a typo is an `ArgumentError` naming the valid set rather than a driver error
 much later.
 
 Recording is a `start!`/`stop!` pair rather than a [`new_context`](@ref)
-keyword (D6), matching [`start_tracing!`](@ref) — the same protocol shape, so
+keyword, matching [`start_tracing!`](@ref) — the same protocol shape, so
 the same spelling. It also keeps the write visible: `stop_har_recording!`
 returns the path it wrote, where a context-close keyword would write somewhere
 else in the source entirely.
@@ -403,16 +403,16 @@ route_from_har(other_ctx, path)
 ```
 
 `harExport` hands back an `Artifact`, exactly as tracing's stop does, so
-[`save_as!`](@ref) is already the writer (D8) — including its guard: an export
+[`save_as!`](@ref) is already the writer — including its guard: an export
 that produced no artifact raises naming the path that was *not* written, rather
 than returning quietly and leaving the caller to find an absent file later.
 
-**`mode = "archive"` always produces a zip**, whatever `content` was — found by
-T11, whose replay met `Unexpected token 'P', "PK  "... is not valid JSON`. So a
-destination that is not a `.zip` gets the driver's own `harUnzip` on the way to
-disk, writing the `.har` and putting any attached bodies beside it, which is
-where [`route_from_har`](@ref) looks for them. Ask for a `.zip` path and you get
-the archive as exported.
+**`mode = "archive"` always produces a zip**, whatever `content` was. Replaying
+one as if it were a `.har` fails with `Unexpected token 'P', "PK  "... is not
+valid JSON`. So a destination that is not a `.zip` gets the driver's own
+`harUnzip` on the way to disk, writing the `.har` and putting any attached
+bodies beside it, which is where [`route_from_har`](@ref) looks for them. Ask
+for a `.zip` path and you get the archive as exported.
 """
 function stop_har_recording!(rec::HarRecording)
     result = _tracing_har_export(
@@ -447,7 +447,7 @@ function stop_har_recording!(rec::HarRecording)
             zipFile = zipped,
             harFile = rec.path,
             # Beside the .har, not under it: harLookup resolves an attached body
-            # relative to the archive (D3).
+            # relative to the archive.
             resourcesDir = destination,
         )
     finally
@@ -492,10 +492,10 @@ end
 
 """
 `route_from_har(…; update = true)`: a recording into the archive, wearing a
-replay's name (D7).
+replay's name.
 
-Implemented on D6's machinery rather than on replay's, because that is what it
-is — `harStart` scoped to the same `url` pattern, and an export written when the
+This is built on recording rather than on replay, because that is what it is:
+`harStart` scoped to the same `url` pattern, and an export written when the
 registration is released. Two consequences worth stating rather than
 discovering:
 
@@ -539,7 +539,7 @@ function record_into_har(target::Union{Page,BrowserContext}, har::AbstractString
 end
 
 """
-Whether `path` begins with the local-file-header magic of a zip, `PK\\x03\\x04`.
+Whether `path` starts with the local-file-header magic of a zip, `PK\\x03\\x04`.
 
 By content rather than by extension, because both directions of this feature
 produce a zip under a `.har` name if you let them, and a misjudged extension

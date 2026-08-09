@@ -4,8 +4,8 @@
 # PRs; the deploy is only ever exercised on main. Keeping them apart means a
 # deployment problem cannot masquerade as a documentation problem.
 #
-# D4: this build never launches a browser, so it cannot go red for a reason
-# that has nothing to do with the docs.
+# This build never launches a browser, so it cannot go red for a reason that has
+# nothing to do with the docs.
 name: Documentation
 
 on:
@@ -24,11 +24,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
-      # D10: the deploy is authenticated by the workflow's own GITHUB_TOKEN,
-      # so it can write the gh-pages branch. No repository secret is created
-      # and none is required — an implementation that finds itself wanting a
-      # DOCUMENTER_KEY has contradicted D10 and should stop, not work around
-      # it.
+      # The deploy is authenticated by the workflow's own GITHUB_TOKEN, so it
+      # can write the gh-pages branch. No repository secret is created and none
+      # is required. Wanting a DOCUMENTER_KEY means something else is wrong.
       contents: write
       # Needed by Documenter to comment the preview URL on pull requests.
       pull-requests: read

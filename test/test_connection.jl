@@ -99,9 +99,9 @@ end
         close(fake.connection)
     end
 
-    @testset "local_utils names HAR replay when the driver exposes none (T2, SC 1)" begin
+    @testset "local_utils names HAR replay when the driver exposes none" begin
         # Playwright.utils is `LocalUtils?` in the protocol (playwright.yml:36),
-        # so its absence is a case that has to have an answer. D1's answer is an
+        # so its absence is a case that has to have an answer. The answer is an
         # error that says what is unavailable and why, raised at the accessor —
         # rather than a `nothing` that surfaces as a MethodError three frames
         # down inside a route handler.
@@ -119,7 +119,7 @@ end
         close(fake.connection)
     end
 
-    @testset "local_utils returns the LocalUtils when the driver has one (T2)" begin
+    @testset "local_utils returns the LocalUtils when the driver has one" begin
         fake = FakeDriver()
         send_create(fake, "", "LocalUtils", "localUtils")
         sync(fake)
@@ -330,12 +330,12 @@ end
         @test !any(v -> v === nothing, values(params))
     end
 
-    # --- D10's pin (T13) ---------------------------------------------------
+    # --- The wire-parameter pin ------------------------------------------------
     #
     # These grow *before* launch/new_context are refactored onto shared option
-    # builders, not after (R4). launch and new_context are used by every test
+    # builders. launch and new_context are used by every test
     # and every example, so a subtle change to option construction would break
-    # the suite far from its cause. SC 16 is that the assertions above and below
+    # the suite far from its cause. The assertions above and below
     # pass unchanged across the refactor — which only means anything if they
     # were written against the old behaviour first.
 
@@ -351,7 +351,7 @@ end
         return (fake = fake, browser = browser)
     end
 
-    @testset "new_context sends only the options that were set (T13, SC 16)" begin
+    @testset "new_context sends only the options that were set" begin
         f = context_fixture()
 
         # Defaults only: new_context sets nothing of its own, so the params are
@@ -368,14 +368,14 @@ end
         close(f.fake.connection)
     end
 
-    @testset "new_context's full option set crosses unchanged (T13, SC 16)" begin
+    @testset "new_context's full option set crosses unchanged" begin
         f = context_fixture()
 
         task = @async new_context(
             f.browser;
             viewport = (width = 1280, height = 720),
             record_video = (dir = "artifacts/video", size = (width = 640, height = 480)),
-            user_agent = "M8/1.0",
+            user_agent = "TestAgent/1.0",
             locale = "de-DE",
             timezone_id = "Europe/Berlin",
             color_scheme = "dark",
@@ -385,7 +385,7 @@ end
             offline = false,
             permissions = ["geolocation"],
             base_url = "https://app.example.com",
-            extra_http_headers = Dict("x-m8" => "yes"),
+            extra_http_headers = Dict("x-custom" => "yes"),
             ignore_https_errors = true,
             java_script_enabled = false,
             accept_downloads = true,
@@ -419,12 +419,12 @@ end
             "dir" => "artifacts/video",
             "size" => Dict("width" => 640, "height" => 480),
         )
-        @test params["extraHTTPHeaders"] == [Dict("name" => "x-m8", "value" => "yes")]
+        @test params["extraHTTPHeaders"] == [Dict("name" => "x-custom", "value" => "yes")]
         # ...and the enum mapping that is load-bearing rather than tidy: `true`
         # becomes "accept", never "internal-browser-default".
         @test params["acceptDownloads"] == "accept"
 
-        @test params["userAgent"] == "M8/1.0"
+        @test params["userAgent"] == "TestAgent/1.0"
         @test params["javaScriptEnabled"] === false
         @test params["deviceScaleFactor"] == 2
         @test !any(v -> v === nothing, values(params))
@@ -436,7 +436,7 @@ end
         close(f.fake.connection)
     end
 
-    @testset "launch_persistent_context sends the union of both (T14, SC 15)" begin
+    @testset "launch_persistent_context sends the union of both" begin
         fake = FakeDriver()
         bt = Playwright.BrowserType(
             fake.connection,
@@ -447,7 +447,7 @@ end
 
         task = @async launch_persistent_context(
             bt,
-            "/tmp/m8-profile";
+            "/tmp/test-profile";
             headless = false,           # a launch option
             args = ["--no-sandbox"],    # ...another
             viewport = (width = 800, height = 600),   # a context option
@@ -457,8 +457,8 @@ end
         @test msg["method"] == "launchPersistentContext"
         params = msg["params"]
 
-        @test params["userDataDir"] == "/tmp/m8-profile"
-        # Both families, in one message, through T13's builders.
+        @test params["userDataDir"] == "/tmp/test-profile"
+        # Both families, in one message, through the shared builders.
         @test params["headless"] === false
         @test params["args"] == ["--no-sandbox"]
         @test params["viewport"] == Dict("width" => 800, "height" => 600)
@@ -480,7 +480,7 @@ end
             ),
         )
         # The *context* is returned, not the browser: it is what every caller
-        # then uses, and the browser has exactly one context anyway (D9).
+        # then uses, and the browser has exactly one context anyway.
         ctx = fetch(task)
         @test ctx isa Playwright.BrowserContext
         @test ctx.guid == "context@1"
@@ -488,7 +488,7 @@ end
         close(fake.connection)
     end
 
-    @testset "an empty user_data_dir is refused before the wire (T14, SC 17)" begin
+    @testset "an empty user_data_dir is refused before the wire" begin
         fake = FakeDriver()
         bt = Playwright.BrowserType(
             fake.connection,
@@ -499,7 +499,7 @@ end
 
         # Playwright allows "" — meaning a temp profile — and this package does
         # not: a *persistent* context whose profile evaporates is a call the
-        # caller did not mean to make (D9).
+        # caller did not mean to make.
         err = try
             launch_persistent_context(bt, "")
             nothing
@@ -514,8 +514,8 @@ end
         close(fake.connection)
     end
 
-    @testset "an unknown keyword names itself, not a builder (T14)" begin
-        # The cost of forwarding kwargs to T13's builders is that a typo would
+    @testset "an unknown keyword names itself, not a builder" begin
+        # The cost of forwarding kwargs to the shared builders is that a typo would
         # otherwise surface as a MethodError inside launch_options. It is caught
         # here instead, where the caller can see which keyword they meant.
         fake = FakeDriver()
@@ -536,8 +536,8 @@ end
         close(fake.connection)
     end
 
-    @testset "the option-key split covers both builders exactly (T14, D10)" begin
-        # The guard against the drift D10 exists to prevent: if a keyword is
+    @testset "the option-key split covers both builders exactly" begin
+        # The guard against silent drift: if a keyword is
         # added to either builder, the splitting in launch_persistent_context
         # must see it, or that option silently stops reaching the wire for the
         # third caller only.
@@ -551,11 +551,11 @@ end
         @test isempty(intersect(launch_keys, context_keys))
     end
 
-    @testset "close! on a persistent context closes only the context (T15, SC 20)" begin
-        # SPEC-M8 D9 wanted close!(ctx) to close the browser as well, on the
+    @testset "close! on a persistent context closes only the context" begin
+        # close!(ctx) might be expected to close the browser as well, on the
         # premise that otherwise every use leaks a browser process. **That
-        # premise is false on this driver** — probed on both engines
-        # (tasks/m8-probe.md, T15/T16 addendum): closing a persistent context
+        # premise is false on this driver**. On both engines, closing a
+        # persistent context
         # already takes the browser process with it and disposes the Browser,
         # and an explicit close afterwards raises TargetClosedError.
         #
@@ -569,7 +569,7 @@ end
             Dict{String,Any}("name" => "chromium"),
         )
 
-        task = @async launch_persistent_context(bt, "/tmp/m8-owned")
+        task = @async launch_persistent_context(bt, "/tmp/test-owned")
         msg = take!(fake.client_messages)
         send_create(fake, "browserType@1", "Browser", "browser@own")
         send_create(fake, "browser@own", "BrowserContext", "context@own")
@@ -606,7 +606,7 @@ end
         close(fake.connection)
     end
 
-    @testset "a non-persistent context closes only itself (T15, SC 20)" begin
+    @testset "a non-persistent context closes only itself" begin
         # Unchanged by any of the above, and asserted so it stays that way.
         fake = FakeDriver()
         ctx = Playwright.BrowserContext(
@@ -629,7 +629,7 @@ end
         close(fake.connection)
     end
 
-    @testset "accept_downloads = false denies rather than omitting (T13, SC 16)" begin
+    @testset "accept_downloads = false denies rather than omitting" begin
         f = context_fixture()
         task = @async new_context(f.browser; accept_downloads = false)
         msg = take!(f.fake.client_messages)
@@ -644,10 +644,10 @@ end
 
 # The hermetic tests above cover the absent case, which is the one that needs an
 # error. That the pinned driver actually *has* a LocalUtils is a fact about the
-# driver, so it is asserted against the driver — the probe found it present
-# (m8-probe.md PQ0) and this is what keeps that true.
+# driver, so it is asserted against the driver: the pinned driver exposes one,
+# and this is what keeps that true.
 if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
-    @testset "the pinned driver exposes a LocalUtils (T2, SC 1)" begin
+    @testset "the pinned driver exposes a LocalUtils" begin
         playwright() do pw
             @test pw.utils isa Playwright.LocalUtils
             @test Playwright.local_utils(pw.connection) === pw.utils

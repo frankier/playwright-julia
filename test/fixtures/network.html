@@ -2,15 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>Playwright.jl M6 Fixture</title>
-    <!-- Deliberately absent from the server. SC 3: with a route registered
+    <title>Network fixture</title>
+    <!-- Deliberately absent from the server. With a route registered
          that matches neither of these, the unmatched requests must still be
          continued and the page must load normally. A page whose only requests
          are ones the test routes would not prove that. -->
     <link rel="stylesheet" href="/missing.css" />
   </head>
   <body>
-    <h1>M6</h1>
+    <h1>Network</h1>
 
     <!-- Same purpose as the stylesheet: an unmatched subresource. -->
     <img id="decoration" src="/missing.png" alt="" width="1" height="1" />
@@ -31,7 +31,7 @@
 
       // Every fetch reports its own outcome into the DOM, so a test asserts on
       // what the *page* saw rather than on what the test thinks it sent. An
-      // aborted request lands in #failure, which is SC 7's observable.
+      // aborted request lands in #failure, which is what abort! is asserted on.
       async function load(url, into) {
         try {
           const response = await fetch(url);
@@ -75,7 +75,7 @@
         });
       });
 
-      // SC 8: the server echoes the headers it actually received, so a
+      // The server echoes the headers it actually received, so a
       // `continue!(route; headers = …)` is proved by the server rather than by
       // the client believing its own rewrite.
       document.getElementById("echo").addEventListener("click", () => {

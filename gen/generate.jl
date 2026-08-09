@@ -5,13 +5,13 @@
 #     julia --project=gen gen/generate.jl           # write the file
 #     julia --project=gen gen/generate.jl --check    # exit non-zero if stale
 #
-# What is generated (SPEC-M2.md D1): the *channel layer* only — one concrete
+# What is generated: the *channel layer* only — one concrete
 # ChannelOwner type per protocol interface, the CHANNEL_TYPES registry, and one
 # mechanical `_<interface>_<command>` function per protocol command. Nothing
 # here is user-facing: the idiomatic snake_case API with docstrings, Julia
 # argument order and Locator ergonomics stays hand-written in src/api/.
 #
-# The output is checked in (D2), so it must be byte-reproducible: everything is
+# The output is checked in, so it must be byte-reproducible: everything is
 # emitted in sorted order and formatted by the JuliaFormatter version pinned in
 # gen/Project.toml.
 
