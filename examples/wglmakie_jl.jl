@@ -72,7 +72,10 @@ try
 
     playwright() do pw
         engine_name = get(ENV, "PLAYWRIGHT_JL_ENGINE", "chromium")
-        browser = launch(engine(pw); headless = true)
+        # Firefox's `--headless` disables WebGL; xvfb plus headless=false gives
+        # it a software GL stack via mesa. Chromium keeps SwiftShader either way.
+        headless = get(ENV, "PLAYWRIGHT_JL_HEADLESS", "true") != "false"
+        browser = launch(engine(pw); headless = headless)
         try
             ctx = new_context(browser)
             try
