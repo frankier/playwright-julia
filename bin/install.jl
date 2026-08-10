@@ -2,9 +2,19 @@
 #
 # Install the Playwright driver and browsers, standalone.
 #
-#     julia bin/install.jl                  # chromium and firefox
-#     julia bin/install.jl chromium         # just one
+#     julia bin/install.jl                        # chromium and firefox
+#     julia bin/install.jl chromium               # just one
+#     sudo -E julia bin/install.jl --with-deps webkit   # + system libraries
+#     julia bin/install.jl chrome                 # a SYSTEM package install
 #     PLAYWRIGHT_BROWSERS_PATH=.playwright julia bin/install.jl
+#
+# --with-deps is Linux-only and needs root: WebKit is the engine that does not
+# ship its own world, and without it the install succeeds and the browser then
+# fails to launch on a missing shared library.
+#
+# chrome and msedge are not downloads. Playwright installs the real Google
+# Chrome and Microsoft Edge as system packages; the script warns before it
+# starts.
 #
 # This exists because `install()` is otherwise only reachable from inside a
 # Julia session that already has Playwright.jl loadable — which is exactly what
@@ -25,12 +35,12 @@ catch
     @eval using Playwright
 end
 
-browsers = Playwright.browsers_from_args(ARGS)
+browsers, with_deps = Playwright.install_args_from_cli(ARGS)
 path = Playwright.browsers_path()
-@info "Installing Playwright browsers" browsers destination =
+@info "Installing Playwright browsers" browsers with_deps destination =
     something(path, "Playwright's default cache")
 
-Playwright.install(; browsers)
+Playwright.install(; browsers, with_deps)
 
 @info "Done. Browsers are in " * something(
     path,
