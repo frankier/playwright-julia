@@ -280,17 +280,77 @@ launch(pw.chromium; headless=true, chromium_sandbox=false,
 """
 function launch(bt::BrowserType; kwargs...)
     options = launch_options(; kwargs...)
+    channel = get(kwargs, :channel, nothing)
     return try
         _browser_type_launch(bt; options...)::Browser
     catch err
-        # First-use nicety: if this browser was never installed, install it
-        # and retry once instead of surfacing the driver's error.
-        (err isa PlaywrightError && occursin("Executable doesn't exist", err.message)) ||
-            rethrow()
-        @info "Browser $(browser_name(bt)) is not installed yet; installing it now"
-        run(driver_cmd("install", browser_name(bt)))
-        _browser_type_launch(bt; options...)::Browser
+        err isa PlaywrightError || rethrow()
+        # First-use nicety: if this browser was never installed, install it and
+        # retry once instead of surfacing the driver's error.
+        #
+        # Bundled engines only. A branded channel that is missing cannot be
+        # fixed by installing `browser_name(bt)`, which is "chromium" — that
+        # would download a browser nobody asked for and then fail again with
+        # the same message.
+        if channel === nothing && occursin("Executable doesn't exist", err.message)
+            @info "Browser $(browser_name(bt)) is not installed yet; installing it now"
+            run(driver_cmd("install", browser_name(bt)))
+            return _browser_type_launch(bt; options...)::Browser
+        end
+        throw(launch_failure_help(err, browser_name(bt), channel))
     end
+end
+
+"""
+Name the fix for the two launch failures whose driver message does not know
+about this package (D3, D3a).
+
+Both *wrap* the driver's message rather than replacing it: the driver's text is
+accurate and often carries the missing library or the path it looked in, and
+throwing that away to say something friendlier would lose the diagnosis.
+
+Anything else is returned unchanged, so an unrecognised failure still surfaces
+exactly as the driver reported it.
+"""
+function launch_failure_help(err::PlaywrightError, name::AbstractString, channel)
+    msg = err.message
+    # The observed shape is a box-drawn banner: "Host system is missing
+    # dependencies to run browsers." followed by "sudo playwright
+    # install-deps" -- which is the driver's own CLI, not this package's.
+    if occursin("missing dependencies", msg) || occursin("install-deps", msg)
+        return DriverError(
+            msg *
+            "\n\nFrom Playwright.jl, the command that installs those libraries is:\n\n" *
+            "    sudo -E julia bin/install.jl --with-deps $name\n\n" *
+            "or, in a session, `install(; browsers = [\"$name\"], with_deps = true)`. " *
+            "It needs root because it runs the distribution's package manager, and " *
+            "it is Linux-only. WebKit is usually the engine that hits this: it is " *
+            "the one that does not ship its own libraries, so `install` succeeds " *
+            "and the launch is where it goes wrong.";
+            name = err.name,
+            stack = err.stack,
+        )
+    end
+    # A branded channel the machine does not have. Playwright's own advice is
+    # `playwright install chrome`, which is right but is not a command a Julia
+    # user has -- and it does not say that it is a machine-wide change.
+    if channel !== nothing &&
+       (occursin("is not found", msg) || occursin("Executable doesn't exist", msg))
+        return DriverError(
+            msg *
+            "\n\n`$channel` is a system-installed browser, not a Playwright " *
+            "download. From Playwright.jl:\n\n" *
+            "    julia bin/install.jl $channel\n\n" *
+            "That installs the real Google Chrome or Microsoft Edge through this " *
+            "machine's package manager — a system-wide change, needing root on " *
+            "Linux — rather than putting anything in PLAYWRIGHT_BROWSERS_PATH. " *
+            "If you only need a browser to test with, `chromium` is the bundled " *
+            "build and needs no system change.";
+            name = err.name,
+            stack = err.stack,
+        )
+    end
+    return err
 end
 
 # --- Engines by name (D1a) ------------------------------------------------
