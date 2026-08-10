@@ -38,6 +38,7 @@ makedocs(;
     pages = [
         "Home" => "index.md",
         "Getting started" => "getting-started.md",
+        "Engines" => "engines.md",
         "Guide" => [
             "guide/locators.md",
             "guide/waiting.md",

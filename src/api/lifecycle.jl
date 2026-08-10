@@ -412,6 +412,37 @@ function engine(pw::PlaywrightAPI, name::AbstractString)
 end
 
 """
+    skip_engine(name, engine, reason) -> Bool
+
+Whether the engine `name` is `engine`, saying so at `@info` with `reason` when
+it is. Written for a test that must not run on one engine:
+
+```julia
+@testset "…" for name in SMOKE_ENGINES
+    skip_engine(name, "webkit", "no Page.pdf outside Chromium") && continue
+    …
+end
+```
+
+`engine` may also be a collection, for a divergence shared by several.
+
+A skip that is not visible in the test output does not exist, which is why this
+logs rather than merely returning. And every reason passed here must have a
+matching row in `docs/src/engines.md` — `test_engines.jl` reads both and fails
+when they disagree, so a skip with no row is a failing suite rather than a
+quietly missing test.
+
+Exported so that a *user* writing a cross-engine suite has the same tool, and
+the same pressure to write down what differs.
+"""
+function skip_engine(name::AbstractString, engine, reason::AbstractString)
+    matched = engine isa AbstractString ? name == engine : name in engine
+    matched || return false
+    @info "skipping on $name: $reason"
+    return true
+end
+
+"""
     parse_engine_names(spec) -> Vector{String}
 
 The engine names in a comma-separated `spec`, validated against the same closed

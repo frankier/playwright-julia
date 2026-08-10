@@ -52,6 +52,7 @@ const SMOKE_ENGINES = Playwright.parse_engine_names(get(ENV, "PLAYWRIGHT_JL_ENGI
     include("test_closed.jl")
     include("test_expect.jl")
     include("test_metadata.jl")
+    include("test_engines.jl")
 
     if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
         include("test_smoke.jl")

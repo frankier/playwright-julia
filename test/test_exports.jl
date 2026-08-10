@@ -44,6 +44,7 @@
         :Engine,
         :engine,
         :engine_name,
+        :skip_engine,
         # engine metadata
         :browser_name,
         # retrying assertions

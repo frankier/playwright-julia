@@ -17,6 +17,7 @@ playwright
 launch
 engine
 engine_name
+skip_engine
 install
 new_context
 launch_persistent_context
