@@ -293,6 +293,101 @@ function launch(bt::BrowserType; kwargs...)
     end
 end
 
+# --- Engines by name (D1a) ------------------------------------------------
+
+"The five engine names, in the order they are reported and iterated."
+const ENGINE_NAMES = ("chromium", "firefox", "webkit", "chrome", "msedge")
+
+# The mapping, in one place. `chrome` and `msedge` are `chromium` with a
+# channel; the other three are their own BrowserType with no channel at all.
+const ENGINE_CHANNELS = Dict(
+    "chromium" => nothing,
+    "firefox" => nothing,
+    "webkit" => nothing,
+    "chrome" => "chrome",
+    "msedge" => "msedge",
+)
+
+"""
+    engine(pw, name) -> Engine
+
+The engine `name` names, ready to [`launch`](@ref). One of `"chromium"`,
+`"firefox"`, `"webkit"`, `"chrome"` or `"msedge"`.
+
+The last two are not browser types: Playwright launches Google Chrome and
+Microsoft Edge as `chromium` with a `channel`, and this function is where that
+mapping lives so that no caller has to carry a copy of it. The point of asking
+by name is a name that came from somewhere else — an environment variable, a
+test matrix, a command line — where a typo should say so rather than surface as
+a missing field much later.
+
+```julia
+playwright() do pw
+    browser = launch(engine(pw, get(ENV, "ENGINE", "chromium")); headless = true)
+end
+```
+
+[`engine_name`](@ref) asks an `Engine` which of the five it is. That is a
+different question from [`browser_name`](@ref), which asks the running browser
+and answers `"chromium"` for Chrome and Edge alike.
+
+Chrome and Edge are installed system-wide rather than downloaded (see
+[`install`](@ref)), so they launch from whatever build the machine already has.
+Other channels — `"chrome-beta"`, `"msedge-dev"` — are not engine names, and
+stay reachable by passing `channel` to [`launch`](@ref) yourself.
+
+Throws `ArgumentError` naming all five when `name` is not one of them.
+"""
+function engine(pw::PlaywrightAPI, name::AbstractString)
+    key = String(name)
+    haskey(ENGINE_CHANNELS, key) || throw(
+        ArgumentError(
+            "unknown engine `$key`. Choose from: " * join(ENGINE_NAMES, ", ") * ".",
+        ),
+    )
+    channel = ENGINE_CHANNELS[key]
+    # The branded two launch chromium; the other three name their own field.
+    bt = channel === nothing ? getfield(pw, Symbol(key)) : pw.chromium
+    return Engine(bt, key, channel)
+end
+
+"""
+    engine_name(e::Engine) -> String
+
+Which of the five engines `e` is: `"chromium"`, `"firefox"`, `"webkit"`,
+`"chrome"` or `"msedge"`.
+
+Deliberately not [`browser_name`](@ref), which asks the *running browser* what
+it is and answers `"chromium"` for all three Chromium engines. The two
+questions have different answers, so they have different spellings — a test
+that branches on `browser_name(browser) == "chromium"` now catches Chrome and
+Edge too, which is usually what you want and occasionally not.
+"""
+engine_name(e::Engine) = e.name
+
+"""
+    launch(e::Engine; kwargs...) -> Browser
+
+Launch the engine [`engine`](@ref) returned. Takes every keyword
+[`launch(::BrowserType)`](@ref) takes.
+
+`channel` is supplied from the `Engine` for the branded two and left off the
+wire entirely for the other three — absent, not null, since the driver applies
+a different default to a `channel` that is present and null than to one the
+caller never mentioned.
+
+An explicit `channel` keyword wins, with no warning: asking
+`engine(pw, "chrome")` for `channel = "chrome-beta"` is a coherent thing to
+want, and it is how the beta and dev channels stay reachable without becoming
+engine names.
+"""
+function launch(e::Engine; kwargs...)
+    # `channel` is only defaulted in, so an explicit one in kwargs takes
+    # precedence -- and a bundled engine contributes no key at all.
+    opts = e.channel === nothing ? kwargs : (; channel = e.channel, kwargs...)
+    return launch(e.browser_type; opts...)
+end
+
 """
     new_context(browser::Browser; kwargs...) -> BrowserContext
 

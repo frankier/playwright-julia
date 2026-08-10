@@ -15,6 +15,8 @@ Playwright
 ```@docs
 playwright
 launch
+engine
+engine_name
 install
 new_context
 launch_persistent_context
@@ -32,6 +34,7 @@ with_page
 Browser
 BrowserContext
 BrowserType
+Engine
 Page
 Frame
 Locator

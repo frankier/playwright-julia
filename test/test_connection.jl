@@ -642,6 +642,155 @@ end
 
 end
 
+# --- Engines (D1a) --------------------------------------------------------
+#
+# `engine(pw, name)` is the whole of M9's new API surface, and it exists
+# because the five engine names are not five of a kind: "webkit" names a field
+# on `pw`, while "chrome" names `pw.chromium` *plus* a channel. These tests are
+# hermetic -- no browser is involved -- because the mapping is the thing being
+# checked, and the two branded names differ from their siblings only in what
+# goes on the wire.
+
+"A PlaywrightAPI over the fake driver, with all three BrowserTypes."
+function engine_fixture()
+    fake = FakeDriver()
+    types = map(("chromium", "firefox", "webkit")) do name
+        Playwright.BrowserType(
+            fake.connection,
+            "BrowserType",
+            "browserType@$name",
+            Dict{String,Any}("name" => name),
+        )
+    end
+    # PlaywrightAPI's `process` field is typed Base.Process and nothing under
+    # test touches it, so this is the cheapest real one available rather than
+    # anything meaningful. It exits immediately; a Process that has exited is
+    # still a Process.
+    # --startup-file=no: without it this inherits the developer's startup.jl,
+    # which on a machine with Revise in it prints a load error into the suite.
+    proc = open(`$(Base.julia_cmd()[1]) --startup-file=no -e ""`, "r+")
+    pw = Playwright.PlaywrightAPI(types..., proc, fake.connection, nothing)
+    return (; fake, pw, types)
+end
+
+@testset "engines" begin
+    @testset "each name maps to its browser type and channel" begin
+        f = engine_fixture()
+        chromium, firefox, webkit = f.types
+
+        # The three bundled engines: their own type, and no channel at all.
+        # `nothing` rather than "" matters -- it is what decides whether the
+        # key reaches the wire.
+        for (name, bt) in (("chromium", chromium), ("firefox", firefox), ("webkit", webkit))
+            e = engine(f.pw, name)
+            @test e isa Playwright.Engine
+            @test e.browser_type === bt
+            @test engine_name(e) == name
+            @test e.channel === nothing
+        end
+
+        # The branded two: chromium's type, their own name, and a channel.
+        for name in ("chrome", "msedge")
+            e = engine(f.pw, name)
+            @test e.browser_type === chromium
+            @test engine_name(e) == name
+            @test e.channel == name
+        end
+
+        close(f.fake.connection)
+    end
+
+    @testset "an unknown name names all five" begin
+        f = engine_fixture()
+        # The point of asking by name is a name that came from somewhere else
+        # -- an env var, a matrix, a command line -- so the error has to be
+        # readable by someone who does not know the set.
+        err = try
+            engine(f.pw, "edge")
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        for name in ("chromium", "firefox", "webkit", "chrome", "msedge")
+            @test occursin(name, err.msg)
+        end
+        @test occursin("edge", err.msg)
+        # Not a silent success by another spelling, either.
+        @test_throws ArgumentError engine(f.pw, "Chrome")
+        @test_throws ArgumentError engine(f.pw, "")
+        close(f.fake.connection)
+    end
+
+    @testset "launch sends channel for the branded two and omits it otherwise" begin
+        # On the wire, because "omitted" and "null" are different messages and
+        # only one of them is right: a present-and-null channel makes the
+        # driver apply a different default from the one it applies when the
+        # caller never mentioned it.
+        f = engine_fixture()
+
+        for name in ("chromium", "firefox", "webkit")
+            task = @async launch(engine(f.pw, name))
+            msg = take!(f.fake.client_messages)
+            @test msg["method"] == "launch"
+            @test !haskey(msg["params"], "channel")
+            send_create(f.fake, "browserType@$name", "Browser", "browser@$name")
+            reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@$name")))
+            @test fetch(task) isa Playwright.Browser
+        end
+
+        for name in ("chrome", "msedge")
+            task = @async launch(engine(f.pw, name))
+            msg = take!(f.fake.client_messages)
+            @test msg["params"]["channel"] == name
+            send_create(f.fake, "browserType@chromium", "Browser", "browser@$name")
+            reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@$name")))
+            @test fetch(task) isa Playwright.Browser
+        end
+
+        close(f.fake.connection)
+    end
+
+    @testset "an explicit channel keyword wins over the engine's" begin
+        # Deliberately no warning (D1a): passing channel = "chrome-beta" to
+        # engine(pw, "chrome") is a coherent thing to want. Beta and dev
+        # channels stay reachable exactly this way and are not engine names.
+        f = engine_fixture()
+
+        task = @async launch(engine(f.pw, "chrome"); channel = "chrome-beta")
+        msg = take!(f.fake.client_messages)
+        @test msg["params"]["channel"] == "chrome-beta"
+        send_create(f.fake, "browserType@chromium", "Browser", "browser@beta")
+        reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@beta")))
+        @test fetch(task) isa Playwright.Browser
+
+        # ...and it can add one to a bundled engine that had none.
+        task = @async launch(engine(f.pw, "chromium"); channel = "chrome-canary")
+        msg = take!(f.fake.client_messages)
+        @test msg["params"]["channel"] == "chrome-canary"
+        send_create(f.fake, "browserType@chromium", "Browser", "browser@canary")
+        reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@canary")))
+        @test fetch(task) isa Playwright.Browser
+
+        close(f.fake.connection)
+    end
+
+    @testset "the other launch keywords still reach the wire" begin
+        # launch(::Engine) forwards to launch(::BrowserType); this is the
+        # assertion that it forwards *everything* rather than only what the
+        # Engine knows about.
+        f = engine_fixture()
+        task = @async launch(engine(f.pw, "msedge"); headless = false, slow_mo = 50)
+        msg = take!(f.fake.client_messages)
+        @test msg["params"]["channel"] == "msedge"
+        @test msg["params"]["headless"] === false
+        @test msg["params"]["slowMo"] == 50
+        send_create(f.fake, "browserType@chromium", "Browser", "browser@e")
+        reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@e")))
+        @test fetch(task) isa Playwright.Browser
+        close(f.fake.connection)
+    end
+end
+
 # The hermetic tests above cover the absent case, which is the one that needs an
 # error. That the pinned driver actually *has* a LocalUtils is a fact about the
 # driver, so it is asserted against the driver: the pinned driver exposes one,

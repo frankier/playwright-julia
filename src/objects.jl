@@ -230,8 +230,11 @@ close!(ctx)                    # …and go away with the context
 @doc """
     BrowserType
 
-A launchable engine: `pw.chromium` or `pw.firefox` on the handle
+A launchable engine: `pw.chromium`, `pw.firefox` or `pw.webkit` on the handle
 [`playwright`](@ref) hands you. Pass it to [`launch`](@ref).
+
+Reach for [`Engine`](@ref) instead when the engine arrives as a *name* rather
+than as a field — Google Chrome and Microsoft Edge are not `BrowserType`s.
 
 ```julia
 playwright() do pw
@@ -243,6 +246,27 @@ playwright() do pw
 end
 ```
 """ BrowserType
+
+"""
+    Engine
+
+One of the five engines this package tests, from [`engine`](@ref): a
+[`BrowserType`](@ref) together with the `channel` (if any) that selects a
+branded build of it. Pass it to [`launch`](@ref).
+
+The type exists because the five names are not five of a kind. Three of them
+name a `BrowserType`; the other two name `chromium` plus a channel. Carrying
+the pair around means a caller with a name in a variable does not have to carry
+that mapping itself.
+
+Fields are `browser_type`, `name` and `channel`; ask [`engine_name`](@ref) for
+the name rather than reaching for the field.
+"""
+struct Engine
+    browser_type::BrowserType
+    name::String
+    channel::Union{String,Nothing}
+end
 
 @doc """
     Page

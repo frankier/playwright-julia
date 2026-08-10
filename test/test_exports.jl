@@ -40,6 +40,10 @@
         :Locator,
         :ElementHandle,
         :JSHandle,
+        # engines by name (D1a)
+        :Engine,
+        :engine,
+        :engine_name,
         # engine metadata
         :browser_name,
         # retrying assertions
