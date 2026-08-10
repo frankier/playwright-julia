@@ -75,15 +75,25 @@ To collect a screenshot and a trace when a test fails, use the
 
 ## Choosing an engine
 
-`pw.chromium` and `pw.firefox` are the two supported engines. WebKit exists in
-the protocol, but this package does not test it.
+There are five: `chromium`, `firefox`, `webkit`, `chrome` and `msedge`. The
+first three are [`BrowserType`](@ref)s on the handle — `pw.chromium`,
+`pw.firefox`, `pw.webkit` — and all three are tested on Linux and macOS
+(WebKit is not supported on Windows).
+
+The last two are **not** browser types. Playwright launches Google Chrome and
+Microsoft Edge as `chromium` with a `channel`, using whatever build the machine
+already has rather than downloading one.
+
+[`engine`](@ref) is where that mapping lives, and it is what to use when the
+engine arrives as a *name* — from an environment variable, a test matrix, a
+command line — rather than as a field:
 
 ```julia
 playwright() do pw
-    for bt in (pw.chromium, pw.firefox)
-        browser = launch(bt; headless = true)
+    for name in ("chromium", "firefox", "webkit")
+        browser = launch(engine(pw, name); headless = true)
         try
-            # ...the same test, on both engines
+            # ...the same test, on every engine
         finally
             close!(browser)
         end
@@ -91,8 +101,23 @@ playwright() do pw
 end
 ```
 
-[`browser_name`](@ref) tells you which one you are on. Use it for the rare case
-where the engines genuinely differ and a test has to say so out loud.
+An unknown name raises immediately, naming all five, which is the point of
+asking by name: a typo in an environment variable should say so rather than
+surface much later as a missing field.
+
+Two functions answer two different questions, and mixing them up is the most
+common mistake here:
+
+- [`engine_name`](@ref) — which of the five you asked for.
+- [`browser_name`](@ref) — what is actually running. It answers `"chromium"`
+  for Chrome and Edge alike, because they *are* Chromium.
+
+Use `browser_name` when the behaviour follows from the rendering engine
+(`pdf` works on the whole Chromium family) and `engine_name` when it follows
+from which build you picked.
+
+[What differs between the engines](@ref) has the full list of divergences, and
+[`skip_engine`](@ref) for writing your own cross-engine suite.
 
 ## Browsers in CI
 

@@ -1,7 +1,7 @@
 # Playwright.jl
 
-Drive real browsers — Chromium and Firefox — from Julia, through the official
-Playwright automation engine.
+Drive real browsers — Chromium, Firefox and WebKit — from Julia, through the
+official Playwright automation engine.
 
 ```julia
 using Playwright
@@ -65,9 +65,14 @@ expect(locator(page, "#status"); to_have_text = "ready")
 
 ## Status
 
-This package supports Chromium and Firefox on Linux. It does not support
-WebKit, service workers or an async API. See the README for the full list of
-what it covers.
+This package supports five engines — `chromium`, `firefox`, `webkit`, and
+Google Chrome and Microsoft Edge as channels — on Linux, macOS and Windows.
+WebKit on Windows is the one combination not covered, deliberately; see
+[What differs between the engines](@ref).
+
+It does not support service workers, trace *parsing* (traces are written, but
+nothing here reads one back), or an async API. See the README for the full list
+of what it covers.
 
 It is not registered yet, so install it by URL — see
 [Getting started](@ref).
