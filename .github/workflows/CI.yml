@@ -16,23 +16,162 @@ concurrency:
 
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ubuntu-latest
-    runs-on: ubuntu-latest
+    # The hermetic tier, and the first gate on every platform (D6). It needs no
+    # Node, no browser and no network beyond the registry, which makes it the
+    # cheapest possible Windows and macOS signal -- a couple of minutes against
+    # a smoke job's fifteen.
+    #
+    # It also partitions Part B's failures into two kinds that want different
+    # fixes: a hermetic failure on Windows is *this package's* portability bug
+    # (a path, a line ending, a string comparison), while a smoke failure is the
+    # driver bundle or the browser. Finding the first kind under the second
+    # kind's feedback loop is how a week disappears.
+    #
+    # No engine axis here, deliberately: this job launches nothing.
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        # Linux only, oldest supported and current stable.
+        # Oldest supported and current stable, on all three platforms.
+        # macos-latest is Apple Silicon; the other two are x64.
+        os: [ubuntu-latest, windows-latest, macos-latest]
         version: ["1.10", "1"]
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
-          arch: x64
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+
+  diagnostics:
+    # THROWAWAY. Deleted at T23. This job exists to answer three Open Questions
+    # from SPEC-M9.md that cannot be answered by reading anything, on the two
+    # platforms the developer cannot run:
+    #
+    #   OQ 1  Does 7z's member filter match a forward-slashed path inside a
+    #         .zip on Windows? (D9) If not, install_driver grows a separator
+    #         branch and that fix is on the critical path for all of Windows.
+    #   OQ 3  Which branded browsers do the runner images actually ship, and
+    #         does Playwright's channel lookup find them? (D3a) This is the
+    #         highest-leverage question in the milestone: a wrong answer
+    #         invalidates D3a *and* D13 rather than costing a fix, and it is an
+    #         hour's spec amendment here against a checkpoint's at T19 (R2).
+    #   OQ 5  What does a Windows browser cache path cost, against the 260-char
+    #         limit? Suspected fine, unverified, nasty to find late.
+    #
+    # Every step runs even when an earlier one failed, because a job that stops
+    # at the first red answers one question instead of three.
+    name: Diagnostics (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    continue-on-error: true
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+      - uses: julia-actions/cache@v3
+      - uses: julia-actions/julia-buildpkg@v1
+
+      - name: "OQ 3a: what the runner image ships"
+        if: always()
+        shell: bash
+        run: |
+          echo "=== PATH-visible browsers ==="
+          for exe in google-chrome google-chrome-stable chrome microsoft-edge microsoft-edge-stable msedge; do
+            p=$(command -v "$exe" 2>/dev/null || true)
+            if [ -n "$p" ]; then echo "FOUND $exe -> $p"; "$p" --version 2>&1 | head -1 || true; fi
+          done
+          echo "=== well-known locations ==="
+          for p in \
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
+            "/c/Program Files/Google/Chrome/Application/chrome.exe" \
+            "/c/Program Files (x86)/Google/Chrome/Application/chrome.exe" \
+            "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" \
+            "/c/Program Files/Microsoft/Edge/Application/msedge.exe" \
+            "/opt/google/chrome/chrome" \
+            "/opt/microsoft/msedge/msedge" ; do
+            if [ -f "$p" ]; then echo "FOUND $p"; else echo "absent  $p"; fi
+          done
+
+      - name: "OQ 1 + OQ 5: driver assembly and path lengths"
+        if: always()
+        run: |
+          julia --project=. -e '
+            using Playwright
+            println("== platform ==")
+            println("KERNEL=", Sys.KERNEL, "  ARCH=", Sys.ARCH, "  MACHINE=", Sys.MACHINE)
+            println("node_platform=", Playwright.node_platform())
+            println("node_url=", Playwright.node_url())
+
+            println("== OQ 1: member-limited extraction ==")
+            # The whole question. On Windows the archive is a .zip and the
+            # member is a forward-slashed "node-v.../node.exe"; whether 7z
+            # matches that on Windows is what this proves or disproves.
+            dir = Playwright.install_driver()
+            println("driver_dir=", dir)
+            println("contents=", join(sort(readdir(dir)), ", "))
+            run(Playwright.driver_cmd("--version"))
+
+            println("== OQ 5: path lengths against Windows MAX_PATH (260) ==")
+            deepest = ""
+            for (root, _, files) in walkdir(dir), f in files
+                p = joinpath(root, f)
+                length(p) > length(deepest) && (deepest = p)
+            end
+            println("driver_dir  len=", length(dir))
+            println("deepest     len=", length(deepest), "  ", deepest)
+            println("browsers_path=", something(Playwright.browsers_path(), "(default cache)"))'
+
+      - name: "OQ 5b: browser cache path lengths"
+        if: always()
+        run: |
+          julia --project=. -e '
+            using Playwright
+            Playwright.install(; browsers = ["chromium"])
+            root = Playwright.browsers_path()
+            deepest = ""
+            for (dir, _, files) in walkdir(root), f in files
+                p = joinpath(dir, f)
+                length(p) > length(deepest) && (deepest = p)
+            end
+            println("browser root len=", length(root), "  ", root)
+            println("deepest      len=", length(deepest), "  ", deepest)
+            println(length(deepest) >= 260 ? "OVER MAX_PATH" : "under MAX_PATH")'
+
+      - name: "OQ 3b: does the channel lookup find them?"
+        if: always()
+        run: |
+          julia --project=. -e '
+            using Playwright
+            # The question D3a rests on. Not "is chrome on the box" -- that is
+            # OQ 3a above -- but "does the *pinned driver* resolve the channel
+            # to it". Those are different, and only this one decides whether
+            # the four branded smoke jobs can exist without an install step.
+            playwright() do pw
+                for ch in ("chrome", "msedge")
+                    try
+                        b = launch(pw.chromium; headless = true, channel = ch)
+                        println("channel ", ch, ": OK  name=", browser_name(b),
+                                "  init=", get(b.initializer, "version", "?"))
+                        close!(b)
+                    catch e
+                        println("channel ", ch, ": FAILED")
+                        println(first(sprint(showerror, e), 2000))
+                    end
+                end
+            end'
 
   smoke:
     # The job that makes CI mean something for this package: real browsers
