@@ -1,0 +1,38 @@
+# Line endings (D7).
+#
+# A Windows checkout with the default `core.autocrlf` rewrites every text file
+# on the way to disk. Without this file the behaviour is whatever the runner's
+# git happens to be configured for, which is exactly the kind of thing that
+# produces a failure nobody can reproduce.
+#
+# Three things in this repository read bytes and compare them, and all three
+# break under CRLF:
+#
+#   - `gen/generate.jl --check`, which compares generated output byte-for-byte
+#     against what is checked in;
+#   - `JuliaFormatter.format(".")`, likewise;
+#   - the hermetic tests that read a fixture and compare its text, which unlike
+#     the first two run on all three platforms.
+#
+# So: LF in the repository and LF in the working tree, everywhere.
+* text=auto eol=lf
+
+# ...except where the bytes are the point. `text=auto` guesses, and a guess
+# that goes wrong on a binary corrupts it silently. These say don't guess.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.webm binary
+*.mp4 binary
+*.zip binary
+*.gz binary
+*.xz binary
+*.tgz binary
+
+# test/fixtures/api.har.zip is the one binary fixture tracked today: a HAR
+# recording that the replay tests hand to the driver unmodified. Covered by
+# `*.zip` above; named here because it is the file that would actually break.
+*.har.zip binary
