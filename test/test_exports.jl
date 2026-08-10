@@ -235,6 +235,10 @@
         # The phrase the list would use, and the exported name that exists if
         # the thing is in fact covered.
         claims = [
+            # WebKit is covered when there is a way to *name* it: `engine`
+            # exists precisely so an engine can be asked for by string, and
+            # M9 put webkit in its closed set.
+            "WebKit" => :engine,
             "HAR recording" => :start_har_recording!,
             "route_from_har" => :route_from_har,
             "WebSocket routing" => :route_web_socket!,
@@ -260,10 +264,14 @@
         @test !isempty(not_covered_paragraph(readme))   # the walk is not vacuous
         @test status_claims_are_honest(readme, names(Playwright)) == String[]
 
-        # The gate, watched failing: a list that still calls WebSocket routing
-        # uncovered must be caught, or this test is decoration.
+        # The gate, watched failing. The fixture is updated to a case that is
+        # *still* stale after M9: WebKit was on the real list until this
+        # milestone and is now covered, so a list that still names it has to be
+        # caught too — otherwise this fixture would be testing that the gate
+        # notices a claim nobody would make any more.
         stale = "Not yet covered: WebKit; WebSocket routing; service workers.\n\n"
-        @test status_claims_are_honest(stale, names(Playwright)) == ["WebSocket routing"]
+        @test status_claims_are_honest(stale, names(Playwright)) ==
+              ["WebKit", "WebSocket routing"]
     end
 
     # ...and every one carries documentation. The generated channel types are
