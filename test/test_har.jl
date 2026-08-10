@@ -449,9 +449,17 @@ end
 
         warnings = filter(r -> r.level == Base.CoreLogging.Warn, logger.logs)
         @test length(warnings) == 1
-        text = string(warnings[1].message, " ", warnings[1].kwargs)
-        @test occursin("http://probe.test/missing", text)
-        @test occursin(abspath(HAR_FIXTURE), text)
+        # The kwargs are compared as *values*, not inside a rendered string
+        # (D8). `string(kwargs)` shows a String with `repr`, which doubles
+        # every backslash — so on Windows this asserted
+        # "D:\a\...\api.har" against "D:\\a\\...\\api.har" and failed for a
+        # reason that has nothing to do with what the warning says. Comparing
+        # the value is also the stronger assertion: `occursin` would pass on a
+        # message that merely mentioned the path somewhere.
+        kwargs = Dict(warnings[1].kwargs)
+        @test occursin("not_found = :fallback", string(warnings[1].message))
+        @test kwargs[:url] == "http://probe.test/missing"
+        @test kwargs[:archive] == abspath(HAR_FIXTURE)
 
         close(f.conn)
     end
