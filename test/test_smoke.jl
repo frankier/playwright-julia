@@ -45,8 +45,14 @@ tryrun(cmd) =
             @test pw isa Playwright.PlaywrightAPI
             @test pw.chromium isa Playwright.BrowserType
             @test pw.firefox isa Playwright.BrowserType
+            # webkit is the third BrowserType the root initializer has always
+            # carried and start_playwright never read (D1). Asking the *real*
+            # driver its name is SC 1 -- no browser download is involved, the
+            # name comes off the initializer.
+            @test pw.webkit isa Playwright.BrowserType
             @test Playwright.browser_name(pw.chromium) == "chromium"
             @test Playwright.browser_name(pw.firefox) == "firefox"
+            @test Playwright.browser_name(pw.webkit) == "webkit"
             pw_ref[] = pw
             :block_result
         end

@@ -5,8 +5,8 @@
     playwright(f) -> result of `f`
 
 Start the Playwright driver, call `f(pw)` with a [`PlaywrightAPI`](@ref)
-(fields `chromium`, `firefox`), and guarantee driver shutdown when the block
-exits — normally or by exception. Installs the driver on first use.
+(fields `chromium`, `firefox`, `webkit`), and guarantee driver shutdown when the
+block exits — normally or by exception. Installs the driver on first use.
 
 ```julia
 playwright() do pw
@@ -77,6 +77,11 @@ function start_playwright()
     end
     chromium = from_channel(conn, root.initializer["chromium"])::BrowserType
     firefox = from_channel(conn, root.initializer["firefox"])::BrowserType
+    # The root initializer has always carried webkit; this package simply did
+    # not read it. Indexing rather than `get`, like its two siblings: the
+    # protocol declares all three required, so an absent key is a driver that
+    # is not the driver we pinned, and should say so here.
+    webkit = from_channel(conn, root.initializer["webkit"])::BrowserType
     # `utils` is LocalUtils? in the protocol, so the key can be absent as well
     # as null — get, not indexing. The absent case is answered once, by
     # local_utils, rather than at each of HAR replay's call sites.
@@ -85,7 +90,7 @@ function start_playwright()
         get(root.initializer, "utils", nothing),
     )::Union{LocalUtils,Nothing}
     conn.local_utils = utils
-    return PlaywrightAPI(chromium, firefox, proc, conn, utils)
+    return PlaywrightAPI(chromium, firefox, webkit, proc, conn, utils)
 end
 
 function shutdown(pw::PlaywrightAPI)

@@ -164,9 +164,14 @@ Locator(frame::Frame, selector::AbstractString) = Locator(frame, String(selector
 """
     PlaywrightAPI
 
-Root handle passed to the [`playwright`](@ref) block. Fields `chromium` and
-`firefox` are the launchable [`BrowserType`](@ref)s. `process` is the driver
-subprocess and `connection` the protocol connection (internal).
+Root handle passed to the [`playwright`](@ref) block. Fields `chromium`,
+`firefox` and `webkit` are the launchable [`BrowserType`](@ref)s. `process` is
+the driver subprocess and `connection` the protocol connection (internal).
+
+Chrome and Edge are not fields here, because Playwright does not model them as
+browser types: they are `chromium` launched with a `channel`. [`engine`](@ref)
+is where that mapping lives, and is what to reach for when the engine you want
+arrives as a *name* rather than as a field.
 
 `utils` is the driver's `LocalUtils`, which owns HAR lookup and zip extraction.
 The protocol declares it optional (`playwright.yml:36`), so it is `nothing` on a
@@ -176,6 +181,7 @@ names what is unavailable instead of returning a `nothing` that fails later.
 struct PlaywrightAPI
     chromium::BrowserType
     firefox::BrowserType
+    webkit::BrowserType
     process::Base.Process
     connection::Connection
     utils::Union{LocalUtils,Nothing}
