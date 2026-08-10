@@ -125,13 +125,20 @@ jobs:
             run(Playwright.driver_cmd("--version"))
 
             println("== OQ 5: path lengths against Windows MAX_PATH (260) ==")
-            deepest = ""
-            for (root, _, files) in walkdir(dir), f in files
-                p = joinpath(root, f)
-                length(p) > length(deepest) && (deepest = p)
+            # In a function, not at top level: a `for` at top level in -e is
+            # soft scope, so assigning `deepest` inside it warns and then
+            # throws UndefVarError.
+            function deepest_path(root)
+                best = ""
+                for (dir, _, files) in walkdir(root), f in files
+                    p = joinpath(dir, f)
+                    length(p) > length(best) && (best = p)
+                end
+                return best
             end
+            d = deepest_path(dir)
             println("driver_dir  len=", length(dir))
-            println("deepest     len=", length(deepest), "  ", deepest)
+            println("deepest     len=", length(d), "  ", d)
             println("browsers_path=", something(Playwright.browsers_path(), "(default cache)"))'
 
       - name: "OQ 5b: browser cache path lengths"
@@ -139,16 +146,20 @@ jobs:
         run: |
           julia --project=. -e '
             using Playwright
+            function deepest_path(root)
+                best = ""
+                for (dir, _, files) in walkdir(root), f in files
+                    p = joinpath(dir, f)
+                    length(p) > length(best) && (best = p)
+                end
+                return best
+            end
             Playwright.install(; browsers = ["chromium"])
             root = Playwright.browsers_path()
-            deepest = ""
-            for (dir, _, files) in walkdir(root), f in files
-                p = joinpath(dir, f)
-                length(p) > length(deepest) && (deepest = p)
-            end
+            d = deepest_path(root)
             println("browser root len=", length(root), "  ", root)
-            println("deepest      len=", length(deepest), "  ", deepest)
-            println(length(deepest) >= 260 ? "OVER MAX_PATH" : "under MAX_PATH")'
+            println("deepest      len=", length(d), "  ", d)
+            println(length(d) >= 260 ? "OVER MAX_PATH" : "under MAX_PATH")'
 
       - name: "OQ 3b: does the channel lookup find them?"
         if: always()
