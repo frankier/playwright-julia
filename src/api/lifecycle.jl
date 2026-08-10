@@ -352,6 +352,41 @@ function engine(pw::PlaywrightAPI, name::AbstractString)
 end
 
 """
+    parse_engine_names(spec) -> Vector{String}
+
+The engine names in a comma-separated `spec`, validated against the same closed
+set [`engine`](@ref) uses, or all five when `spec` is blank.
+
+Internal, and shared by the test suite's `PLAYWRIGHT_JL_ENGINE` and
+`examples/common.jl` so that the two cannot disagree about what a name is.
+
+With five engines, "exactly one, or all of them" stopped being enough — the
+useful middle case is "the two that already worked, while I fix the third".
+
+An unknown name throws here rather than yielding an engine list that is short
+or empty, because an empty engine loop is a suite that passes by testing
+nothing, which is the actual risk. A blank `spec` means all five, matching what
+an unset variable does: a CI matrix whose engine value failed to interpolate
+should over-test, never under-test.
+
+Throws `ArgumentError` naming all five for any name that is not one of them.
+"""
+function parse_engine_names(spec::AbstractString)
+    isempty(strip(spec)) && return collect(ENGINE_NAMES)
+    names = String.(strip.(split(spec, ',')))
+    for name in names
+        haskey(ENGINE_CHANNELS, name) || throw(
+            ArgumentError(
+                "unknown engine `$name` in `$spec`. Choose from: " *
+                join(ENGINE_NAMES, ", ") *
+                ".",
+            ),
+        )
+    end
+    return names
+end
+
+"""
     engine_name(e::Engine) -> String
 
 Which of the five engines `e` is: `"chromium"`, `"firefox"`, `"webkit"`,
@@ -384,9 +419,25 @@ engine names.
 function launch(e::Engine; kwargs...)
     # `channel` is only defaulted in, so an explicit one in kwargs takes
     # precedence -- and a bundled engine contributes no key at all.
-    opts = e.channel === nothing ? kwargs : (; channel = e.channel, kwargs...)
-    return launch(e.browser_type; opts...)
+    return launch(e.browser_type; engine_options(e, kwargs)...)
 end
+
+# The channel-defaulting rule, once, because launch and
+# launch_persistent_context both need it and two copies would drift apart the
+# first time one of them grew a special case.
+engine_options(e::Engine, kwargs) =
+    e.channel === nothing ? kwargs : (; channel = e.channel, kwargs...)
+
+"""
+    launch_persistent_context(e::Engine, user_data_dir; kwargs...) -> BrowserContext
+
+Launch the engine [`engine`](@ref) returned against a persistent profile.
+Takes everything [`launch_persistent_context(::BrowserType, …)`](@ref) takes,
+and supplies `channel` for the branded engines on the same terms
+[`launch(::Engine)`](@ref) does.
+"""
+launch_persistent_context(e::Engine, user_data_dir::AbstractString; kwargs...) =
+    launch_persistent_context(e.browser_type, user_data_dir; engine_options(e, kwargs)...)
 
 """
     new_context(browser::Browser; kwargs...) -> BrowserContext

@@ -610,13 +610,13 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
         mkpath(ARTIFACT_DIR)
         with_fixture_server() do base_url
             playwright() do pw
-                for engine in SMOKE_ENGINES
-                    bt = getfield(pw, Symbol(engine))
+                for eng in SMOKE_ENGINES
+                    bt = engine(pw, eng)
 
-                    @testset "$engine: tracing round-trip" begin
+                    @testset "$eng: tracing round-trip" begin
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
-                        dest = joinpath(ARTIFACT_DIR, "trace-$engine.zip")
+                        dest = joinpath(ARTIFACT_DIR, "trace-$eng.zip")
                         isfile(dest) && rm(dest)
 
                         result = with_tracing(
@@ -643,12 +643,12 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: the trace survives a throwing block" begin
+                    @testset "$eng: the trace survives a throwing block" begin
                         # The case this exists for: the run worth
                         # tracing is the one that failed.
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
-                        dest = joinpath(ARTIFACT_DIR, "trace-throw-$engine.zip")
+                        dest = joinpath(ARTIFACT_DIR, "trace-throw-$eng.zip")
                         isfile(dest) && rm(dest)
 
                         err = try
@@ -672,9 +672,9 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: video" begin
+                    @testset "$eng: video" begin
                         browser = launch(bt; headless = true)
-                        video_dir = joinpath(ARTIFACT_DIR, "video-$engine")
+                        video_dir = joinpath(ARTIFACT_DIR, "video-$eng")
                         ispath(video_dir) && rm(video_dir; recursive = true)
 
                         ctx = new_context(
@@ -700,7 +700,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         @test filesize(file) > 0
 
                         # ...and save_as! puts a copy where the caller wants it.
-                        dest = joinpath(ARTIFACT_DIR, "run-$engine.webm")
+                        dest = joinpath(ARTIFACT_DIR, "run-$eng.webm")
                         isfile(dest) && rm(dest)
                         # `path` is a keyword and comes back, so the call
                         # chains into anything that takes a path.
@@ -710,7 +710,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: no recording means video(page) is nothing" begin
+                    @testset "$eng: no recording means video(page) is nothing" begin
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         page = new_page(ctx)
@@ -719,15 +719,15 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: pdf" begin
+                    @testset "$eng: pdf" begin
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         page = new_page(ctx)
                         goto!(page, "$base_url/late-title.html")
 
-                        @test browser_name(page) == engine
+                        @test browser_name(page) == eng
 
-                        if engine == "chromium"
+                        if eng == "chromium"
                             dest = joinpath(ARTIFACT_DIR, "page.pdf")
                             isfile(dest) && rm(dest)
                             @test pdf(page; path = dest, format = "A4") == dest

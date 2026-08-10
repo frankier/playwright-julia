@@ -774,6 +774,34 @@ end
         close(f.fake.connection)
     end
 
+    @testset "PLAYWRIGHT_JL_ENGINE parsing takes one name, a list, or nothing" begin
+        parse = Playwright.parse_engine_names
+        all_five = ["chromium", "firefox", "webkit", "chrome", "msedge"]
+
+        @test parse("webkit") == ["webkit"]
+        @test parse("chrome,msedge") == ["chrome", "msedge"]
+        @test parse("chromium, firefox") == ["chromium", "firefox"]  # spaces
+        # Blank means all five, matching an unset variable: a CI matrix whose
+        # engine value failed to interpolate should over-test, never under-test.
+        @test parse("") == all_five
+        @test parse("   ") == all_five
+
+        # The case that matters. An unknown name must *throw*, not yield a
+        # short or empty list -- an empty engine loop is a suite that passes by
+        # testing nothing, which is the actual risk D5 names.
+        for bad in ("edge", "safari", "Chrome", "chromium,safari", "chromium,")
+            err = try
+                parse(bad)
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            for name in all_five
+                @test occursin(name, err.msg)
+            end
+        end
+    end
+
     @testset "the other launch keywords still reach the wire" begin
         # launch(::Engine) forwards to launch(::BrowserType); this is the
         # assertion that it forwards *everything* rather than only what the

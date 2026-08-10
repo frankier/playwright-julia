@@ -91,10 +91,10 @@ tryrun(cmd) =
 
     with_fixture_server() do base_url
         playwright() do pw
-            for browser_name in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(browser_name))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$browser_name: launch → new_page → goto! → title → close!" begin
+                @testset "$eng: launch → new_page → goto! → title → close!" begin
                     browser = launch(bt; headless = true)
                     @test browser isa Playwright.Browser
                     page = new_page(browser)
@@ -117,7 +117,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: set_default_timeout! shortens a real miss" begin
+                @testset "$eng: set_default_timeout! shortens a real miss" begin
                     # The point of the cascade is that a missing selector
                     # fails in the time you asked for, not in 30 s. Measuring
                     # the elapsed time is the only way to tell a resolved
@@ -151,7 +151,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: locators — text_content, click!, set_value!" begin
+                @testset "$eng: locators — text_content, click!, set_value!" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/")
@@ -212,7 +212,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: multi-match locators over sliders.html" begin
+                @testset "$eng: multi-match locators over sliders.html" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/sliders.html")
@@ -262,7 +262,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: dispatch_event! drives a range input" begin
+                @testset "$eng: dispatch_event! drives a range input" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/sliders.html")
@@ -303,7 +303,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: content and state queries" begin
+                @testset "$eng: content and state queries" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/sliders.html")
@@ -327,7 +327,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: launch options reach the browser" begin
+                @testset "$eng: launch options reach the browser" begin
                     browser = launch(
                         bt;
                         headless = true,
@@ -342,7 +342,7 @@ tryrun(cmd) =
                     @test title(page) == "Playwright.jl Fixture"
                     close!(browser)
 
-                    if browser_name == "firefox"
+                    if eng == "firefox"
                         # Observably applied: the pref is readable back through
                         # the same preference service that set it.
                         browser = launch(
@@ -356,7 +356,7 @@ tryrun(cmd) =
                     end
                 end
 
-                @testset "$browser_name: explicit context lifecycle" begin
+                @testset "$eng: explicit context lifecycle" begin
                     browser = launch(bt; headless = true)
                     @test isempty(Playwright.contexts(browser))
 
@@ -380,7 +380,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: new_page(browser) no longer leaks its context" begin
+                @testset "$eng: new_page(browser) no longer leaks its context" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/")
@@ -402,7 +402,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: console messages and page errors" begin
+                @testset "$eng: console messages and page errors" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/noisy.html")
@@ -449,7 +449,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: screenshot writes a non-empty PNG" begin
+                @testset "$eng: screenshot writes a non-empty PNG" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/")

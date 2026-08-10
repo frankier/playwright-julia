@@ -26,19 +26,26 @@ function free_port()
 end
 
 """
-    engine(pw) -> BrowserType
+    engine_from_env(pw) -> Engine
 
 The browser to drive, from `PLAYWRIGHT_JL_ENGINE`, defaulting to Chromium.
 
 Each example is written against one engine at a time — that is how you would
 write it in your own suite — and CI runs the set twice, once per engine, by
 setting this variable. `runexamples.jl` does the same locally.
+
+The name is validated by `Playwright.engine` rather than here, so this and the
+test suite cannot drift apart about what an engine name is (D5). Named
+`engine_from_env` because `engine` is now the package's own exported function,
+which is the thing doing the work.
+
+Only one name is taken. The examples are a demonstration of Julia web stacks,
+not a portability matrix, and CI runs them on Linux and the two bundled
+engines only (D10).
 """
-function engine(pw)
+function engine_from_env(pw)
     name = get(ENV, "PLAYWRIGHT_JL_ENGINE", "chromium")
-    name in ("chromium", "firefox", "webkit") ||
-        error("PLAYWRIGHT_JL_ENGINE must be chromium, firefox or webkit; got $name")
-    return getproperty(pw, Symbol(name))
+    return engine(pw, name)
 end
 
 """

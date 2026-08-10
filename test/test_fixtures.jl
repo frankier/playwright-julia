@@ -32,10 +32,10 @@ end
 @testset "engine metadata" begin
     playwright() do pw
         @testset "browser_name on a running Browser" begin
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
                 browser = launch(bt; headless = true)
-                @test browser_name(browser) == engine
+                @test browser_name(browser) == eng
                 @test browser_name(browser) isa String
                 # ...and it agrees with the BrowserType it came from
                 @test browser_name(browser) == browser_name(bt)
@@ -53,10 +53,10 @@ end
                 chromium_sandbox = false,
                 firefox_user_prefs = Dict("dom.disable_beforeunload" => true),
             )
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
                 browser = launch(bt; headless = true, opts...)
-                @test browser_name(browser) == engine
+                @test browser_name(browser) == eng
                 # Launching is not enough — the browser has to be usable.
                 page = new_page(browser)
                 goto!(page, "data:text/html,<h1>shared options</h1>")
@@ -72,10 +72,10 @@ end
 @testset "expect" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$engine: expect retries until a late element arrives" begin
+                @testset "$eng: expect retries until a late element arrives" begin
                     # The headline claim. #late appears 300ms after parse and
                     # there is no sleep anywhere in this test — if expect did
                     # not retry driver-side, this could only fail.
@@ -91,7 +91,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: the passing matchers" begin
+                @testset "$eng: the passing matchers" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -112,7 +112,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: negation, by Not and by false" begin
+                @testset "$eng: negation, by Not and by false" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -126,7 +126,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: a failure names expected AND received" begin
+                @testset "$eng: a failure names expected AND received" begin
                     # Without the received value the reader has to re-run
                     # the test by hand to find out what was actually there.
                     browser = launch(bt; headless = true)
@@ -149,7 +149,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: a count failure reports the real count" begin
+                @testset "$eng: a count failure reports the real count" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -172,7 +172,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: a missing element says so" begin
+                @testset "$eng: a missing element says so" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -194,7 +194,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: expect timeouts come from the cascade" begin
+                @testset "$eng: expect timeouts come from the cascade" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 1_000)
@@ -210,7 +210,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: expect on the document" begin
+                @testset "$eng: expect on the document" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -242,7 +242,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: retry_until is the escape hatch" begin
+                @testset "$eng: retry_until is the escape hatch" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -271,10 +271,10 @@ end
 @testset "closed pages" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$engine: calls on a closed page raise TargetClosedError" begin
+                @testset "$eng: calls on a closed page raise TargetClosedError" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -305,7 +305,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: closing the context closes its pages too" begin
+                @testset "$eng: closing the context closes its pages too" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -317,7 +317,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: the postmortem readers survive a closed context" begin
+                @testset "$eng: the postmortem readers survive a closed context" begin
                     # Against a real driver. This is the regression
                     # reported: these two are what a `finally` block calls, and
                     # a throw here masks the failure that sent it there.
@@ -351,10 +351,10 @@ end
 @testset "locator ergonomics" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$engine: evaluate on a Locator drives a range input" begin
+                @testset "$eng: evaluate on a Locator drives a range input" begin
                     # A range input cannot be clicked to an exact value,
                     # so this is the case that forced private-field access
                     # without it.
@@ -376,7 +376,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: evaluate on a Locator returns converted values" begin
+                @testset "$eng: evaluate on a Locator returns converted values" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -388,7 +388,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: a strict Locator still raises on several matches" begin
+                @testset "$eng: a strict Locator still raises on several matches" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -400,7 +400,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: evaluate_all sees every match and ignores strictness" begin
+                @testset "$eng: evaluate_all sees every match and ignores strictness" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -421,7 +421,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: element_handle resolves, and misses give nothing" begin
+                @testset "$eng: element_handle resolves, and misses give nothing" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -437,7 +437,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: the public accessors describe a real locator" begin
+                @testset "$eng: the public accessors describe a real locator" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -466,10 +466,10 @@ end
 @testset "waiting" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$engine: wait_for_selector waits for a late element" begin
+                @testset "$eng: wait_for_selector waits for a late element" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -488,7 +488,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: wait_for_selector honours state" begin
+                @testset "$eng: wait_for_selector honours state" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -503,7 +503,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: wait_for_selector works on a Locator" begin
+                @testset "$eng: wait_for_selector works on a Locator" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -515,7 +515,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: a missing selector raises TimeoutError, not DriverError" begin
+                @testset "$eng: a missing selector raises TimeoutError, not DriverError" begin
                     # Branching on "is my element late?" versus "did the
                     # page break?" is the whole point of the taxonomy.
                     browser = launch(bt; headless = true)
@@ -535,7 +535,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: wait_for_function waits for window.ready" begin
+                @testset "$eng: wait_for_function waits for window.ready" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -548,7 +548,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: wait_for_function takes an argument and a polling interval" begin
+                @testset "$eng: wait_for_function takes an argument and a polling interval" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -565,7 +565,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: a throwing predicate raises DriverError, not TimeoutError" begin
+                @testset "$eng: a throwing predicate raises DriverError, not TimeoutError" begin
                     # The other half: a predicate that can never
                     # succeed must not masquerade as one that is merely late.
                     browser = launch(bt; headless = true)
@@ -590,7 +590,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: waiting timeouts come from the cascade" begin
+                @testset "$eng: waiting timeouts come from the cascade" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 1_000)
@@ -616,10 +616,10 @@ end
 @testset "events" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$engine: a popup arrives as a Page" begin
+                @testset "$eng: a popup arrives as a Page" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -638,7 +638,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: a synchronously-fired console event is caught" begin
+                @testset "$eng: a synchronously-fired console event is caught" begin
                     # The regression this fixture exists for: #shout logs
                     # inside its click handler, so the message is emitted before
                     # `click!` returns. Subscribing after the click would miss it.
@@ -658,7 +658,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: with_events collects a 5 000-message flood" begin
+                @testset "$eng: with_events collects a 5 000-message flood" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -678,7 +678,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: :close hands back the page that closed" begin
+                @testset "$eng: :close hands back the page that closed" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -692,7 +692,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: a page error arrives as a PageError" begin
+                @testset "$eng: a page error arrives as a PageError" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -712,7 +712,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: a wait that never fires raises TimeoutError" begin
+                @testset "$eng: a wait that never fires raises TimeoutError" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -734,7 +734,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: an unsupported event is refused, not faked" begin
+                @testset "$eng: an unsupported event is refused, not faked" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     # `:request` is supported now, so the
@@ -747,7 +747,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: the registry is empty after every block" begin
+                @testset "$eng: the registry is empty after every block" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -776,10 +776,10 @@ end
 @testset "the waiting and console fixtures" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$engine: target.html — late element and window.ready" begin
+                @testset "$eng: target.html — late element and window.ready" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -809,7 +809,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: late-title.html — late title, console and a page error" begin
+                @testset "$eng: late-title.html — late title, console and a page error" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
@@ -837,7 +837,7 @@ end
                     close!(browser)
                 end
 
-                @testset "$engine: console-events.html — sync and flooded console" begin
+                @testset "$eng: console-events.html — sync and flooded console" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)

@@ -28,6 +28,8 @@ identical on both engines, so this reads `name`.
 """
 browser_name(bt::BrowserType) = bt.initializer["name"]::String
 browser_name(browser::Browser) = browser.initializer["name"]::String
+# browser_name(::Engine) is defined with the Engine struct below, which has to
+# exist before a method can dispatch on it.
 
 """
 The [`Browser`](@ref) `obj` ultimately belongs to, or `nothing` if the chain is
@@ -267,6 +269,11 @@ struct Engine
     name::String
     channel::Union{String,Nothing}
 end
+
+# Answers "chromium" for chrome and msedge, which is the point: this asks what
+# engine will run, not which of the five was requested. `engine_name` asks the
+# other question, and the two disagreeing is the distinction D1a exists for.
+browser_name(e::Engine) = browser_name(e.browser_type)
 
 @doc """
     Page

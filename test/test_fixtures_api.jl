@@ -247,10 +247,10 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
     @testset "with_page, live" begin
         with_fixture_server() do base_url
             playwright() do pw
-                for engine in SMOKE_ENGINES
-                    bt = getfield(pw, Symbol(engine))
+                for eng in SMOKE_ENGINES
+                    bt = engine(pw, eng)
 
-                    @testset "$engine: a throwing body propagates and leaves evidence" begin
+                    @testset "$eng: a throwing body propagates and leaves evidence" begin
                         browser = launch(bt; headless = true)
                         dir = mktempdir()
 
@@ -290,7 +290,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: a passing body writes nothing by default" begin
+                    @testset "$eng: a passing body writes nothing by default" begin
                         # "Wrote nothing" is as much a behaviour as "wrote
                         # something" — a screenshot per passing test is a lot
                         # of bytes for nothing on a large suite.
@@ -311,7 +311,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: artifacts_on = :always dumps on success too" begin
+                    @testset "$eng: artifacts_on = :always dumps on success too" begin
                         browser = launch(bt; headless = true)
                         dir = mktempdir()
 
@@ -332,7 +332,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: the page really is closed afterwards" begin
+                    @testset "$eng: the page really is closed afterwards" begin
                         browser = launch(bt; headless = true)
                         ctx = new_context(browser)
                         escaped = with_page(ctx, "$base_url/late-title.html") do page
@@ -343,7 +343,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         close!(browser)
                     end
 
-                    @testset "$engine: report_diagnostics after close!(ctx)" begin
+                    @testset "$eng: report_diagnostics after close!(ctx)" begin
                         # The masked-failure regression in full: close the context,
                         # then dump. Nothing throws.
                         browser = launch(bt; headless = true)

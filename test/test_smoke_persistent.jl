@@ -16,14 +16,14 @@ using Playwright: launch_persistent_context
 @testset "smoke: persistent contexts" begin
     with_fixture_server() do base_url
         playwright() do pw
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$engine: the profile survives the process" begin
+                @testset "$eng: the profile survives the process" begin
                     profile = mktempdir()
 
                     # --- First launch: write a cookie and a localStorage key --
-                    written = within_deadline("$engine persistent write", 180.0) do
+                    written = within_deadline("$eng persistent write", 180.0) do
                         ctx = launch_persistent_context(bt, profile; headless = true)
                         try
                             # first(pages(ctx)), not new_page: a persistent
@@ -55,7 +55,7 @@ using Playwright: launch_persistent_context
                     @test written == "survived"
 
                     # --- Second launch: same directory, new process -----------
-                    reopened = within_deadline("$engine persistent reopen", 180.0) do
+                    reopened = within_deadline("$eng persistent reopen", 180.0) do
                         ctx = launch_persistent_context(bt, profile; headless = true)
                         try
                             page = first(pages(ctx))
@@ -76,13 +76,13 @@ using Playwright: launch_persistent_context
                     @test occursin("persisted=survived", reopened.cookie)
                 end
 
-                @testset "$engine: it arrives with exactly one page" begin
+                @testset "$eng: it arrives with exactly one page" begin
                     # Asserted so that a driver change to this behaviour is
                     # caught here rather than in a user's confusing blank second
                     # page. It is the one way a persistent context differs from
                     # every other context in this package.
                     profile = mktempdir()
-                    count_and_second = within_deadline("$engine persistent pages", 180.0) do
+                    count_and_second = within_deadline("$eng persistent pages", 180.0) do
                         ctx = launch_persistent_context(bt, profile; headless = true)
                         try
                             before = length(pages(ctx))
@@ -99,7 +99,7 @@ using Playwright: launch_persistent_context
                     @test count_and_second[2] == 2
                 end
 
-                @testset "$engine: close! leaves no browser process" begin
+                @testset "$eng: close! leaves no browser process" begin
                     # The process-level half. The hermetic tests assert the close on
                     # the wire; this asserts nothing is actually left running,
                     # which is the claim that matters and the one the wire
@@ -107,7 +107,7 @@ using Playwright: launch_persistent_context
                     profile = mktempdir()
                     before = length(playwright_browser_pids())
 
-                    within_deadline("$engine persistent process", 180.0) do
+                    within_deadline("$eng persistent process", 180.0) do
                         ctx = launch_persistent_context(bt, profile; headless = true)
                         goto!(first(pages(ctx)), "$base_url/index.html")
                         close!(ctx)

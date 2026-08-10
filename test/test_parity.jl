@@ -117,13 +117,13 @@ end
 # against a page where everything asserted on is absent at load.
 @testset "the waiting and events walkthrough" begin
     with_fixture_server() do base_url
-        for engine in SMOKE_ENGINES
-            @testset "$engine" begin
+        for eng in SMOKE_ENGINES
+            @testset "$eng" begin
                 url = "$base_url/waiting.html"
 
                 playwright() do pw
-                    browser = launch(getfield(pw, Symbol(engine)); headless = true)
-                    @assert browser_name(browser) == engine
+                    browser = launch(engine(pw, eng); headless = true)
+                    @assert browser_name(browser) == eng
 
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 2_000)
@@ -167,7 +167,7 @@ end
                 end
 
                 # The snippet's own @asserts carry it; this records that the
-                # whole thing ran to completion on this engine.
+                # whole thing ran to completion on this eng.
                 @test true
             end
         end
@@ -187,14 +187,14 @@ end
 # refuses. Every other line is shared.
 @testset "the artifacts walkthrough" begin
     with_fixture_server() do base_url
-        for engine in SMOKE_ENGINES
-            @testset "$engine" begin
+        for eng in SMOKE_ENGINES
+            @testset "$eng" begin
                 probe_url = "$base_url/late-title.html"
                 fixture = joinpath(@__DIR__, "fixtures", "late-title.html")
                 artifacts = mktempdir()
 
                 playwright() do pw
-                    browser = launch(getfield(pw, Symbol(engine)); headless = true)
+                    browser = launch(engine(pw, eng); headless = true)
                     ctx = new_context(
                         browser;
                         record_video = (dir = joinpath(artifacts, "video"),),
@@ -223,7 +223,7 @@ end
                         end
 
                         # A3 — Chromium only, by design
-                        if engine == "chromium"
+                        if eng == "chromium"
                             dest = joinpath(artifacts, "page.pdf")
                             @test pdf(page; path = dest, format = "A4") == dest
                             @test filesize(dest) > 0

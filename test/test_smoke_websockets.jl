@@ -88,10 +88,10 @@ end
 @testset "smoke: WebSocket routing" begin
     with_websocket_server() do base_url, connections
         playwright() do pw
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$engine: a context-armed pattern delivers on the context" begin
+                @testset "$eng: a context-armed pattern delivers on the context" begin
                     # Delivery scope has to be established first: if
                     # webSocketRoute came back page-scoped for a context-armed
                     # pattern, the registry
@@ -102,7 +102,7 @@ end
                     # rather than through the wrapper. That is the point:
                     # the assertion is about the driver's addressing, not about
                     # our code.
-                    observed = within_deadline("$engine ws addressing", 120.0) do
+                    observed = within_deadline("$eng ws addressing", 120.0) do
                         with_browser(bt) do browser
                             ctx = new_context(browser)
                             page = new_page(ctx)
@@ -158,7 +158,7 @@ end
                     @test observed.new_connections == 0
                 end
 
-                @testset "$engine: mock mode never contacts the server" begin
+                @testset "$eng: mock mode never contacts the server" begin
                     # Asserted server-side, which is the only place it can be
                     # asserted: a client-side check cannot tell "the server was
                     # never asked" from "it answered and we ignored it".
@@ -169,7 +169,7 @@ end
                         wsr -> on_message_from_page!(wsr) do msg
                             msg == "ping" && send_to_page!(wsr, "mocked:pong")
                         end;
-                        label = "$engine ws mock",
+                        label = "$eng ws mock",
                     ) do page
                         click!(locator(page, "#send"))
                         expect(locator(page, "#received"); to_contain_text = "mocked:pong")
@@ -182,7 +182,7 @@ end
                     @test connections[] == before
                 end
 
-                @testset "$engine: proxy mode rewrites a server message" begin
+                @testset "$eng: proxy mode rewrites a server message" begin
                     before = connections[]
                     received = with_routed_socket(
                         bt,
@@ -196,7 +196,7 @@ end
                                 send_to_page!(wsr, replace(msg, "from-server" => "rewritten"))
                             end
                         end;
-                        label = "$engine ws proxy",
+                        label = "$eng ws proxy",
                     ) do page
                         click!(locator(page, "#send"))
                         expect(
@@ -212,7 +212,7 @@ end
                     @test connections[] == before + 1
                 end
 
-                @testset "$engine: a binary frame survives each way" begin
+                @testset "$eng: a binary frame survives each way" begin
                     seen = Ref{Any}(nothing)
                     bytes = with_routed_socket(
                         bt,
@@ -223,7 +223,7 @@ end
                             # that was echoed by something other than us.
                             msg isa Vector{UInt8} && send_to_page!(wsr, reverse(msg))
                         end;
-                        label = "$engine ws binary",
+                        label = "$eng ws binary",
                     ) do page
                         click!(locator(page, "#send-binary"))
                         expect(locator(page, "#binary"); to_have_text = "4,3,2,1")
@@ -236,7 +236,7 @@ end
                     @test seen[] == UInt8[1, 2, 3, 4]
                 end
 
-                @testset "$engine: close_ws! is what the page's onclose sees" begin
+                @testset "$eng: close_ws! is what the page's onclose sees" begin
                     closed = with_routed_socket(
                         bt,
                         base_url,
@@ -244,7 +244,7 @@ end
                             _ -> close_ws!(wsr; code = 4001, reason = "all done"),
                             wsr,
                         );
-                        label = "$engine ws close",
+                        label = "$eng ws close",
                     ) do page
                         click!(locator(page, "#send"))
                         expect(
@@ -257,7 +257,7 @@ end
                     @test closed == "closed:4001:all done"
                 end
 
-                @testset "$engine: a handled server message is swallowed" begin
+                @testset "$eng: a handled server message is swallowed" begin
                     # the sharp edge, pinned as intended on real browsers as
                     # well as against the fake connection. The callback replaces
                     # the forwarding, so the echo never reaches the page — and
@@ -273,7 +273,7 @@ end
                                 wsr,
                             )
                         end;
-                        label = "$engine ws swallow",
+                        label = "$eng ws swallow",
                     ) do page
                         click!(locator(page, "#send"))
                         expect(locator(page, "#received"); to_contain_text = "swallowed")

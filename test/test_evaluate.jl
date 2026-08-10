@@ -8,7 +8,7 @@
 @testset "evaluate ($(name))" for name in SMOKE_ENGINES
     with_fixture_server() do base_url
         playwright() do pw
-            browser = launch(getfield(pw, Symbol(name)))
+            browser = launch(engine(pw, name))
             page = new_page(browser)
             goto!(page, "$base_url/evaluate.html")
 

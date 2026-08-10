@@ -2,12 +2,19 @@ using Test
 using Playwright
 
 # CI splits the smoke suite into one job per engine via PLAYWRIGHT_JL_ENGINE;
-# locally the env var is unset and both run. The const is module-level so the
-# smoke files included below can see it — `include` evaluates at module scope,
-# not inside the @testset's local scope.
-const SMOKE_ENGINES =
-    haskey(ENV, "PLAYWRIGHT_JL_ENGINE") ? [ENV["PLAYWRIGHT_JL_ENGINE"]] :
-    ["chromium", "firefox"]
+# locally the var is unset and all five run. It takes one name, a
+# comma-separated list, or nothing (D5) — the middle case being "the two that
+# already worked, while I fix the third", which with five engines is the
+# difference between a two-minute loop and a twenty-minute one.
+#
+# Parsed by the package, not here, so that this and examples/common.jl cannot
+# disagree about what an engine name is. An unknown name throws before the
+# first browser starts, rather than yielding an empty loop that passes by
+# testing nothing.
+#
+# The const is module-level so the smoke files included below can see it —
+# `include` evaluates at module scope, not inside the @testset's local scope.
+const SMOKE_ENGINES = Playwright.parse_engine_names(get(ENV, "PLAYWRIGHT_JL_ENGINE", ""))
 
 @testset "Playwright.jl" begin
     @testset "package loads" begin
