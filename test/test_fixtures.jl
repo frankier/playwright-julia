@@ -726,9 +726,13 @@ end
                     # The branded builds talk to themselves. A console event
                     # arrives with no page doing anything, so "nothing happens
                     # within the timeout" is not true for them.
+                    # msedge joined this skip after CI said so, not before: the
+                    # local sweep could only observe chrome, and skipping Edge
+                    # on the assumption that it behaves like Chrome would have
+                    # been a guess costing real coverage.
                     skip_engine(
                         eng,
-                        "chrome",
+                        ("chrome", "msedge"),
                         "branded chromium emits console messages the bundled build does not",
                     ) && continue
                     browser = launch(bt; headless = true)

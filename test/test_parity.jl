@@ -224,8 +224,11 @@ end
                             HTTP.get(probe_url).status == 200
                         end
 
-                        # A3 — Chromium only, by design
-                        if eng == "chromium"
+                        # A3 — Chromium *family* only, by design. browser_name,
+                        # not eng: chrome and msedge are Chromium and render
+                        # PDFs happily, which is what the package's own gate
+                        # checks.
+                        if browser_name(page) == "chromium"
                             dest = joinpath(artifacts, "page.pdf")
                             @test pdf(page; path = dest, format = "A4") == dest
                             @test filesize(dest) > 0
