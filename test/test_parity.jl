@@ -122,8 +122,10 @@ end
                 url = "$base_url/waiting.html"
 
                 playwright() do pw
-                    browser = launch(engine(pw, eng); headless = true)
-                    @assert browser_name(browser) == eng
+                    e = engine(pw, eng)
+                    browser = launch(e; headless = true)
+                    # browser_name, not eng: chrome and msedge run chromium.
+                    @assert browser_name(browser) == browser_name(e)
 
                     ctx = new_context(browser)
                     set_default_timeout!(ctx, 2_000)

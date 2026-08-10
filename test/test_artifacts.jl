@@ -725,9 +725,14 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                         page = new_page(ctx)
                         goto!(page, "$base_url/late-title.html")
 
-                        @test browser_name(page) == eng
+                        @test browser_name(page) == browser_name(bt)
 
-                        if eng == "chromium"
+                        # pdf is a Chromium-family capability, not a
+                        # chromium-the-name one: chrome and msedge support it
+                        # because they *are* Chromium. The package's own gate
+                        # reads browser_name for exactly this reason, so the
+                        # test has to ask the same question.
+                        if browser_name(page) == "chromium"
                             dest = joinpath(ARTIFACT_DIR, "page.pdf")
                             isfile(dest) && rm(dest)
                             @test pdf(page; path = dest, format = "A4") == dest
@@ -747,7 +752,7 @@ if get(ENV, "PLAYWRIGHT_JL_SMOKE", "") == "1"
                             end
                             @test err isa ArgumentError
                             @test occursin("Chromium", err.msg)
-                            @test occursin("firefox", err.msg)
+                            @test occursin(browser_name(page), err.msg)
                         end
 
                         close!(browser)

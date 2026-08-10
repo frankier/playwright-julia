@@ -35,10 +35,20 @@ end
             for eng in SMOKE_ENGINES
                 bt = engine(pw, eng)
                 browser = launch(bt; headless = true)
-                @test browser_name(browser) == eng
                 @test browser_name(browser) isa String
-                # ...and it agrees with the BrowserType it came from
+                # SC 4, and the assertion a test author gets wrong. These are
+                # two different questions: engine_name is which of the five was
+                # asked for, browser_name is what is actually running. For
+                # chrome and msedge the answers are "chrome"/"msedge" and
+                # "chromium" — they *are* Chromium, on a branded channel.
+                @test engine_name(bt) == eng
                 @test browser_name(browser) == browser_name(bt)
+                if eng in ("chrome", "msedge")
+                    @test browser_name(browser) == "chromium"
+                    @test engine_name(bt) != browser_name(browser)
+                else
+                    @test browser_name(browser) == eng
+                end
                 close!(browser)
             end
         end
@@ -56,7 +66,7 @@ end
             for eng in SMOKE_ENGINES
                 bt = engine(pw, eng)
                 browser = launch(bt; headless = true, opts...)
-                @test browser_name(browser) == eng
+                @test browser_name(browser) == browser_name(bt)
                 # Launching is not enough — the browser has to be usable.
                 page = new_page(browser)
                 goto!(page, "data:text/html,<h1>shared options</h1>")
@@ -713,6 +723,14 @@ end
                 end
 
                 @testset "$eng: a wait that never fires raises TimeoutError" begin
+                    # The branded builds talk to themselves. A console event
+                    # arrives with no page doing anything, so "nothing happens
+                    # within the timeout" is not true for them.
+                    skip_engine(
+                        eng,
+                        "chrome",
+                        "branded chromium emits console messages the bundled build does not",
+                    ) && continue
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)
