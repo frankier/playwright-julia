@@ -222,8 +222,17 @@ end
                         snapshots = true,
                     ) do
                         page = new_page(ctx)
-                        set_default_timeout!(page, 2_000)
                         goto!(page, "file://" * fixture)
+                        # After the navigation, not before it. 58352d9 fixed
+                        # four instances of a default set ahead of the goto!
+                        # that then inherits it; its grep looked for the
+                        # context receiver and this one is a page, so it
+                        # survived -- and stayed invisible while the Windows
+                        # jobs were hanging before they ever got here. A cold
+                        # Firefox on Windows loads this fixture in more than
+                        # two seconds. The budget belongs to what the testset
+                        # is about, below, and never to the setup above it.
+                        set_default_timeout!(page, 2_000)
 
                         # assertions about the document, not just an element
                         expect(page; to_have_title = "Dashboard")
