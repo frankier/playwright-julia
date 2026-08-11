@@ -141,30 +141,30 @@ until it passes.
 | 2 | `test_connection.jl` "engines" testset, hermetic against the fake driver: all five mappings, and `ArgumentError` naming all five for `edge`, `Chrome`, `""`. |
 | 3 | Wire assertions in the same testset: no `channel` key at all for chromium/firefox/webkit, `channel == name` for chrome/msedge, and an explicit keyword overriding both. |
 | 4 | `test_fixtures.jl` "browser_name on a running Browser": `engine_name(bt) == eng` while `browser_name(browser) == "chromium"` for chrome and msedge, asserted as an inequality. |
-| 5 | Pending — the ubuntu smoke legs. Locally: chromium, firefox, chrome green; webkit unrunnable on Fedora (m9-probe.md, OQ 4); msedge not installable there. |
+| 5 | Run 31451533031: all five `ubuntu-latest` smoke jobs green — chromium, firefox, webkit, chrome, msedge. WebKit's first run anywhere. |
 | 6 | `test_engines.jl`. **Watched failing**: an invented reason added to test_smoke_har.jl reddened the suite naming the file, engine and unmatched words; then removed. |
 | 7 | `Playwright.install_args(["webkit"], true) == ["install", "--with-deps", "webkit"]`, and `check_with_deps(true, :windows)` / `(true, :macos)` throw. Asserted on the command, never run. |
 | 8 | `warn_branded_install` under `Test.collect_test_logs`, for chrome and msedge, on `:linux` (says root) and `:macos`. No install performed. Bundled names log nothing. |
 | 9 | **Injected, not observed** — neither failure can be arranged on a machine that has the browsers. The message shapes are copied from a real driver: the missing-dependency banner came out of the Fedora sweep. |
 | 10 | `parse_engine_names`: one name, a list, spaces, blank (= all five); and `edge`/`safari`/`Chrome`/`chromium,safari`/`chromium,` all throw naming all five. |
 | 11 | `DEFAULT_BROWSERS == ["chromium", "firefox"]`, asserted directly, and the README's install section unchanged. |
-| 12 | Pending the final Windows legs. macOS 1.10 and 1 were green from the very first scaffold run; Windows had exactly one failure (test_har.jl:454), fixed. |
+| 12 | Run 31451533031: all six hermetic jobs green (ubuntu/windows/macos x 1.10/1). macOS was green from the very first scaffold run; Windows needed one fix (test_har.jl:454). |
 | 13 | `test_driver.jl`: all six OS/arch pairs for both `node_platform` and `node_url`, plus `i686` and `plan9` naming the offending value. No src change was needed. |
 | 14 | `Driver assembly (windows-latest)` green: `contents=.complete, node.exe, package` and `Version 1.61.1`. The member filter matched a forward-slashed path unchanged (OQ 1). |
 | 15 | `Driver assembly (macos-latest)` green from `node-v24.17.0-darwin-arm64.tar.xz`. First execution of node_platform's arm64 branch; nothing needed fixing. |
 | 16 | `.gitattributes` committed before the scaffold. `git ls-files --eol` is `w/lf` throughout on Linux. Renormalisation touched exactly one tracked file (protocol/LICENSE-PLAYWRIGHT, CRLF). |
 | 17 | `grep -rnE '@test.*"[^"]*/[^"]*"' test/*.jl` — remaining hits are wire params handed to the fake driver and comment text in generated source, neither of which touches a filesystem. |
-| 18 | Pending the Windows and macOS smoke legs. |
+| 18 | macOS **5/5 green**. Windows chromium and chrome green; firefox and msedge blocked on a GitHub runner network fault, not on this package — see the note below. |
 | 19 | `yaml.safe_load` over CI.yml enumerates exactly 14 smoke jobs after the WebKit-on-Windows exclude, `fail-fast: false`, and the hermetic job at 3 OS x 2 Julia. |
-| 20 | Pending — needs a second, fully cached run. A single cold run cannot prove it; the bug only appears on a hit. |
-| 21 | `if: matrix.os == 'ubuntu-latest' && matrix.engine == 'webkit'`, a step of its own, outside the cache-hit gate. |
-| 22 | Pending T22. |
-| 23 | Pending T23. |
+| 20 | Run 31451533031, a fully cached run: `Cache restored from key: playwright-Linux-webkit-pw1.61.1-node24.17.0`, `playwright-macOS-firefox-…`, `playwright-Linux-chromium-…` — per-engine keys, restored, and every job still passed. The branded jobs have no cache step at all. |
+| 21 | Same run: the Linux WebKit job logs `Installing Playwright browsers` *after* a cache hit, because the `--with-deps` step sits outside the cache-hit gate. System packages are not in the workspace and a hit still needs them. |
+| 22 | Fourteen durations plus queue time recorded below, from run 31443812400 (cold). Worst macOS queue 3m19s; slowest job Windows Firefox at 12m48s against a 60-minute timeout. |
+| 23 | The `diagnostics` job is deleted — it answered OQ 1, 3 and 5 and its work is done. The examples job is untouched: `ubuntu-latest`, engines `[chromium, firefox]`, verified by parsing the workflow. |
 | 24 | PR #9 opened draft before the first `src/` change — `git log` puts the m9-api-gaps commit and the PR ahead of the webkit field. Carries the platform table. |
-| 25 | Pending final counts. |
+| 25 | Per engine and in total below, from run 31446202297. |
 | 26 | `julia --project=docs docs/make.jl`: zero errors, zero warnings, with checkdocs = :exports, warnonly = false, doctest = true all unchanged. engines.md is in the sidebar. |
 | 27 | `gen/generate.jl --check` green locally and in CI on every push; `format(".")` returns true. |
-| 28 | Pending final check. |
+| 28 | `git diff <first commit>..HEAD -- Project.toml` is empty. (CI briefly rewrote it as root under the broken sudo step — that was in the runner's workspace, never committed, and is fixed.) |
 | 29 | README rewritten; `test_exports.jl`'s not-covered gate green, with its stale fixture given a "WebKit" claim so it is still testing a case that is stale. |
 | 30 | getting-started's "Choosing an engine" rewritten for five engines; index.md's not-covered sentence agrees with the README's. |
 | 31 | `tasks/bonnie-parity.md` gains "Re-scored by milestone 9": no row changes, with the reason on both axes. |

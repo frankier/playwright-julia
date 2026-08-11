@@ -4,7 +4,7 @@
 #
 #     julia bin/install.jl                        # chromium and firefox
 #     julia bin/install.jl chromium               # just one
-#     sudo -E julia bin/install.jl --with-deps webkit   # + system libraries
+#     sudo -E "$(which julia)" --project=. bin/install.jl --with-deps webkit
 #     julia bin/install.jl chrome                 # a SYSTEM package install
 #     PLAYWRIGHT_BROWSERS_PATH=.playwright julia bin/install.jl
 #

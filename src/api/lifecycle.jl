@@ -321,12 +321,17 @@ function launch_failure_help(err::PlaywrightError, name::AbstractString, channel
         return DriverError(
             msg *
             "\n\nFrom Playwright.jl, the command that installs those libraries is:\n\n" *
-            "    sudo -E julia bin/install.jl --with-deps $name\n\n" *
-            "or, in a session, `install(; browsers = [\"$name\"], with_deps = true)`. " *
-            "It needs root because it runs the distribution's package manager, and " *
-            "it is Linux-only. WebKit is usually the engine that hits this: it is " *
-            "the one that does not ship its own libraries, so `install` succeeds " *
-            "and the launch is where it goes wrong.";
+            "    sudo -E \"\$(which julia)\" --project=. bin/install.jl --with-deps $name\n\n" *
+            "or, in a session already running as root, " *
+            "`install(; browsers = [\"$name\"], with_deps = true)`. It needs root " *
+            "because it runs the distribution's package manager, and it is " *
+            "Linux-only.\n\n" *
+            "The `\$(which julia)` is not decoration: sudo replaces PATH from " *
+            "secure_path, so a bare `sudo julia` can run a different Julia than " *
+            "the one you are in, and re-resolve your project as root.\n\n" *
+            "WebKit is usually the engine that hits this — it is the one that does " *
+            "not ship its own libraries, so `install` succeeds and the launch is " *
+            "where it goes wrong.";
             name = err.name,
             stack = err.stack,
         )

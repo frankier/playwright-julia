@@ -1,6 +1,17 @@
-# The package's own checks. Everything here is hermetic: no Node, no browser,
-# no network beyond the registry. The jobs that need a real browser live in
-# their own workflow so a browser download failure cannot redden this one.
+# The package's own checks, in three tiers that get more expensive and less
+# hermetic as you go down (D6):
+#
+#   test     3 OS x 2 Julia. No Node, no browser, no network beyond the
+#            registry. The cheapest signal on every platform, and the one that
+#            tells a portability bug apart from a browser bug.
+#   smoke    14 jobs, the platform x engine grid minus WebKit on Windows (D12).
+#            Real browsers against a fixture server served in-process.
+#   examples 2 jobs, Linux only, on the bundled engines. Slow by nature and
+#            deliberately not part of the grid (D10) — they test Genie's and
+#            Makie's portability, not this package's.
+#
+# Plus codegen and formatting, which are Linux-only because they check bytes
+# that are identical everywhere.
 name: CI
 
 on:
@@ -46,178 +57,6 @@ jobs:
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
-
-  diagnostics:
-    # THROWAWAY. Deleted at T23. This job exists to answer three Open Questions
-    # from SPEC-M9.md that cannot be answered by reading anything, on the two
-    # platforms the developer cannot run:
-    #
-    #   OQ 1  Does 7z's member filter match a forward-slashed path inside a
-    #         .zip on Windows? (D9) If not, install_driver grows a separator
-    #         branch and that fix is on the critical path for all of Windows.
-    #   OQ 3  Which branded browsers do the runner images actually ship, and
-    #         does Playwright's channel lookup find them? (D3a) This is the
-    #         highest-leverage question in the milestone: a wrong answer
-    #         invalidates D3a *and* D13 rather than costing a fix, and it is an
-    #         hour's spec amendment here against a checkpoint's at T19 (R2).
-    #   OQ 5  What does a Windows browser cache path cost, against the 260-char
-    #         limit? Suspected fine, unverified, nasty to find late.
-    #
-    # Every step runs even when an earlier one failed, because a job that stops
-    # at the first red answers one question instead of three.
-    name: Diagnostics (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    continue-on-error: true
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    env:
-      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
-    steps:
-      - uses: actions/checkout@v7
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: "1.10"
-      - uses: julia-actions/cache@v3
-      - uses: julia-actions/julia-buildpkg@v1
-
-      - name: "OQ 3a: what the runner image ships"
-        if: always()
-        shell: bash
-        run: |
-          echo "=== PATH-visible browsers ==="
-          for exe in google-chrome google-chrome-stable chrome microsoft-edge microsoft-edge-stable msedge; do
-            p=$(command -v "$exe" 2>/dev/null || true)
-            if [ -n "$p" ]; then echo "FOUND $exe -> $p"; "$p" --version 2>&1 | head -1 || true; fi
-          done
-          echo "=== well-known locations ==="
-          for p in \
-            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-            "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge" \
-            "/c/Program Files/Google/Chrome/Application/chrome.exe" \
-            "/c/Program Files (x86)/Google/Chrome/Application/chrome.exe" \
-            "/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe" \
-            "/c/Program Files/Microsoft/Edge/Application/msedge.exe" \
-            "/opt/google/chrome/chrome" \
-            "/opt/microsoft/msedge/msedge" ; do
-            if [ -f "$p" ]; then echo "FOUND $p"; else echo "absent  $p"; fi
-          done
-
-      - name: "OQ 1 + OQ 5: driver assembly and path lengths"
-        if: always()
-        run: |
-          julia --project=. -e '
-            using Playwright
-            println("== platform ==")
-            println("KERNEL=", Sys.KERNEL, "  ARCH=", Sys.ARCH, "  MACHINE=", Sys.MACHINE)
-            println("node_platform=", Playwright.node_platform())
-            println("node_url=", Playwright.node_url())
-
-            println("== OQ 1: member-limited extraction ==")
-            # The whole question. On Windows the archive is a .zip and the
-            # member is a forward-slashed "node-v.../node.exe"; whether 7z
-            # matches that on Windows is what this proves or disproves.
-            dir = Playwright.install_driver()
-            println("driver_dir=", dir)
-            println("contents=", join(sort(readdir(dir)), ", "))
-            run(Playwright.driver_cmd("--version"))
-
-            println("== OQ 5: path lengths against Windows MAX_PATH (260) ==")
-            # In a function, not at top level: a `for` at top level in -e is
-            # soft scope, so assigning `deepest` inside it warns and then
-            # throws UndefVarError.
-            function deepest_path(root)
-                best = ""
-                for (dir, _, files) in walkdir(root), f in files
-                    p = joinpath(dir, f)
-                    length(p) > length(best) && (best = p)
-                end
-                return best
-            end
-            d = deepest_path(dir)
-            println("driver_dir  len=", length(dir))
-            println("deepest     len=", length(d), "  ", d)
-            println("browsers_path=", something(Playwright.browsers_path(), "(default cache)"))'
-
-      - name: "OQ 5b: browser cache path lengths"
-        if: always()
-        run: |
-          julia --project=. -e '
-            using Playwright
-            function deepest_path(root)
-                best = ""
-                for (dir, _, files) in walkdir(root), f in files
-                    p = joinpath(dir, f)
-                    length(p) > length(best) && (best = p)
-                end
-                return best
-            end
-            Playwright.install(; browsers = ["chromium"])
-            root = Playwright.browsers_path()
-            d = deepest_path(root)
-            println("browser root len=", length(root), "  ", root)
-            println("deepest      len=", length(d), "  ", d)
-            println(length(d) >= 260 ? "OVER MAX_PATH" : "under MAX_PATH")'
-
-      - name: "OQ 3b: does the channel lookup find them?"
-        if: always()
-        run: |
-          julia --project=. -e '
-            using Playwright
-            # The question D3a rests on. Not "is chrome on the box" -- that is
-            # OQ 3a above -- but "does the *pinned driver* resolve the channel
-            # to it". Those are different, and only this one decides whether
-            # the four branded smoke jobs can exist without an install step.
-            playwright() do pw
-                for ch in ("chrome", "msedge")
-                    try
-                        b = launch(pw.chromium; headless = true, channel = ch)
-                        println("channel ", ch, ": OK  name=", browser_name(b),
-                                "  init=", get(b.initializer, "version", "?"))
-                        close!(b)
-                    catch e
-                        println("channel ", ch, ": FAILED")
-                        println(first(sprint(showerror, e), 2000))
-                    end
-                end
-            end'
-
-  driver:
-    # The cheap rung between hermetic and smoke (D6): assemble the driver
-    # bundle and ask it its version. Two minutes against a smoke job's twenty,
-    # with no browser involved.
-    #
-    # It exists because "the driver bundle is wrong" and "the browser is wrong"
-    # are different failures with different fixes, and finding the first under
-    # the second's feedback loop is how a week disappears. On Windows it proves
-    # the member-limited extraction gets node.exe out of the .zip (D9); on
-    # macOS it is the first execution of node_platform's arm64 branch.
-    name: Driver assembly (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-    steps:
-      - uses: actions/checkout@v7
-      - uses: julia-actions/setup-julia@v2
-        with:
-          version: "1.10"
-      - uses: julia-actions/cache@v3
-      - uses: julia-actions/julia-buildpkg@v1
-      - name: Assemble the driver and run it
-        # No browsers: install_driver only. `--version` is the cheapest
-        # question that proves the assembled node binary can run the assembled
-        # playwright-core.
-        run: |
-          julia --project=. -e '
-            using Playwright
-            dir = Playwright.install_driver()
-            @info "assembled" dir contents = sort(readdir(dir))
-            run(Playwright.driver_cmd("--version"; dir))'
 
   smoke:
     # The job that makes CI mean something for this package: real browsers

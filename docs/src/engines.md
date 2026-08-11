@@ -71,7 +71,7 @@ WebKit is the engine that does not ship its own world. On a stock Ubuntu,
 library. The fix is the driver's own dependency installer:
 
 ```console
-$ sudo -E julia bin/install.jl --with-deps webkit
+$ sudo -E "$(which julia)" --project=. bin/install.jl --with-deps webkit
 ```
 
 It needs root, and it is Linux-only — passing `with_deps` on Windows or macOS
@@ -92,7 +92,7 @@ in only where the platform is what makes the row true.
 |---|---|---|---|---|
 | `firefox`, `webkit` | all | `pdf` and `pdf_bytes` do not exist. Upstream `page.pdf` is implemented only for Chromium. | Take a screenshot, or run the assertion on a Chromium-family engine. `chrome` and `msedge` support it — they *are* Chromium. | [Playwright](https://playwright.dev/docs/api/class-page#page-pdf) |
 | `chrome`, `msedge` | all | The browser emits console messages of its own — autofill, enterprise policy and origin-trial notices — that the bundled Chromium does not. A test asserting "no console output" sees them. | Assert on the messages you expect rather than on their absence, or filter by `text`. | Playwright's, via the branded build |
-| `webkit` | Linux | Will not launch after a plain `install webkit`; needs the system libraries. | `sudo -E julia bin/install.jl --with-deps webkit` (Debian/Ubuntu). See above. | [Playwright](https://playwright.dev/docs/browsers#install-system-dependencies) |
+| `webkit` | Linux | Will not launch after a plain `install webkit`; needs the system libraries. | `sudo -E "$(which julia)" --project=. bin/install.jl --with-deps webkit` (Debian/Ubuntu). See above. | [Playwright](https://playwright.dev/docs/browsers#install-system-dependencies) |
 | `webkit` | all | **Rejects unknown command-line args instead of ignoring them.** WebKit parses its own command line strictly and exits on an argument it does not know, so a Chromium flag in `args` — `--disable-dev-shm-usage`, say — is fatal to it rather than inert. The other four engines ignore arguments that mean nothing to them. | Pass `args` per engine rather than sharing one list across all five, or leave it off for WebKit. | WebKit's own argument parser |
 | `webkit` | all | **Resolves an unreachable host instead of raising.** A navigation to a closed port on localhost comes back as something WebKit is willing to hand over, where Chromium and Firefox both surface a network error. | Assert on the response — `status`, or the page's content — rather than on `goto!` throwing. | Playwright's, via WebKit |
 | `webkit` | macOS | **Segfaults when a page opens a popup.** The browser process dies immediately (`Segmentation fault: 11`) and the call surfaces as `TargetClosedError`. Reproduced in the same two testsets on consecutive runs, so it is deterministic rather than flaky. Linux WebKit handles popups fine. | Assert the popup's effects through the opener, or cover popup behaviour on another engine. There is no workaround inside the popup itself — the process is gone. | Playwright's, via WebKit on macOS aarch64 |
