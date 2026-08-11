@@ -184,7 +184,8 @@ legible without opening fourteen logs.
 
 ## Open at hand-off: Windows Firefox and Edge smoke
 
-**12 of the 14 smoke jobs are green.** `Smoke (windows-latest, firefox)` and
+**12 of the 14 smoke jobs have been green** — on Linux and macOS in the final
+run, and on Windows for `chromium` and `chrome` in three earlier runs. `Smoke (windows-latest, firefox)` and
 `Smoke (windows-latest, msedge)` have not completed, across three attempts.
 Checkpoint C is therefore **not** met, and the PR stays in draft.
 
@@ -198,6 +199,7 @@ a tidy conclusion.
 | 31446202297 (before `58352d9`) | cancelled¹ | cancelled¹ | failed on a real assertion | **green, 8m25s** |
 | 31447657850 (after) | green | green | hit the 60-min timeout | hit the 60-min timeout |
 | 31451533031 (after) | green | green | hit the 60-min timeout | hit the 60-min timeout |
+| 31458075909 (after) | **timed out** | **timed out** | timed out | timed out |
 
 ¹ cancelled by a superseding push, not by a failure.
 
@@ -216,10 +218,12 @@ The supporting evidence, now all pointing the same way:
   and `julia-buildpkg` taking **549 seconds** falling back to cloning the
   General registry over git. Normal is well under a minute.
 - Windows hermetic jobs cancelled by the runner in two separate runs.
-- `Driver assembly (windows-latest)` and `Julia 1 - windows-latest` passing in
-  the same run that stalled the other five Windows jobs — the degradation is
-  per-runner, not per-repository.
-- Chromium and Chrome passing on Windows in earlier runs on this same code.
+- In run 31458075909 **all five** in-flight Windows jobs stalled — including
+  `chromium` and `chrome`, which had passed on this identical code in each of
+  the three previous runs. Only the two Windows jobs that finish quickly
+  (`Driver assembly`, `Julia 1`) got through before the degradation bit. A
+  fault that takes out Chromium on Monday and not on Sunday, with no commit in
+  between, is not a fault in the commit.
 
 **No code change is warranted.** The earlier plan to revert `58352d9` is
 withdrawn: that commit fixed a real bug — a 1s context default silently
