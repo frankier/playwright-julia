@@ -646,6 +646,16 @@ end
                 bt = engine(pw, eng)
 
                 @testset "$eng: a popup arrives as a Page" begin
+                    # Reproduced in the same two testsets on two consecutive
+                    # runs, so this is deterministic rather than flaky -- which
+                    # is why it is skipped rather than retried.
+                    Sys.isapple() &&
+                        skip_engine(
+                            eng,
+                            "webkit",
+                            "webkit on macos segfaults when a page opens a popup",
+                        ) &&
+                        continue
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
                     page = new_page(ctx)

@@ -118,6 +118,15 @@ end
 @testset "the waiting and events walkthrough" begin
     with_fixture_server() do base_url
         for eng in SMOKE_ENGINES
+            # This walkthrough opens a popup, which is the one thing headless
+            # WebKit on macOS aarch64 will not survive.
+            Sys.isapple() &&
+                skip_engine(
+                    eng,
+                    "webkit",
+                    "webkit on macos segfaults when a page opens a popup",
+                ) &&
+                continue
             @testset "$eng" begin
                 url = "$base_url/waiting.html"
 

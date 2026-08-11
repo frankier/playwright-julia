@@ -190,20 +190,35 @@ different fixes.
 
 | OS | Engine | Run | Queue |
 |---|---|---|---|
-| ubuntu | chromium | | |
-| ubuntu | firefox | | |
-| ubuntu | webkit | | |
-| ubuntu | chrome | | |
-| ubuntu | msedge | | |
-| windows | chromium | | |
-| windows | firefox | | |
-| windows | chrome | | |
-| windows | msedge | | |
-| macos | chromium | | |
-| macos | firefox | | |
-| macos | webkit | | |
-| macos | chrome | | |
-| macos | msedge | | |
+| ubuntu | chromium | 3m27s | 1s |
+| ubuntu | firefox | 6m20s | 7s |
+| ubuntu | webkit | 6m57s | 1s |
+| ubuntu | chrome | 4m25s | 0s |
+| ubuntu | msedge | 5m48s | 0s |
+| windows | chromium | 7m11s | 1s |
+| windows | firefox | 12m48s | 0s |
+| windows | chrome | 7m37s | 2s |
+| windows | msedge | 8m25s | 0s |
+| macos | chromium | 2m55s | 49s |
+| macos | firefox | 6m58s | 1s |
+| macos | webkit | 5m54s | **3m19s** |
+| macos | chrome | 5m40s | 27s |
+| macos | msedge | 7m26s | 1s |
+
+Measured on run 31443812400, a cold run with no browser cache. Queue is
+measured from the earliest job start in the run.
+
+**D12's grid survives, and R1 was pessimistic.** The fear was that GitHub's
+macOS concurrency cap would serialise five macOS smoke jobs plus two macOS
+hermetic ones, costing a day per iteration. It did not: every one of the
+fourteen started within 3m19s of the first, and the worst macOS queue was that
+same 3m19s. Total wall clock for the whole matrix is bounded by the slowest
+single job, not by a queue.
+
+The slowest job is Windows Firefox at 12m48s, comfortably inside D15's 60
+minutes — which is doing its job as a hang detector rather than as a budget.
+Nothing here argues for trimming the matrix (Assumption 11), so nothing is
+trimmed.
 
 ## Suite counts (T27, SC 25)
 

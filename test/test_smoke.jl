@@ -338,6 +338,14 @@ tryrun(cmd) =
                 end
 
                 @testset "$eng: launch options reach the browser" begin
+                    # Same reason as the shared-option set in test_fixtures.jl:
+                    # the Chromium flag below is fatal to WebKit rather than
+                    # inert. The second of the two sites that pass one.
+                    skip_engine(
+                        eng,
+                        "webkit",
+                        "webkit rejects unknown command-line args instead of ignoring them",
+                    ) && continue
                     browser = launch(
                         bt;
                         headless = true,

@@ -67,14 +67,16 @@ Chrome's failures resolve into three groups:
    branded build emits console messages of its own with no page doing anything.
    Skipped on chrome with an `engines.md` row.
 
-**Divergence count so far: 1.** R3's threshold is fifteen. Two more rows are
-already on the page from decisions rather than discovery (WebKit-on-Windows,
-and the orphan-process check's blind spots), which is still nowhere near the
-number at which this stops being a task and becomes a conversation.
+**Divergence count after the first full matrix: 4 skips**, against R3's
+threshold of fifteen. Two further `engines.md` rows come from decisions rather
+than discovery (WebKit-on-Windows, and the orphan-process check's blind spots),
+so the page has six rows in total — nowhere near the number at which this stops
+being a task and becomes a conversation.
 
-The count is *incomplete* — webkit and msedge contribute an unknown number,
-and the M8 surfaces (HAR replay, persistent contexts, WebSocket routing) have
-still never seen a third engine. Those come from the CI matrix.
+Worth stating plainly, because it was the milestone's largest unknown: **the
+M8 surfaces held.** HAR replay, persistent contexts and WebSocket routing had
+never seen a third engine, let alone a branded one, and none of them produced
+a single divergence on any of the five.
 
 ### A note on the two failures that were not real
 
@@ -85,6 +87,34 @@ in one working directory race on it, and `test_driver.jl` was being edited
 while chrome's run read it. Recorded because a future reader finding those
 lines in the logs deserves to know they were an artefact of how the sweep was
 run, not a finding. **The sweep is a serial operation.**
+
+### Continued: what the matrix added
+
+WebKit's first run anywhere held 3023 of 3030 assertions on Linux and 3039 of
+3042 on macOS. Three genuine divergences, all new, all documented:
+
+1. **It rejects unknown command-line args instead of ignoring them.** This
+   *falsifies a claim the suite was written to assert* — that
+   engine-irrelevant launch options are ignored rather than rejected. True for
+   the other four; WebKit exits on a Chromium flag it does not recognise. The
+   claim is still tested on four engines and WebKit's exception is documented,
+   which is exactly the case D4 exists for.
+2. **It resolves an unreachable host instead of raising.** A closed port on
+   localhost comes back as something WebKit will hand over.
+3. **Headless, it emits no `:download` event** for a `Content-Disposition`
+   attachment. All four download assertions waited out their budget.
+
+One more failure was *not* a divergence: Windows Firefox failed the cascade
+test because that test set a 1s context default and then navigated, so `goto!`
+inherited the budget it was setting up. A cold Firefox on Windows takes longer
+than a second to load a page off localhost. A test bug, and platform-agnostic
+once fixed.
+
+**Left deliberately unskipped:** an intermittent WebKit segfault at launch on
+macOS aarch64 — two crashes in a full run, both immediately after `<launched>`,
+in unrelated testsets. Skipping for flakiness would hide real coverage, so it
+goes back through CI to find out whether it is deterministic before anything is
+decided about it.
 
 ## OQ 3 — Which branded browsers do the runner images ship, and does the channel lookup find them?
 
@@ -145,39 +175,70 @@ what D3 predicts and what the Linux WebKit smoke job will prove or disprove.
 
 ## OQ 5 — What does a Windows browser cache path cost?
 
-**Not answered in the first run — my bug — and re-running.**
+**Comfortably under the limit. Suspicion confirmed, with numbers.**
 
-The two steps that measure it both threw `UndefVarError`: a `for` at top level
-in `julia -e` is soft scope, so assigning the accumulator inside the loop
-warned and then failed. The other diagnostics steps were written `if:
-always()` and answered OQ 1 and OQ 3 regardless, which is the only reason this
-cost nothing.
+The first run's two measuring steps threw `UndefVarError` — a `for` at top
+level in `julia -e` is soft scope, so assigning the accumulator inside the loop
+warned and then failed. My bug. The other steps were written `if: always()` and
+answered OQ 1 and OQ 3 regardless, which is the only reason it cost nothing.
+Re-run:
 
-What is already known from the OQ 1 output: the driver directory on Windows is
-109 characters
-(`C:\Users\runneradmin\.julia\scratchspaces\<uuid>\driver-1.61.1-node-24.17.0`),
-leaving roughly 150 for everything Playwright nests beneath the browser root.
-Suspicion remains "fine", now with one real number under it.
+| Path | Length | Limit |
+|---|---|---|
+| Driver scratch directory | 105 | — |
+| Deepest file in the driver bundle | 174 | 260 |
+| Browser root (`${workspace}/.playwright`) | 50 | — |
+| Deepest file under a browser install | 176 | 260 |
+
+The deepest of either is 176 characters, leaving 84 to spare. Note the driver's
+own deepest path is a vendored Markdown file inside `playwright-core`, not
+anything this package creates — so the margin is not something a change here
+would erode.
 
 ## OQ 6 — Do headless Firefox and WebKit behave on macOS the way they do on Linux?
 
-**Open.** Needs the macOS smoke legs, which is Part C. Nothing in the hermetic
-or diagnostics results speaks to it.
+**Firefox: yes, entirely. WebKit: yes apart from an intermittent launch
+segfault.**
 
-Encouraging but not evidence: macOS hermetic was green on both Julia versions
-in the very first run, and the macOS driver assembly worked first time.
+macOS Firefox was green on the first full matrix run, timing-sensitive parts
+included — the `expect` retry assertions and the M8 WebSocket tests all held
+with no macOS-specific adjustment. That was the specific worry and it did not
+materialise. macOS Chromium, Chrome and Edge were green too.
+
+macOS WebKit held 3039 of 3042. Its three failures were the download and
+unreachable-host divergences it also shows on Linux, plus the segfault noted
+above — no *timing* divergence at all.
 
 ## OQ 7 — Is `sudo -E` enough for `--with-deps` on the GitHub Linux runner?
 
-**Open.** Needs the Linux WebKit smoke job. Untestable anywhere else.
+**Yes, as a single step, exactly as D13 specifies.**
+
+`sudo -E julia bin/install.jl --with-deps webkit` ran as its own step, outside
+the cache-hit gate, and the Linux WebKit job then launched the browser and ran
+3030 assertions. `-E` preserved enough environment for the depot and the
+assembled driver to be found; no separate non-Julia invocation was needed.
+
+This is the five-minute question with a day-shaped answer if discovered late,
+and the answer is the cheap one.
 
 ## OQ 8 — How much macOS queue time does the grid cost?
 
-**Open, but the first data point is mild.** In the T4 run, the six hermetic
-jobs across three platforms all completed inside a few minutes with no visible
-macOS queueing. That is two macOS jobs, not seven, so it does not settle D12 —
-but it does not look like the catastrophe R1 budgets for either. T22 records
-the real numbers.
+**About three minutes, worst case. R1 was pessimistic and D12's grid
+survives.**
+
+On a full fourteen-job cold run, every job started within **3m19s** of the
+first, and that worst case was macOS WebKit. There was no serialisation of the
+five macOS smoke jobs — GitHub ran them concurrently.
+
+The slowest single job is Windows Firefox at 12m48s, so the matrix's wall clock
+is bounded by that rather than by a queue. Full table in
+[`todo.md`](todo.md#job-durations-t22-sc-22).
+
+The practical constraint turned out to be something the spec did not anticipate
+at all: `cancel-in-progress` in the workflow's concurrency group means each
+push kills the run in flight. With a fourteen-job matrix that is a real cost,
+and it argues for batching pushes more than D14's one-fix-per-push rule
+suggests — the attribution D14 wants comes from the commit, not from the run.
 
 ---
 
