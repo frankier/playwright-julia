@@ -15,13 +15,13 @@ otherwise hang the whole suite instead of reporting itself.
 function waiting_request(fake, action; result = Dict{String,Any}())
     task = @async action()
     if timedwait(() -> isready(fake.client_messages), 10.0) !== :ok
-        fetch(task)   # rethrows the real reason, if there was one
+        await(task)   # rethrows the real reason, if there was one
         error("action sent no protocol message")
     end
-    msg = take!(fake.client_messages)
+    msg = next_message(fake)
     reply_ok(fake, msg["id"], result)
     try
-        fetch(task)
+        await(task)
     catch
     end
     return msg
@@ -41,7 +41,7 @@ end
         # `state` is the driver's business when the caller did not ask for one:
         # sending an explicit default would override a future driver change.
         @test !haskey(sent["params"], "state")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "wait_for_selector maps state symbols to the wire spelling" begin
@@ -59,13 +59,13 @@ end
             () -> wait_for_selector(f.page, "#late"; state = "visible"),
         )
         @test sent["params"]["state"] == "visible"
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "wait_for_selector rejects a state the protocol does not have" begin
         f = timeout_fixture()
         @test_throws ArgumentError wait_for_selector(f.page, "#x"; state = :enabled)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "wait_for_selector on a Frame and a Locator" begin
@@ -83,7 +83,7 @@ end
         @test sent["params"]["selector"] == "#late"
         @test sent["params"]["strict"] == false
         @test sent["params"]["timeout"] == 2_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an explicit timeout beats the cascade" begin
@@ -92,7 +92,7 @@ end
         sent =
             waiting_request(f.fake, () -> wait_for_selector(f.page, "#late"; timeout = 250))
         @test sent["params"]["timeout"] == 250
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "wait_for_function sends expression, arg and the resolved timeout" begin
@@ -111,7 +111,7 @@ end
         # No polling asked for means none on the wire — the driver polls on
         # requestAnimationFrame, which is the better default for a DOM check.
         @test !haskey(sent["params"], "pollingInterval")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "wait_for_function passes its argument through the value codec" begin
@@ -123,7 +123,7 @@ end
         )
         @test haskey(sent["params"], "arg")
         @test sent["params"]["arg"]["value"]["n"] == 41
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "polling accepts an interval in ms, or :raf for the default" begin
@@ -141,7 +141,7 @@ end
             result = Dict{String,Any}("handle" => nothing),
         )
         @test !haskey(sent["params"], "pollingInterval")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "wait_for_function on a Frame and a Locator" begin
@@ -160,6 +160,6 @@ end
             result = Dict{String,Any}("handle" => nothing),
         )
         @test sent["guid"] == "frame@1"
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end

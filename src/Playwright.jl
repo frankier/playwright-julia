@@ -1,8 +1,9 @@
 """
     Playwright
 
-Drive real browsers — Chromium and Firefox — from Julia, through the official
-Playwright automation engine.
+Drive real browsers — Chromium, Firefox and WebKit — from Julia, through the
+official Playwright automation engine. Google Chrome and Microsoft Edge are
+reachable too, as channels on Chromium; see [`engine`](@ref).
 
 ```julia
 using Playwright
@@ -38,6 +39,12 @@ export playwright,
     Locator,
     ElementHandle,
     JSHandle,
+    # Engines by name (D1a): the mapping from an engine name to a browser type
+    # plus a channel, for callers whose engine arrives as a string.
+    Engine,
+    engine,
+    engine_name,
+    skip_engine,
     launch,
     new_page,
     close!,

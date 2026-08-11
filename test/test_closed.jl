@@ -51,7 +51,7 @@
         # assertion, which is neither catchable as a Playwright error nor
         # informative about the cause.
         @test !(err isa TypeError)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "every page entry point that hops through main_frame agrees" begin
@@ -77,7 +77,7 @@
                 e
             end
             @test err isa Playwright.TargetClosedError
-            close(f.fake.connection)
+            shutdown!(f.fake)
         end
     end
 
@@ -90,7 +90,7 @@
             e
         end
         @test occursin("close", lowercase(err.message))
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a closed context is caught too, and does not become a TypeError" begin
@@ -105,7 +105,7 @@
         end
         @test err isa Playwright.TargetClosedError
         @test !(err isa TypeError)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "lazy calls raise as eagerly as round-tripping ones" begin
@@ -114,14 +114,14 @@
         # much later. The registry is the only thing it can consult.
         f = close_page!(timeout_fixture())
         @test_throws Playwright.TargetClosedError locator(f.page, "h1")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a live page is unaffected" begin
         f = timeout_fixture()
         @test Playwright.main_frame(f.page) === f.frame
         @test locator(f.page, "h1") isa Playwright.Locator
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a sibling page is unaffected by the one that closed" begin
@@ -129,7 +129,7 @@
         # page@2 is a different page in a different context; closing page@1
         # must not make the whole connection look shut.
         @test Playwright.lookup_object(f.fake.connection, "page@2") !== nothing
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     # --- The postmortem readers are no-throw ------------------------------
@@ -168,7 +168,7 @@
         @test page_errors(f.page) == PageError[]
         # Nothing was sent.
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "...and on a closed context" begin
@@ -177,7 +177,7 @@
         f = close_context!(timeout_fixture())
         @test isempty(console_messages(f.page))
         @test isempty(page_errors(f.page))
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a page that closes mid-call is swallowed too" begin
@@ -187,10 +187,10 @@
         for reader in (console_messages, page_errors)
             f = timeout_fixture()
             task = @async reader(f.page)
-            msg = take!(f.fake.client_messages)
+            msg = next_message(f.fake)
             target_closed_reply(f.fake, msg["id"])
-            @test isempty(fetch(task))
-            close(f.fake.connection)
+            @test isempty(await(task))
+            shutdown!(f.fake)
         end
     end
 
@@ -201,7 +201,7 @@
         for reader in (console_messages, page_errors)
             f = timeout_fixture()
             task = @async reader(f.page)
-            msg = take!(f.fake.client_messages)
+            msg = next_message(f.fake)
             driver_send(
                 f.fake,
                 Dict(
@@ -216,7 +216,7 @@
                 ),
             )
             err = try
-                fetch(task)
+                await(task)
                 nothing
             catch e
                 e isa TaskFailedException ? e.task.result : e
@@ -224,7 +224,7 @@
             @test err isa Playwright.DriverError
             @test !(err isa Playwright.TargetClosedError)
             @test occursin("something else", err.message)
-            close(f.fake.connection)
+            shutdown!(f.fake)
         end
     end
 
@@ -232,7 +232,7 @@
         # The swallow must not have turned the readers into stubs.
         f = timeout_fixture()
         task = @async console_messages(f.page)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_ok(
             f.fake,
             msg["id"],
@@ -248,10 +248,10 @@
                 ],
             ),
         )
-        msgs = fetch(task)
+        msgs = await(task)
         @test length(msgs) == 1
         @test msgs[1].text == "hello"
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "screenshot still throws on a closed target" begin
@@ -260,15 +260,15 @@
         # read. It keeps throwing, and report_diagnostics catches for it.
         f = timeout_fixture()
         task = @async screenshot_bytes(f.page)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         target_closed_reply(f.fake, msg["id"])
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.result : e
         end
         @test err isa Playwright.TargetClosedError
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end

@@ -49,6 +49,38 @@ function driver_send(fake::FakeDriver, msg::AbstractDict)
     end
 end
 
+"The next message the client sent, or a failed test if it never sends one."
+next_message(fake::FakeDriver) =
+    take_within!(fake.client_messages, "a message from the client")
+
+"""
+Close both pipes, not only the two ends the transport owns.
+
+`close(fake.connection)` closes the transport's input and output; the two ends
+this side holds are left open. One test leaking two OS handles does not matter,
+but the suite builds a couple of hundred fake drivers, and on Windows those are
+named pipes.
+"""
+function shutdown!(fake::FakeDriver)
+    # First, because it is what stops the autoreply loops the fixtures start.
+    # Those loops take! forever by design and exit on InvalidStateException --
+    # test_har.jl's says so in as many words -- but nothing actually closed the
+    # channel, so each one outlived its test and sat on the fake driver it was
+    # built for. They are gone by the end of the process either way; the cost is
+    # that a leaked loop is a second consumer if anything ever reaches the same
+    # channel again.
+    close(fake.client_messages)
+    close(fake.connection)
+    for io in
+        (fake.to_driver.out, fake.to_driver.in, fake.from_driver.in, fake.from_driver.out)
+        try
+            close(io)
+        catch
+        end
+    end
+    return nothing
+end
+
 reply_ok(fake, id, result) = driver_send(fake, Dict("id" => id, "result" => result))
 reply_error(fake, id, message) = driver_send(
     fake,
@@ -72,13 +104,31 @@ send_dispose(fake, guid) = driver_send(
     Dict("guid" => guid, "method" => "__dispose__", "params" => Dict{String,Any}()),
 )
 
-"Round-trip a no-op request so every earlier frame has been dispatched."
+"""
+Round-trip a no-op request so every earlier frame has been dispatched.
+
+Only for a fake driver nobody else is reading. It answers the round-trip itself,
+so a background autoreply loop on the same channel would be a second consumer
+racing it for one frame -- see `sync_autoreplied`.
+"""
 function sync(fake::FakeDriver)
     done = @async Playwright.send_message(fake.connection, "", "sync", Dict{String,Any}())
-    msg = take!(fake.client_messages)
+    msg = next_message(fake)
     reply_ok(fake, msg["id"], Dict{String,Any}())
-    fetch(done)
+    await(done, "the sync round-trip")
 end
+
+"""
+The same round-trip, for a fake driver with an autoreply loop already draining
+`client_messages`.
+
+Nothing is taken here: the loop takes the frame and answers it, and
+`send_message` returns when it does. Two consumers on one channel is a coin
+flip for who gets woken, and the loser waits for a frame that will never be
+sent, so the two forms are separate functions rather than one with a flag.
+"""
+sync_autoreplied(fake::FakeDriver) =
+    Playwright.send_message(fake.connection, "", "sync", Dict{String,Any}())
 
 @testset "connection" begin
     @testset "send_message round-trip carries guid/method/params and returns result" begin
@@ -89,14 +139,14 @@ end
             "newContext",
             Dict{String,Any}("ignoreHTTPSErrors" => true),
         )
-        sent = take!(fake.client_messages)
+        sent = next_message(fake)
         @test sent["guid"] == "browser@1"
         @test sent["method"] == "newContext"
         @test sent["params"]["ignoreHTTPSErrors"] == true
         @test haskey(sent, "id") && haskey(sent, "metadata")
         reply_ok(fake, sent["id"], Dict("value" => 42))
-        @test fetch(task)["value"] == 42
-        close(fake.connection)
+        @test await(task)["value"] == 42
+        shutdown!(fake)
     end
 
     @testset "local_utils names HAR replay when the driver exposes none" begin
@@ -116,7 +166,7 @@ end
         @test err isa Playwright.DriverError
         @test occursin("HAR replay", err.message)
         @test occursin("LocalUtils", err.message)
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "local_utils returns the LocalUtils when the driver has one" begin
@@ -127,7 +177,7 @@ end
         @test utils isa Playwright.LocalUtils
         fake.connection.local_utils = utils
         @test Playwright.local_utils(fake.connection) === utils
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "__create__ registers objects; initializer guid refs resolve" begin
@@ -146,7 +196,7 @@ end
         @test pw !== nothing && bt !== nothing
         @test Playwright.from_channel(fake.connection, pw.initializer["chromium"]) === bt
         @test Playwright.from_channel(fake.connection, nothing) === nothing
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "error replies raise PlaywrightError with the driver's message" begin
@@ -157,17 +207,17 @@ end
             "goto",
             Dict{String,Any}("url" => "x"),
         )
-        sent = take!(fake.client_messages)
+        sent = next_message(fake)
         reply_error(fake, sent["id"], "net::ERR_NAME_NOT_RESOLVED at x")
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.exception : e
         end
         @test err isa PlaywrightError
         @test occursin("ERR_NAME_NOT_RESOLVED", err.message)
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "error replies append the driver's call log to the message" begin
@@ -178,7 +228,7 @@ end
             "click",
             Dict{String,Any}("selector" => "#nope"),
         )
-        sent = take!(fake.client_messages)
+        sent = next_message(fake)
         # Real wire shape: the call log rides at the top level of the reply.
         driver_send(
             fake,
@@ -195,7 +245,7 @@ end
             ),
         )
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.exception : e
@@ -204,7 +254,7 @@ end
         @test occursin("Timeout 500ms exceeded", err.message)
         @test occursin("Call log:", err.message)
         @test occursin("#nope", err.message)
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "__dispose__ removes an object and its children" begin
@@ -219,7 +269,7 @@ end
         @test Playwright.lookup_object(fake.connection, "browser@1") !== nothing
         @test Playwright.lookup_object(fake.connection, "ctx@1") === nothing
         @test Playwright.lookup_object(fake.connection, "page@1") === nothing
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "driver crash fails pending calls instead of hanging" begin
@@ -230,10 +280,10 @@ end
             "goto",
             Dict{String,Any}("url" => "x"),
         )
-        take!(fake.client_messages)   # request is in flight
+        next_message(fake)   # request is in flight
         close(fake.from_driver.in)    # driver hangs up
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.exception : e
@@ -262,7 +312,7 @@ end
         # The connection still works afterwards:
         sync(fake)
         @test true
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "launch sends only the options that were set" begin
@@ -276,12 +326,12 @@ end
 
         # Defaults only: nothing but what launch() itself sets.
         task = @async launch(bt)
-        msg = take!(fake.client_messages)
+        msg = next_message(fake)
         @test msg["method"] == "launch"
         @test sort(collect(keys(msg["params"]))) == ["headless", "timeout"]
         send_create(fake, "browserType@1", "Browser", "browser@1")
         reply_ok(fake, msg["id"], Dict("browser" => Dict("guid" => "browser@1")))
-        @test fetch(task) isa Playwright.Browser
+        @test await(task) isa Playwright.Browser
 
         # Options that were set, and nothing else. In particular no key with a
         # null value: an option the caller never mentioned must be absent, not
@@ -299,7 +349,7 @@ end
             downloads_path = "/tmp/dl",
             proxy = Dict("server" => "http://127.0.0.1:8080"),
         )
-        msg = take!(fake.client_messages)
+        msg = next_message(fake)
         params = msg["params"]
         @test sort(collect(keys(params))) == sort([
             "headless",
@@ -324,7 +374,7 @@ end
         @test params["proxy"] == Dict("server" => "http://127.0.0.1:8080")
         send_create(fake, "browserType@1", "Browser", "browser@2")
         reply_ok(fake, msg["id"], Dict("browser" => Dict("guid" => "browser@2")))
-        @test fetch(task) isa Playwright.Browser
+        @test await(task) isa Playwright.Browser
 
         # ...and no option is ever sent as an explicit null.
         @test !any(v -> v === nothing, values(params))
@@ -358,14 +408,14 @@ end
         # empty. That is the half most at risk from a builder that helpfully
         # supplies a default.
         task = @async new_context(f.browser)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["method"] == "newContext"
         @test isempty(msg["params"])
         send_create(f.fake, "browser@1", "BrowserContext", "context@1")
         reply_ok(f.fake, msg["id"], Dict("context" => Dict("guid" => "context@1")))
-        @test fetch(task) isa Playwright.BrowserContext
+        @test await(task) isa Playwright.BrowserContext
 
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "new_context's full option set crosses unchanged" begin
@@ -390,7 +440,7 @@ end
             java_script_enabled = false,
             accept_downloads = true,
         )
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         params = msg["params"]
 
         @test sort(collect(keys(params))) == sort([
@@ -431,9 +481,9 @@ end
 
         send_create(f.fake, "browser@1", "BrowserContext", "context@2")
         reply_ok(f.fake, msg["id"], Dict("context" => Dict("guid" => "context@2")))
-        @test fetch(task) isa Playwright.BrowserContext
+        @test await(task) isa Playwright.BrowserContext
 
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "launch_persistent_context sends the union of both" begin
@@ -453,7 +503,7 @@ end
             viewport = (width = 800, height = 600),   # a context option
             locale = "de-DE",           # ...another
         )
-        msg = take!(fake.client_messages)
+        msg = next_message(fake)
         @test msg["method"] == "launchPersistentContext"
         params = msg["params"]
 
@@ -481,11 +531,11 @@ end
         )
         # The *context* is returned, not the browser: it is what every caller
         # then uses, and the browser has exactly one context anyway.
-        ctx = fetch(task)
+        ctx = await(task)
         @test ctx isa Playwright.BrowserContext
         @test ctx.guid == "context@1"
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "an empty user_data_dir is refused before the wire" begin
@@ -511,7 +561,7 @@ end
 
         # Nothing was sent, so no browser was started to be leaked.
         @test !isready(fake.client_messages)
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "an unknown keyword names itself, not a builder" begin
@@ -533,7 +583,7 @@ end
         end
         @test err isa ArgumentError
         @test occursin("headles", err.msg)
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "the option-key split covers both builders exactly" begin
@@ -570,7 +620,7 @@ end
         )
 
         task = @async launch_persistent_context(bt, "/tmp/test-owned")
-        msg = take!(fake.client_messages)
+        msg = next_message(fake)
         send_create(fake, "browserType@1", "Browser", "browser@own")
         send_create(fake, "browser@own", "BrowserContext", "context@own")
         reply_ok(
@@ -581,12 +631,12 @@ end
                 "context" => Dict("guid" => "context@own"),
             ),
         )
-        ctx = fetch(task)
+        ctx = await(task)
 
         seen = Vector{Any}()
         @async try
             while true
-                m = take!(fake.client_messages)
+                m = next_message(fake)
                 push!(seen, m)
                 reply_ok(fake, m["id"], Dict{String,Any}())
             end
@@ -594,7 +644,9 @@ end
         end
 
         close!(ctx)
-        sync(fake)
+        # The loop above is still draining client_messages, so this must not
+        # take! as well. That race is what stalled four Windows jobs a run.
+        sync_autoreplied(fake)
 
         closes = filter(m -> get(m, "method", "") == "close", seen)
         @test length(closes) == 1
@@ -603,7 +655,7 @@ end
         # asking again is an error rather than a no-op.
         @test !any(m -> get(m, "guid", "") == "browser@own", closes)
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "a non-persistent context closes only itself" begin
@@ -617,29 +669,206 @@ end
         )
 
         closer = @async close!(ctx)
-        msg = take!(fake.client_messages)
+        msg = next_message(fake)
         @test msg["guid"] == "context@plain"
         @test msg["method"] == "close"
         reply_ok(fake, msg["id"], Dict{String,Any}())
-        fetch(closer)
+        await(closer)
 
         sync(fake)
         @test true
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "accept_downloads = false denies rather than omitting" begin
         f = context_fixture()
         task = @async new_context(f.browser; accept_downloads = false)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["params"]["acceptDownloads"] == "deny"
         send_create(f.fake, "browser@1", "BrowserContext", "context@3")
         reply_ok(f.fake, msg["id"], Dict("context" => Dict("guid" => "context@3")))
-        @test fetch(task) isa Playwright.BrowserContext
-        close(f.fake.connection)
+        @test await(task) isa Playwright.BrowserContext
+        shutdown!(f.fake)
     end
 
+end
+
+# --- Engines (D1a) --------------------------------------------------------
+#
+# `engine(pw, name)` is the whole of M9's new API surface, and it exists
+# because the five engine names are not five of a kind: "webkit" names a field
+# on `pw`, while "chrome" names `pw.chromium` *plus* a channel. These tests are
+# hermetic -- no browser is involved -- because the mapping is the thing being
+# checked, and the two branded names differ from their siblings only in what
+# goes on the wire.
+
+"A PlaywrightAPI over the fake driver, with all three BrowserTypes."
+function engine_fixture()
+    fake = FakeDriver()
+    types = map(("chromium", "firefox", "webkit")) do name
+        Playwright.BrowserType(
+            fake.connection,
+            "BrowserType",
+            "browserType@$name",
+            Dict{String,Any}("name" => name),
+        )
+    end
+    # PlaywrightAPI's `process` field is typed Base.Process and nothing under
+    # test touches it, so this is the cheapest real one available rather than
+    # anything meaningful. It exits immediately; a Process that has exited is
+    # still a Process.
+    # --startup-file=no: without it this inherits the developer's startup.jl,
+    # which on a machine with Revise in it prints a load error into the suite.
+    proc = open(`$(Base.julia_cmd()[1]) --startup-file=no -e ""`, "r+")
+    pw = Playwright.PlaywrightAPI(types..., proc, fake.connection, nothing)
+    return (; fake, pw, types)
+end
+
+@testset "engines" begin
+    @testset "each name maps to its browser type and channel" begin
+        f = engine_fixture()
+        chromium, firefox, webkit = f.types
+
+        # The three bundled engines: their own type, and no channel at all.
+        # `nothing` rather than "" matters -- it is what decides whether the
+        # key reaches the wire.
+        for (name, bt) in (("chromium", chromium), ("firefox", firefox), ("webkit", webkit))
+            e = engine(f.pw, name)
+            @test e isa Playwright.Engine
+            @test e.browser_type === bt
+            @test engine_name(e) == name
+            @test e.channel === nothing
+        end
+
+        # The branded two: chromium's type, their own name, and a channel.
+        for name in ("chrome", "msedge")
+            e = engine(f.pw, name)
+            @test e.browser_type === chromium
+            @test engine_name(e) == name
+            @test e.channel == name
+        end
+
+        shutdown!(f.fake)
+    end
+
+    @testset "an unknown name names all five" begin
+        f = engine_fixture()
+        # The point of asking by name is a name that came from somewhere else
+        # -- an env var, a matrix, a command line -- so the error has to be
+        # readable by someone who does not know the set.
+        err = try
+            engine(f.pw, "edge")
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        for name in ("chromium", "firefox", "webkit", "chrome", "msedge")
+            @test occursin(name, err.msg)
+        end
+        @test occursin("edge", err.msg)
+        # Not a silent success by another spelling, either.
+        @test_throws ArgumentError engine(f.pw, "Chrome")
+        @test_throws ArgumentError engine(f.pw, "")
+        shutdown!(f.fake)
+    end
+
+    @testset "launch sends channel for the branded two and omits it otherwise" begin
+        # On the wire, because "omitted" and "null" are different messages and
+        # only one of them is right: a present-and-null channel makes the
+        # driver apply a different default from the one it applies when the
+        # caller never mentioned it.
+        f = engine_fixture()
+
+        for name in ("chromium", "firefox", "webkit")
+            task = @async launch(engine(f.pw, name))
+            msg = next_message(f.fake)
+            @test msg["method"] == "launch"
+            @test !haskey(msg["params"], "channel")
+            send_create(f.fake, "browserType@$name", "Browser", "browser@$name")
+            reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@$name")))
+            @test await(task) isa Playwright.Browser
+        end
+
+        for name in ("chrome", "msedge")
+            task = @async launch(engine(f.pw, name))
+            msg = next_message(f.fake)
+            @test msg["params"]["channel"] == name
+            send_create(f.fake, "browserType@chromium", "Browser", "browser@$name")
+            reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@$name")))
+            @test await(task) isa Playwright.Browser
+        end
+
+        shutdown!(f.fake)
+    end
+
+    @testset "an explicit channel keyword wins over the engine's" begin
+        # Deliberately no warning (D1a): passing channel = "chrome-beta" to
+        # engine(pw, "chrome") is a coherent thing to want. Beta and dev
+        # channels stay reachable exactly this way and are not engine names.
+        f = engine_fixture()
+
+        task = @async launch(engine(f.pw, "chrome"); channel = "chrome-beta")
+        msg = next_message(f.fake)
+        @test msg["params"]["channel"] == "chrome-beta"
+        send_create(f.fake, "browserType@chromium", "Browser", "browser@beta")
+        reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@beta")))
+        @test await(task) isa Playwright.Browser
+
+        # ...and it can add one to a bundled engine that had none.
+        task = @async launch(engine(f.pw, "chromium"); channel = "chrome-canary")
+        msg = next_message(f.fake)
+        @test msg["params"]["channel"] == "chrome-canary"
+        send_create(f.fake, "browserType@chromium", "Browser", "browser@canary")
+        reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@canary")))
+        @test await(task) isa Playwright.Browser
+
+        shutdown!(f.fake)
+    end
+
+    @testset "PLAYWRIGHT_JL_ENGINE parsing takes one name, a list, or nothing" begin
+        parse = Playwright.parse_engine_names
+        all_five = ["chromium", "firefox", "webkit", "chrome", "msedge"]
+
+        @test parse("webkit") == ["webkit"]
+        @test parse("chrome,msedge") == ["chrome", "msedge"]
+        @test parse("chromium, firefox") == ["chromium", "firefox"]  # spaces
+        # Blank means all five, matching an unset variable: a CI matrix whose
+        # engine value failed to interpolate should over-test, never under-test.
+        @test parse("") == all_five
+        @test parse("   ") == all_five
+
+        # The case that matters. An unknown name must *throw*, not yield a
+        # short or empty list -- an empty engine loop is a suite that passes by
+        # testing nothing, which is the actual risk D5 names.
+        for bad in ("edge", "safari", "Chrome", "chromium,safari", "chromium,")
+            err = try
+                parse(bad)
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            for name in all_five
+                @test occursin(name, err.msg)
+            end
+        end
+    end
+
+    @testset "the other launch keywords still reach the wire" begin
+        # launch(::Engine) forwards to launch(::BrowserType); this is the
+        # assertion that it forwards *everything* rather than only what the
+        # Engine knows about.
+        f = engine_fixture()
+        task = @async launch(engine(f.pw, "msedge"); headless = false, slow_mo = 50)
+        msg = next_message(f.fake)
+        @test msg["params"]["channel"] == "msedge"
+        @test msg["params"]["headless"] === false
+        @test msg["params"]["slowMo"] == 50
+        send_create(f.fake, "browserType@chromium", "Browser", "browser@e")
+        reply_ok(f.fake, msg["id"], Dict("browser" => Dict("guid" => "browser@e")))
+        @test await(task) isa Playwright.Browser
+        shutdown!(f.fake)
+    end
 end
 
 # The hermetic tests above cover the absent case, which is the one that needs an

@@ -117,18 +117,32 @@ end
 # against a page where everything asserted on is absent at load.
 @testset "the waiting and events walkthrough" begin
     with_fixture_server() do base_url
-        for engine in SMOKE_ENGINES
-            @testset "$engine" begin
+        for eng in SMOKE_ENGINES
+            # This walkthrough opens a popup, which is the one thing headless
+            # WebKit on macOS aarch64 will not survive.
+            Sys.isapple() &&
+                skip_engine(
+                    eng,
+                    "webkit",
+                    "webkit on macos segfaults when a page opens a popup",
+                ) &&
+                continue
+            @testset "$eng" begin
                 url = "$base_url/waiting.html"
 
                 playwright() do pw
-                    browser = launch(getfield(pw, Symbol(engine)); headless = true)
-                    @assert browser_name(browser) == engine
+                    e = engine(pw, eng)
+                    browser = launch(e; headless = true)
+                    # browser_name, not eng: chrome and msedge run chromium.
+                    @assert browser_name(browser) == browser_name(e)
 
                     ctx = new_context(browser)
-                    set_default_timeout!(ctx, 2_000)
                     page = new_page(ctx)
                     goto!(page, url)
+                    # The cascade goes on after the navigation: the walkthrough
+                    # is about auto-waiting, not about how fast a cold browser
+                    # loads a local page.
+                    set_default_timeout!(ctx, 2_000)
 
                     # Real auto-waiting, no hand-rolled polling
                     wait_for_selector(page, "#late")
@@ -167,7 +181,7 @@ end
                 end
 
                 # The snippet's own @asserts carry it; this records that the
-                # whole thing ran to completion on this engine.
+                # whole thing ran to completion on this eng.
                 @test true
             end
         end
@@ -187,14 +201,14 @@ end
 # refuses. Every other line is shared.
 @testset "the artifacts walkthrough" begin
     with_fixture_server() do base_url
-        for engine in SMOKE_ENGINES
-            @testset "$engine" begin
+        for eng in SMOKE_ENGINES
+            @testset "$eng" begin
                 probe_url = "$base_url/late-title.html"
                 fixture = joinpath(@__DIR__, "fixtures", "late-title.html")
                 artifacts = mktempdir()
 
                 playwright() do pw
-                    browser = launch(getfield(pw, Symbol(engine)); headless = true)
+                    browser = launch(engine(pw, eng); headless = true)
                     ctx = new_context(
                         browser;
                         record_video = (dir = joinpath(artifacts, "video"),),
@@ -208,8 +222,17 @@ end
                         snapshots = true,
                     ) do
                         page = new_page(ctx)
-                        set_default_timeout!(page, 2_000)
                         goto!(page, "file://" * fixture)
+                        # After the navigation, not before it. 58352d9 fixed
+                        # four instances of a default set ahead of the goto!
+                        # that then inherits it; its grep looked for the
+                        # context receiver and this one is a page, so it
+                        # survived -- and stayed invisible while the Windows
+                        # jobs were hanging before they ever got here. A cold
+                        # Firefox on Windows loads this fixture in more than
+                        # two seconds. The budget belongs to what the testset
+                        # is about, below, and never to the setup above it.
+                        set_default_timeout!(page, 2_000)
 
                         # assertions about the document, not just an element
                         expect(page; to_have_title = "Dashboard")
@@ -222,8 +245,11 @@ end
                             HTTP.get(probe_url).status == 200
                         end
 
-                        # A3 — Chromium only, by design
-                        if engine == "chromium"
+                        # A3 — Chromium *family* only, by design. browser_name,
+                        # not eng: chrome and msedge are Chromium and render
+                        # PDFs happily, which is what the package's own gate
+                        # checks.
+                        if browser_name(page) == "chromium"
                             dest = joinpath(artifacts, "page.pdf")
                             @test pdf(page; path = dest, format = "A4") == dest
                             @test filesize(dest) > 0

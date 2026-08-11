@@ -154,7 +154,7 @@ end
 
         unroute!(f.context, reg)
         unroute!(f.context, reg2)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the dispatcher stops on the last unregistration" begin
@@ -173,7 +173,7 @@ end
         @test istaskdone(task)
         @test routing_registry(f.context) === nothing
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a handler that throws does not kill the dispatcher" begin
@@ -186,19 +186,19 @@ end
         task = routing_registry(f.context).task
 
         send_route(f.fake, "context@1", "route@1", "https://x.test/one")
-        @test take!(seen) == "https://x.test/one"
+        @test take_within!(seen, "a value on `seen`") == "https://x.test/one"
 
         # The dispatcher survived, and serves the *next* request — which is the
         # property that matters: a dead dispatcher hangs everything after it.
         @test !istaskdone(task)
         send_route(f.fake, "context@1", "route@2", "https://x.test/two")
-        @test take!(seen) == "https://x.test/two"
+        @test take_within!(seen, "a value on `seen`") == "https://x.test/two"
         @test !istaskdone(task)
 
         # ...and the exceptions surface on the caller's task at release.
         @test_throws CompositeException unroute!(f.context, reg)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the dispatcher survives an owner that closes mid-route" begin
@@ -213,14 +213,14 @@ end
         task = routing_registry(f.context).task
 
         send_route(f.fake, "context@1", "route@1", "https://x.test/one")
-        @test take!(entered)
+        @test take_within!(entered, "a value on `entered`")
         @test !istaskdone(task)
 
         # Tear the connection down under the dispatcher, then release. The
         # handler's `continue!` fails against a dead connection — that is a
         # handler exception like any other, so it is collected and rethrown
         # here rather than killing the dispatcher where it happened.
-        close(f.conn)
+        shutdown!(f.fake)
         @test_throws Exception unroute!(f.context, reg)
 
         # The point of the test: the task ended cleanly rather than being left
@@ -245,7 +245,7 @@ end
         unroute!(f.context, reg2)
         @test until(() -> last_patterns(f.requests) == String[])
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a Regex or predicate widens the union to **/*" begin
@@ -267,7 +267,7 @@ end
         unroute!(f.context, reg1)
         unroute!(f.context, reg2)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a Page routes through its own channel, not its context's" begin
@@ -282,7 +282,7 @@ end
         @test last(sent)["guid"] == "page@1"
 
         unroute!(f.page, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- Handler selection -----------------------------------------------------
@@ -295,16 +295,16 @@ end
         new = route!(f.context, "**/*", route -> (put!(winner, "new"); abort!(route)))
 
         send_route(f.fake, "context@1", "route@1", "https://x.test/a")
-        @test take!(winner) == "new"
+        @test take_within!(winner, "a value on `winner`") == "new"
 
         # Remove the newest and the older one takes over — the registration
         # order is a stack, not a set.
         unroute!(f.context, new)
         send_route(f.fake, "context@1", "route@2", "https://x.test/b")
-        @test take!(winner) == "old"
+        @test take_within!(winner, "a value on `winner`") == "old"
 
         unroute!(f.context, old)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a non-matching registration is skipped, not consulted" begin
@@ -315,11 +315,11 @@ end
         hit = route!(f.context, "**/api/*", route -> (put!(ran, "hit"); abort!(route)))
 
         send_route(f.fake, "context@1", "route@1", "https://x.test/api/items")
-        @test take!(ran) == "hit"
+        @test take_within!(ran, "a value on `ran`") == "hit"
 
         unroute!(f.context, miss)
         unroute!(f.context, hit)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "handlers run sequentially, never concurrently" begin
@@ -334,7 +334,7 @@ end
         reg = route!(f.context, "**/*", function (route)
             concurrent[] += 1
             peak[] = max(peak[], concurrent[])
-            take!(gate)                   # hold the handler open
+            take_within!(gate, "a value on `gate`")                   # hold the handler open
             concurrent[] -= 1
             abort!(route)
             put!(done, true)
@@ -343,13 +343,13 @@ end
         send_route(f.fake, "context@1", "route@1", "https://x.test/a")
         send_route(f.fake, "context@1", "route@2", "https://x.test/b")
         put!(gate, true)
-        @test take!(done)
+        @test take_within!(done, "a value on `done`")
         put!(gate, true)
-        @test take!(done)
+        @test take_within!(done, "a value on `done`")
         @test peak[] == 1
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- Exception collection --------------------------------------------------
@@ -363,7 +363,7 @@ end
         end)
 
         send_route(f.fake, "context@1", "route@1", "https://x.test/a")
-        @test take!(ran)
+        @test take_within!(ran, "a value on `ran`")
 
         err = try
             unroute!(f.context, reg)
@@ -374,7 +374,7 @@ end
         @test err isa ArgumentError
         @test err.msg == "just the one"
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "several become a CompositeException" begin
@@ -386,9 +386,9 @@ end
         end)
 
         send_route(f.fake, "context@1", "route@1", "https://x.test/a")
-        @test take!(ran)
+        @test take_within!(ran, "a value on `ran`")
         send_route(f.fake, "context@1", "route@2", "https://x.test/b")
-        @test take!(ran)
+        @test take_within!(ran, "a value on `ran`")
 
         err = try
             unroute!(f.context, reg)
@@ -399,7 +399,7 @@ end
         @test err isa CompositeException
         @test length(err.exceptions) == 2
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "unroute! waits for an in-flight route to settle" begin
@@ -410,13 +410,13 @@ end
 
         reg = route!(f.context, "**/*", function (route)
             put!(entered, true)
-            take!(release)          # hold the handler open, mid-flight
+            take_within!(release, "a value on `release`")          # hold the handler open, mid-flight
             abort!(route)
             settled[] = true
         end)
 
         send_route(f.fake, "context@1", "route@1", "https://x.test/a")
-        @test take!(entered)                 # the handler is running now
+        @test take_within!(entered, "a value on `entered`")                 # the handler is running now
         @test settled[] == false
 
         # unroute! must not return while that handler is still going. Prove it
@@ -434,8 +434,8 @@ end
         @test timedwait(() -> returned[], 10.0) === :ok
         @test settled[] == true
 
-        wait(waiter)
-        close(f.conn)
+        await(waiter)
+        shutdown!(f.fake)
     end
 
     @testset "with_route unregisters even when the body throws" begin
@@ -450,7 +450,7 @@ end
         @test registration_count(f.context) == reg_count_before
         @test routing_registry(f.context) === nothing
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_route returns the body's value" begin
@@ -460,7 +460,7 @@ end
         end
         @test result == 42
         @test routing_registry(f.context) === nothing
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "unroute! is idempotent and unroute_all! clears everything" begin
@@ -477,7 +477,7 @@ end
         unroute_all!(f.context)           # nothing registered: still a no-op
         @test routing_registry(f.context) === nothing
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- The release hook --------------------------------------------------
@@ -498,7 +498,7 @@ end
         unroute!(f.context, reg)          # idempotent: the hook does not run twice
         @test runs[] == 1
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "unroute_all! runs every registration's release hook" begin
@@ -512,7 +512,7 @@ end
         @test a[] == 1
         @test b[] == 1
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_route runs the release hook even when the body throws" begin
@@ -540,7 +540,7 @@ end
         end
         @test runs[] == 2
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a registration without a release hook is unchanged" begin
@@ -549,7 +549,7 @@ end
         @test reg.release === nothing
         unroute!(f.context, reg)          # no hook, and no error for the want of one
         @test routing_registry(f.context) === nothing
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the release hook runs after the handler's exception is collected" begin
@@ -571,7 +571,7 @@ end
         @test_throws ErrorException unroute!(f.context, reg)
         @test runs[] == 1                 # ran despite the rethrow
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- The settle verbs --------------------------------------------------
@@ -586,7 +586,7 @@ end
         abort!(route; error_code = "connectionrefused")
         @test is_settled(route)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a route settles exactly once" begin
@@ -599,7 +599,7 @@ end
         @test_throws ArgumentError abort!(route)
         @test_throws ArgumentError fulfill!(route; body = "late")
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "fulfill! rejects two body sources at the call site" begin
@@ -618,7 +618,7 @@ end
         # still settleable — an ArgumentError must not consume the route.
         @test !is_settled(route)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "fulfill! builds the parameters the protocol expects" begin
@@ -646,7 +646,7 @@ end
         @test sent3["params"]["isBase64"] == true
         @test base64decode(sent3["params"]["body"]) == UInt8[0x00, 0xff]
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "fulfill! infers content type from a path's extension" begin
@@ -669,7 +669,7 @@ end
         @test ("content-type" => "text/plain") in
               [h["name"] => h["value"] for h in sent2["params"]["headers"]]
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "fulfill! names a bad body type rather than sending it" begin
@@ -678,7 +678,7 @@ end
         @test_throws ArgumentError fulfill!(route; body = 42)
         @test_throws ArgumentError fulfill!(route; response = "not an APIResponse")
         @test !is_settled(route)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "continue! sends its rewrites in the protocol's shape" begin
@@ -699,7 +699,7 @@ end
         @test [h["name"] => h["value"] for h in sent["params"]["headers"]] == ["X-Test" => "1"]
         @test base64decode(sent["params"]["postData"]) == Vector{UInt8}("hello")
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "abort! sends its error code" begin
@@ -708,7 +708,7 @@ end
         abort!(route)
         sent = until_message(f.requests, "abort")
         @test sent["params"]["errorCode"] == "failed"
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "request(route) and url(route) read the initializer" begin
@@ -717,6 +717,6 @@ end
         @test request(route) isa Playwright.Request
         @test url(route) == "https://x.test/api/items"
         @test url(request(route)) == url(route)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 end

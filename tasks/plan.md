@@ -1,504 +1,514 @@
-# Implementation Plan: Playwright.jl — Milestone 8 (the archive, the profile, and the socket)
+# Implementation Plan: Playwright.jl — Milestone 9 (five engines and three platforms)
 
-Spec: [`SPEC-M8.md`](../SPEC-M8.md). Earlier plans are archived at
+Spec: [`SPEC-M9.md`](SPEC-M9.md). Earlier plans are archived at
 [`tasks/m1/plan.md`](m1/plan.md), [`tasks/m2/plan.md`](m2/plan.md),
 [`tasks/m3/plan.md`](m3/plan.md), [`tasks/m4/plan.md`](m4/plan.md),
-[`tasks/m5/plan.md`](m5/plan.md), [`tasks/m6/plan.md`](m6/plan.md) and
-[`tasks/m7/plan.md`](m7/plan.md).
+[`tasks/m5/plan.md`](m5/plan.md), [`tasks/m6/plan.md`](m6/plan.md),
+[`tasks/m7/plan.md`](m7/plan.md) and [`tasks/m8/plan.md`](m8/plan.md).
 
 ## Context
 
-M8 is four subjects under one spec, and unlike M7 the ordering between them is
-*mostly* free. That is the plan's main problem rather than its main
-convenience: four independent parts invite four half-finished parts.
+**This plan's subject is a feedback loop, not a feature.** M1–M8 were API
+milestones: write the code, run the suite locally, push a green commit. M9 adds
+one small type and three functions, and then spends most of its length on two
+platforms the developer cannot run and three engines the suite has never seen.
+The inner loop for the majority of the tasks below is *push and wait for
+fourteen CI jobs*, one platform of which queues.
 
-**What actually constrains the order:**
+Everything unusual about the ordering follows from that:
 
-- **Part B's machinery is a prerequisite for one function in Part A.**
-  `route_from_har(…; update = true)` is a recording (D7). Part A therefore
-  ships that keyword as an explicit "not yet" error (SC 7) and Part B removes
-  it. This is the only hard cross-part dependency in the milestone.
-- **Part A must precede Part D**, not because of code but because of pattern.
-  Part D is the *third* use of the registry + dispatcher-task shape from
-  `routing.jl`, and Part A is the second. Getting the second one right — where
-  it is nearly a straight reuse — is what makes the third one a known quantity
-  instead of an invention under time pressure.
-- **Part C is genuinely independent** and could run at any point. It is placed
-  third because it is the smallest and the least likely to overrun, so it
-  cannot become the reason Part D is squeezed.
+- **The instrument is built before the work** (D14). T2–T4 open a branch, a
+  draft PR and a three-OS hermetic job that runs the *existing* suite and is
+  expected to go red. That red is not a failure of the milestone; it is Part B's
+  task list, and it is captured before anything is fixed.
+- **`.gitattributes` lands before the scaffold**, not with Part B (T3 before
+  T4). A Windows checkout without it rewrites every text file, so the scaffold's
+  red would be a mixture of real portability bugs and line-ending noise — and
+  the whole value of the scaffold is that its failure list is trustworthy.
+- **A driver-assembly job sits between hermetic and smoke** (T15). This is an
+  elaboration of D6's logic rather than a new decision: D6 puts the hermetic
+  tier first because it is the cheapest signal, and assembling a Node bundle and
+  asking it its version is the next cheapest — two minutes against a smoke job's
+  twenty, with no browser involved. Part B's hardest unknowns (OQ 1, OQ 5) are
+  answerable at that rung.
+- **Part A happens on Linux, entirely, before any platform work.** Not because
+  of code dependencies — there are almost none — but so that a WebKit failure
+  means WebKit. Debugging a new engine and a new platform in the same red job is
+  the thing this ordering exists to prevent.
 
-**The probe is already done and it moved the spec.**
-[`tasks/m8-probe.md`](m8-probe.md) settled all three open questions against
-both engines before the plan was written, and two came back contradicting the
-spec's guess:
+**What is genuinely coupled, and what only looks it:**
 
-- **D5 was rewritten.** The driver follows sub-resource redirect chains itself
-  and guards its own cycles; `redirect` is a navigation-only action. What was
-  going to be T5's bounded-loop implementation is now one `continue!` branch.
-  A day of work and a class of off-by-one bug removed before either existed.
-- **D5a and D9 are new clauses.** A file that is not a HAR opens successfully
-  (so every lookup silently misses), and a persistent context arrives with a
-  page already open (so `new_page` is the wrong habit). Both are documentation
-  and error-message work that would otherwise have been discovered as bug
-  reports.
+- **T7's `Engine` blocks almost everything after it.** The engine loops, the
+  `SMOKE_ENGINES` parsing, the branded install work and the whole matrix all
+  name engines by string. T7 is the second code task for that reason.
+- **OQ 3 can invalidate two decisions**, so it is answered at T4 rather than
+  discovered at T19. If the runner images do not ship Chrome and Edge where
+  Playwright's channel lookup finds them, D3a's "CI never installs them" and
+  D13's "branded jobs need no cache" both fall, and the branded jobs need an
+  install step that needs root on Linux. That is a spec amendment, and it is
+  much cheaper as one at T4 than as one at Checkpoint C.
+- **Parts B and C are not sequential the way the phases suggest.** Part B's
+  fixes are *verified by* Part C's jobs. The phases are a reading order; the
+  actual loop alternates. The checkpoints, not the phase boundaries, are the
+  real gates.
 
-**The risk this plan is actually managing is scope, not difficulty.** No single
-task here is harder than M6's route dispatcher or M7's dialog registry. There
-are simply more of them, across four surfaces, and Assumption 10 forbids the
-usual release valve of quietly thinning the last part. So the checkpoints are
-load-bearing: each one is a point at which the milestone could be *reported*
-honestly, and slipping one is a conversation rather than a silent
-re-prioritisation.
+**The size risk is T12 and nothing else.** Every other task here is bounded and
+mostly mechanical. T12 — getting five engines green on Linux and adjudicating
+each divergence — is bounded only by how different WebKit turns out to be, and
+the M8 surfaces (HAR replay, persistent contexts, WebSocket routing) have never
+seen a third engine. R3 is how the plan keeps that from eating the milestone.
 
 ## Architecture Decisions
 
-Recorded as D1–D14 in `SPEC-M8.md`. The ones that drive this plan:
+Recorded as D1–D15 in `SPEC-M9.md`. The ones that drive this plan:
 
-- **D1 — `LocalUtils` plumbed through the `Connection`, not the
-  `PlaywrightAPI`.** T2 is first in Part A because everything else in the part
-  needs it, and it is hung off the connection because a `Route` handler can
-  reach a connection and cannot reach a `PlaywrightAPI`.
-- **D2 — `route_from_har` returns a `RouteRegistration`.** The whole feature is
-  a `route!` handler, so `unroute!` already works and no new handle type is
-  invented. This is what makes T3 (the release hook) a small change to
-  `routing.jl` rather than a parallel lifetime system.
-- **D4 — `not_found` defaults to `:abort`.** Drives T4's test design: the same
-  `noentry` reply must produce two different observable outcomes, or the
-  keyword is untested.
-- **D5/D5a — post-probe.** T5 shrank to one branch; the cycle assertion is now
-  against *the driver's* message, which is a better test than one against our
-  own bound.
-- **D6 — recording is a `start!`/`stop!` pair, not a `new_context` keyword.**
-  Keeps T8 a sibling of `start_tracing!` and out of `lifecycle.jl` entirely.
-- **D7 — `update = true` lands in Part B.** The reason T7 ships an error and
-  T10 removes it, and the reason those are two tasks in two parts rather than
-  one task deferred.
-- **D9/D10 — persistent context ownership, and shared option builders.** T13
-  refactors `launch`/`new_context` into shared builders *before* T14 adds the
-  third caller. Order matters: adding the caller first means writing the 28
-  keywords twice and deleting one copy.
-- **D11/D12/D13 — the socket.** The registry is a reuse; `connect!` as the mode
-  switch is the surprise; per-object events are the genuinely new mechanism and
-  the one that can leak (T20).
-- **D14 — `:websocket` keeps its deferred entry, message rewritten.** T21, and
-  it is deliberately its own task so that the M7 lesson (`:dialog` left a table
-  and arrived nowhere) is applied on purpose rather than remembered late.
+- **D1a — the engine mapping lives in one value.** T7 is early because five
+  string-named engines with two of them being channels is a mapping that four
+  separate callers would otherwise each copy.
+- **D3a — branded browsers are found, not installed.** This is why the branded
+  jobs in T19 are *simpler* than the bundled ones (no install, no cache) and
+  why T4 must confirm the premise first.
+- **D4 — a skip costs a documented row.** T11 builds the machinery that makes
+  that enforceable *before* T12 creates the pressure to skip things, which is
+  the same shape as M8's T13-before-T14 rule.
+- **D6 — cheapest tier first**, extended by this plan with the driver-assembly
+  rung at T15.
+- **D13 — two engine classes in the workflow.** T19 is a single task because
+  splitting the cache key change from the install change would publish a cache
+  that lies, which is precisely the bug D13 exists to prevent.
+- **D14 — the PR is the instrument.** T2 before T6, and one attributable fix
+  per push throughout.
 
 ## Dependency Graph
 
 ```
-T1 open tasks/m8-api-gaps.md, empty     ← BEFORE Part A's first line of code
+T1  gaps file ─┐
+T2  branch+PR ─┼─→ T3 .gitattributes ─→ T4 scaffold+diagnostics ─→ T5 probe
+               │                                                     │
+               │        ┌────────────────────────────────────────────┘
+               │        │
+               ▼        ▼
+   Part A (Linux)   T6 webkit field ─→ T7 Engine ─┬─→ T8  SMOKE_ENGINES
+                                                  ├─→ T9  install: with_deps + branded
+                                                  │      └─→ T10 the two error messages
+                                                  └─→ T11 skip_engine + engines.md gate
+                                                         └─→ T12 five engines green ◆
+                                                              │
+                       ┌──────────────────────────────────────┘
+                       ▼
+   Part B          T13 node_platform/url ─┐
+                   T14 path assertions ───┼─→ T17 hermetic green ×3 OS
+                   T15 driver job ────────┼─→ T16 macOS aarch64 assembly
+                                          │
+                       ┌──────────────────┘
+                       ▼
+   Part C          T18 matrix ─→ T19 cache+install classes ─┬─→ T20 Windows smoke ◆
+                                                            └─→ T21 macOS smoke ◆
+                                                                 └─→ T22 durations
+                                                                      └─→ T23 undraft
+                       ▼
+   Paperwork       T24 docs ─→ T25 README ─→ T26 bonnie ─→ T27 final
 
-PART A — replay                                        (no browser needed)
-
-T2 LocalUtils plumbing                  [D1, SC 1]
-     ▼
-T3 RouteRegistration release hook       [D3]   ← routing.jl, small
-     ▼
-T4 route_from_har core: action table,   [D2, D4, SC 2, 3]
-   fulfill / noentry / not_found
-     ▼
-T5 redirect branch, driver's cycle      [D5, D5a, SC 4, 5]
-   error, the naming abort message
-     ▼
-T6 .har.zip via harUnzip, temp dir      [D3, SC 6]
-   lifetime owned by unroute!
-     ▼
-T7 with_har; update=true rejected;      [D2, D7, SC 7, 8]
-   harClose asserted on the wire
-
-     ═════ Checkpoint A: replay works, entirely hermetically ═════
-
-PART B — recording
-
-T8 HarRecording, start/stop,            [D6, D8, SC 9, 10, 11]
-   symbol validation, no-artifact guard
-     ▼
-T9 with_har_recording block form        [D6]
-     ▼
-T10 update=true implemented; T7's       [D7, SC 7]
-    error removed
-     ▼
-T11 test_smoke_har.jl round trip        [SC 12, 13]   ← both engines
-     ▼
-T12 update smoke, changed response      [SC 14]       ← both engines
-
-     ═════ Checkpoint B: the HAR feature is real ═════
-
-PART C — the profile                             (independent of A, B and D)
-
-T13 shared launch_options /             [D10, SC 16]
-    context_options; test_connection.jl
-    grows FIRST
-     ▼
-T14 launch_persistent_context           [D9, SC 15, 17]
-     ▼
-T15 close!(ctx) closes the browser      [D9, SC 20]
-     ▼
-T16 test_smoke_persistent.jl:           [SC 18, 19]   ← both engines
-    reopen, and pages == 1
-
-     ═════ Checkpoint C ═════
-
-PART D — the socket
-
-T17 assert context-scoped delivery      [OQ 2]  ← unprobed; assert, don't assume
-     ▼
-T18 WebSocketRoute wrapper, registry,   [D11, D13, SC 21]
-    dispatcher
-     ▼
-T19 connect!, send_to_page!/server!,    [D12, SC 24, 27]
-    close_ws!, binary via base64
-     ▼
-T20 callbacks; subscriptions dropped    [D13, SC 28]
-    when the route is disposed
-     ▼
-T21 :websocket's DEFERRED_EVENTS        [D14]
-    message rewritten
-     ▼
-T22 test_smoke_websockets.jl            [SC 22, 23, 25, 26]  ← both engines
-
-     ═════ Checkpoint D ═════
-
-ALL PARTS
-
-T23 docs: guide/har.md, network.md,     [SC 30]
-    events.md, api.md
-T24 exports; README Status and the      [SC 33]
-    not-covered list, item by item
-T25 bonnie-parity: re-score, or say     [SC 34]
-    explicitly that it adds no row
-T26 final verification of all 35        [SC 29, 31, 32, 35]
-    criteria
-
-     ═════ Checkpoint E: the milestone ═════
+   ◆ = the three tasks whose size is not knowable in advance
 ```
 
-`T13 → T14` is the one ordering inside a part that is easy to get backwards and
-expensive to undo; everything else within a part is a straight line because the
-tasks share a file.
+**What the graph says that the phase list does not:** T13 and T14 have no
+dependency on Part A at all and could be done at any point after T5. They are
+placed in Part B because they are Part B's subject, but if T12 stalls they are
+the work to pick up rather than sitting idle waiting for a CI queue.
 
 ## Risks
 
-**R1 — Four parts, and the last one is the hard one.** Part D is a new object
-type, a new event shape and a bidirectional protocol, arriving when the
-milestone is already long. Assumption 10 forbids thinning it silently.
-*Mitigation:* Checkpoint C is deliberately early and small, so the state of the
-budget is known *before* Part D starts rather than during it. If C lands late,
-that is the moment to ask about D — not T20.
+**R1 — The feedback loop is a CI queue, and macOS is the critical path.**
+Five macOS smoke jobs plus two macOS hermetic jobs against a concurrency cap
+well below the other platforms. A careless task ordering could spend a day per
+iteration.
+*Mitigation:* the cheap rungs exist and are used in order (hermetic → driver
+assembly → smoke), one attributable fix per push (D14), and T13/T14 held in
+reserve as queue-independent work. SC 22 measures the real cost so the estimate
+stops being a guess after Checkpoint 0.
 
-**R2 — The round trip (T11) is the first test that can fail for either part's
-reasons.** Recording and replay are only proved together, and when the round
-trip fails it will not be obvious which half is wrong.
-*Mitigation:* T4–T7 test replay against a **hand-written** archive committed as
-a fixture, so replay is known-good against known input before any recorded
-archive exists. A T11 failure is then a recording failure by elimination.
+**R2 — OQ 3 can invalidate D3a and D13.** If the runner images do not supply
+Chrome and Edge in a form Playwright's channel lookup finds, four of the
+fourteen smoke jobs need an install step, and on Linux that step needs root.
+*Mitigation:* T4 ships a throwaway diagnostics job whose entire purpose is to
+answer this on all three platforms, before a line of Part A is written. A spec
+amendment at T4 costs an hour; the same amendment at T19 costs a checkpoint.
 
-**R3 — Part D can leak.** D13's per-object events belong to a short-lived
-owner. A subscription table that grows for the process lifetime is invisible in
-a test suite and obvious in a long-running scrape.
-*Mitigation:* T20 asserts the table is empty after the socket closes (SC 28),
-hermetically, so the leak is a test failure rather than a memory profile.
+**R3 — T12 is unbounded.** Five engines across the whole smoke suite, including
+three M8 surfaces that have never run on anything but Chromium and Firefox. The
+divergence count could be three rows or thirty, and thirty changes the shape of
+the milestone.
+*Mitigation:* three things. T11's machinery lands first, so every skip is
+already forced to cost a documented row before there is any pressure to skip.
+T5's local sweep produces a *count* before T12 starts, so the size is known
+rather than discovered. And the count has a threshold: **more than fifteen
+divergence rows means stop and re-scope**, because at that point `engines.md` is
+the deliverable and the smoke suite needs restructuring around engine
+capabilities rather than engine names — which is a different milestone.
 
-**R4 — D10's refactor touches working code.** `launch` and `new_context` are
-used by every test and every example; a subtle change to option construction
-breaks the suite far from its cause.
-*Mitigation:* T13 grows `test_connection.jl` **before** the refactor, and SC 16
-is that the pre-existing wire-param assertions pass unchanged. The refactor is
-gated by tests written against the old behaviour.
+**R4 — The branded browsers move under us.** Chrome and Edge come from the
+runner image and update on Google's and Microsoft's schedules. A matrix green
+today can go red tomorrow with no commit in between.
+*Mitigation:* accepted deliberately (D3a) — that signal is worth having. The
+plan's job is only to make such a failure *attributable*: T7's `engine_name`
+distinguishes Chrome from bundled Chromium in every test name, and T24's
+`engines.md` says out loud that these two jobs test a moving target.
 
-**R5 — The temp directory and the `harId` are two lifetimes with one owner.**
-T6 makes `unroute!` responsible for both. An exception between `harOpen` and
-registration leaves an open HAR in the driver.
-*Mitigation:* T7's SC 8 asserts `harClose` on the wire; T6 asserts the temp
-directory is gone after `unroute!`. Both are hermetic, so neither depends on
-noticing a leak.
+**R5 — A platform fix regresses a working platform.** Every `Sys.iswindows()`
+branch is a fork in code that Linux users run today.
+*Mitigation:* the full hermetic matrix runs on every push from T4 onward, so
+Linux regression is caught in the same run that proves the Windows fix. The
+Boundaries rule stands: a branch that cannot be justified in its own commit
+message does not land.
 
-**R6 — The usual one, fourth turn: unrelated warts look cheap.** M5, M6 and M7
-each recorded this and each was right. Four new surfaces means four new
-opportunities to "just fix" something adjacent.
-*Mitigation:* `tasks/m8-api-gaps.md`, opened empty at T1 — before Part A's
-first line, which is the discipline M5 learned by opening it late.
+**R6 — The scaffold's red is untrustworthy if line endings are in it.**
+*Mitigation:* T3 before T4, and T5 does not begin until the scaffold has run
+once with `.gitattributes` in place.
+
+**R7 — The usual one, fifth turn: adjacent warts look cheap.** M5–M8 each
+recorded this and each was right. Three new engines and two new platforms is a
+large surface for "while I'm here".
+*Mitigation:* `tasks/m9-api-gaps.md`, opened empty at T1, before any `src/`
+change.
 
 ---
 
 # Tasks
 
 Sizes: **(S)** under an hour, **(M)** a focused session, **(L)** more than one
-session — and, per M6's rule, an (L) that has not shown a green test in a day
-is a task that should have been split.
+session — and, per M6's rule, an (L) that has not shown a green test in a day is
+a task that should have been split.
 
-## T1 — Open `tasks/m8-api-gaps.md`, empty (S)
+## Phase 0 — the scaffold
 
-- **Acceptance:** the file exists, states it is empty on purpose, and names the
-  two entries M8 inherits as *not* gaps (the probe's `webkit`-in-initializer
-  note, and anything already recorded in `m7-api-gaps.md`).
-- **Verify:** the file is committed before any `src/` change in this milestone.
-  `git log --diff-filter=A --format=%H -- tasks/m8-api-gaps.md` precedes the
-  first `src/api/har.jl` commit.
-- **Files:** `tasks/m8-api-gaps.md`
+### T1 — Open `tasks/m9-api-gaps.md`, empty (S)
 
-## Part A — replay
+- **Acceptance:** the file exists, states it is empty on purpose, and names what
+  M9 inherits as *not* gaps — anything already recorded in `m8-api-gaps.md`, and
+  the fact that beta/dev channels are a deliberate exclusion rather than a gap.
+- **Verify:** committed before any `src/` change.
+  `git log --diff-filter=A --format=%H -- tasks/m9-api-gaps.md` precedes the
+  first `src/` commit on the branch. **SC 32.**
+- **Files:** `tasks/m9-api-gaps.md`
 
-### T2 — `LocalUtils` plumbed through the connection (M)
+### T2 — Branch, draft PR, and the live platform table (S)
 
-- **Acceptance:** `Connection` carries the `LocalUtils`; `local_utils(conn)`
-  returns it, or raises a `DriverError` naming HAR replay when absent (D1).
-  `PlaywrightAPI` gains the field. `start_playwright` resolves
-  `root.initializer["utils"]`.
-- **Verify:** hermetic test constructing a connection *without* utils and
-  asserting the error text; a smoke-gated assertion that the real driver has
-  one. **SC 1.**
-- **Files:** `src/objects.jl`, `src/connection.jl`, `src/api/lifecycle.jl`,
-  `test/test_connection.jl`
+- **Acceptance:** branch `m9-engines-and-platforms`; a draft PR whose
+  description carries the table D14 specifies — task, platforms green, platforms
+  red — with every row empty at this point. `tasks/plan.md` and `tasks/todo.md`
+  rotated to `tasks/m8/` (already done) and M9's committed.
+- **Verify:** `gh pr view` shows the draft and the table. The PR predates the
+  first `src/` commit. **SC 24** (first half).
+- **Files:** `tasks/plan.md`, `tasks/todo.md`, PR description
 
-### T3 — `RouteRegistration` gains a release hook (S)
+### T3 — `.gitattributes` (M)
 
-- **Acceptance:** a registration can carry an optional zero-arg callable run by
-  `unroute!` after the registration is removed, on every path including the
-  throwing one. No behaviour change for registrations that do not set it.
-- **Verify:** hermetic — a hook fires exactly once on `unroute!`, once at the
-  end of `with_route`, and once when the body throws. Full existing
-  `test_routing.jl` unchanged and green.
-- **Files:** `src/api/routing.jl`, `test/test_routing.jl`
+- **Acceptance:** every text file normalised to LF, binary fixtures marked
+  binary (D7). Existing tracked files renormalised in one commit that changes
+  nothing else, so the diff is legible.
+- **Verify:** `git ls-files --eol` reports `w/lf` throughout on Linux;
+  `format(".")` and `gen/generate.jl --check` still green. **SC 16** (first
+  half). The Windows half is proved at T17.
+- **Files:** `.gitattributes`, and whatever renormalisation touches
 
-### T4 — `route_from_har`: the action table (L)
+### T4 — The CI scaffold and the diagnostics job (M)
 
-- **Acceptance:** `route_from_har(target, har; url, not_found)` registers a
-  route, opens the archive, and maps `fulfill` and `noentry` onto the settle
-  verbs D2's table names. `not_found` accepts `:abort`/`:fallback` and rejects
-  anything else with an `ArgumentError` naming both.
-- **Verify:** hermetic, against the committed hand-written fixture archive and
-  a fake connection: each action driven as a canned `harLookup` reply, each
-  settle verb asserted. The same `noentry` reply under both `not_found` values
-  produces different outcomes. **SC 2, SC 3.**
-- **Files:** `src/api/har.jl`, `src/Playwright.jl`, `test/test_har.jl`,
-  `test/fixtures/api.har`
+- **Acceptance:** the hermetic job matrices over `ubuntu-latest`,
+  `windows-latest`, `macos-latest` × Julia `1.10`/`1`, running the existing
+  suite unchanged — no engine axis, no new smoke job. Alongside it, a
+  **throwaway** `diagnostics` job on all three platforms that reports: the
+  runner's Chrome and Edge presence and versions, whether the pinned driver's
+  channel lookup finds them, the Windows 7z member-filter behaviour on a Node
+  `.zip`, and the resulting browser-cache path lengths.
+- **Verify:** the run completes. Two platforms are expected red on the hermetic
+  job and that is the point. The diagnostics job is green on all three and its
+  log answers OQ 1, OQ 3 and OQ 5.
+- **Files:** `.github/workflows/CI.yml`
+- **Note:** the diagnostics job is deleted at T23. It is scaffolding, and
+  scaffolding that ships is technical debt with a job name.
 
-### T5 — Redirect, the driver's cycle error, and the naming abort (M)
+### T5 — `tasks/m9-probe.md`: the answers, and the divergence count (L)
 
-- **Acceptance:** `redirect` → `continue!(route; url = redirectURL)`, one
-  branch, no hop counter (D5). `error` → `DriverError` carrying the driver's
-  `message`. An aborted `noentry` names the archive and the URL (D5a).
-- **Verify:** hermetic. The navigation case and the sub-resource case asserted
-  **separately** — the probe found they are different actions and a single
-  test would hide that. A cyclic archive surfaces
-  `HAR error: Found redirect cycle`, within the test's timeout. **SC 4, SC 5.**
-- **Files:** `src/api/har.jl`, `test/test_har.jl`, `test/fixtures/api.har`
+- **Acceptance:** every Open Question answered or explicitly deferred with a
+  reason. Specifically: OQ 1, 3, 5 from T4's diagnostics log; OQ 2 and OQ 4 from
+  a **local** sweep on Fedora running the full smoke suite against webkit,
+  chrome and msedge; OQ 6, 7, 8 marked as needing the smoke legs that do not
+  exist yet. The Windows and macOS hermetic failures from T4 are transcribed
+  into a numbered list — that list *is* Part B's task content.
+- **Verify:** the file exists and is committed before T6. The divergence count
+  is stated as a number and checked against R3's threshold of fifteen.
+- **Files:** `tasks/m9-probe.md`
+- **Note:** if the sweep cannot run Edge on Fedora, say so in the file rather
+  than guessing. An unanswerable question answered honestly is worth more than
+  a plausible one.
 
-### T6 — `.har.zip`, and who owns the temp directory (M)
+**Checkpoint 0** — the instrument works, the red is captured, and OQ 3 has
+either confirmed D3a or amended it.
 
-- **Acceptance:** a `.zip` path is unzipped via `harUnzip` into a temp
-  directory and `harOpen` points at the result (D3). The directory is removed
-  by the release hook from T3.
-- **Verify:** hermetic replay from `test/fixtures/api.har.zip`; the temp
-  directory does not exist after `unroute!`. **SC 6.**
-- **Files:** `src/api/har.jl`, `test/test_har.jl`, `test/fixtures/api.har.zip`
+## Phase 1 — Part A, the engines (Linux)
 
-### T7 — `with_har`, the `update` refusal, and `harClose` (M)
+### T6 — `webkit` on `PlaywrightAPI` (S)
 
-- **Acceptance:** `with_har` releases the archive even when the body throws.
-  `update = true` raises a clear "not yet, lands in Part B" error (D7).
-  `unroute!` calls `harClose`.
-- **Verify:** hermetic; `harClose` asserted **on the wire**, not inferred.
-  **SC 7, SC 8.**
-- **Files:** `src/api/har.jl`, `test/test_har.jl`
+- **Acceptance:** `start_playwright` reads `root.initializer["webkit"]`;
+  `PlaywrightAPI` gains the field; the docstring stops saying "Fields `chromium`
+  and `firefox`" (D1).
+- **Verify:** smoke — `pw.webkit isa BrowserType` and
+  `browser_name(pw.webkit) == "webkit"` against the real driver. **SC 1.**
+- **Files:** `src/objects.jl`, `src/api/lifecycle.jl`, `test/test_smoke.jl`
 
-> **Checkpoint A** — SC 1–8. Replay works against the hand-written fixture,
-> with no browser involved in any of it.
+### T7 — `Engine`, `engine`, `engine_name`, `launch(::Engine)` (M)
 
-## Part B — recording
+- **Acceptance:** the type and three functions D1a specifies, exported and
+  documented. Five names, closed set, `ArgumentError` naming all five otherwise.
+  `launch(::Engine)` forwards `channel` for the branded two, omits the key
+  entirely for the other three, and lets an explicit `channel` keyword win.
+- **Verify:** hermetic, against the fake driver: all five mappings; the error;
+  `channel` present-vs-absent asserted **on the wire** in `test_connection.jl`'s
+  style, because "omitted" and "null" are different messages; and the override.
+  **SC 2, SC 3.**
+- **Files:** `src/objects.jl`, `src/api/lifecycle.jl`, `src/Playwright.jl`,
+  `test/test_connection.jl`, `docs/src/api.md`
 
-### T8 — `HarRecording`, `start_har_recording!`, `stop_har_recording!` (L)
+### T8 — `SMOKE_ENGINES` takes a list, and `examples/common.jl` shares it (M)
 
-- **Acceptance:** the pair wraps `harStart`/`harExport` and writes through
-  `save_as!` (D6, D8). `content` and `mode` are `Symbol`s validated to the wire
-  enums. An export with no artifact raises a `DriverError` naming the unwritten
-  path.
-- **Verify:** hermetic for validation and the guard; the file-writing leg needs
-  a browser and is covered by T11. **SC 9, SC 10, SC 11.**
-- **Files:** `src/api/har.jl`, `src/Playwright.jl`, `test/test_har.jl`
+- **Acceptance:** `PLAYWRIGHT_JL_ENGINE` accepts one name, a comma-separated
+  list, or absence (all five); validated against the same closed set with the
+  same error (D5). `examples/common.jl` drops its hand-rolled validation and
+  uses `engine`. Every smoke engine loop launches via `engine(pw, name)` rather
+  than `getfield`.
+- **Verify:** hermetic — one name, a list, absence, an unknown name, and an
+  empty string. The unknown-name case must **throw**, not yield an empty vector
+  that passes by vacuum. **SC 10.**
+- **Files:** `test/runtests.jl`, `examples/common.jl`, every `test_smoke*.jl`
+  engine loop
 
-### T9 — `with_har_recording` (S)
+### T9 — `install`: `with_deps`, and the branded names (M)
 
-- **Acceptance:** block form, stops the recording even when the body throws.
-- **Verify:** hermetic, mirroring `with_route`'s throwing test.
-- **Files:** `src/api/har.jl`, `test/test_har.jl`
+- **Acceptance:** `install(; browsers, with_deps = false)`; `with_deps = true`
+  raises `ArgumentError` off Linux before any download (D3).
+  `browsers_from_args` accepts `"chrome"` and `"msedge"` and still rejects
+  unknown names. A branded name warns once that this is a system-wide install,
+  and on Linux that it needs root, **before** invoking the driver (D3a).
+  `bin/install.jl` grows `--with-deps`. `DEFAULT_BROWSERS` unchanged.
+- **Verify:** hermetic — the command carries `--with-deps`; the off-Linux
+  refusal; the warning asserted with `@test_logs` and no install performed; the
+  default still exactly two. **SC 7, SC 8, SC 11.**
+- **Files:** `src/driver.jl`, `bin/install.jl`, `test/test_driver.jl`
 
-### T10 — `update = true` (M)
+### T10 — The two launch-failure messages (M)
 
-- **Acceptance:** the keyword records into the archive instead of serving from
-  it, scoped to `url`, written when the registration is released. T7's refusal
-  is removed in this commit and not before.
-- **Verify:** hermetic that the refusal is gone and a recording is started;
-  behaviour proved in T12. **SC 7's second half.**
-- **Files:** `src/api/har.jl`, `test/test_har.jl`
+- **Acceptance:** a WebKit launch failing on missing system libraries produces
+  an error naming `--with-deps`; a branded launch failing on an absent browser
+  produces one naming `bin/install.jl` and the fact that it is a system install
+  (D3, D3a). Both wrap the driver's message rather than replacing it.
+- **Verify:** hermetic by injecting the driver's message shape, since neither
+  failure can be arranged on a machine that has the browsers. The todo table
+  records that these were injected rather than observed. **SC 9.**
+- **Files:** `src/api/lifecycle.jl`, `src/errors.jl`, `test/test_errors.jl`
 
-### T11 — The round trip (L)
+### T11 — `skip_engine`, `engines.md`, and the gate that ties them (M)
 
-- **Acceptance:** record against the fixture server, **stop the server**,
-  replay, page renders the same. Both engines. `url = "**/api/**"` excludes the
-  document request, proved by replaying with `:abort` and watching it fail.
-- **Verify:** `test_smoke_har.jl`; the server being down is asserted, not
-  assumed. **SC 12, SC 13.**
-- **Files:** `test/test_smoke_har.jl`, `test/runtests.jl`
+- **Acceptance:** `skip_engine(name, engine, reason)` logs at `@info` and
+  returns a `Bool`. `docs/src/engines.md` exists with the row format D4
+  specifies — engine, platform where the platform is what makes it true, what
+  differs, what to do instead, upstream link where it is Playwright's. A test
+  reads the page and the skip reasons and requires them to agree.
+- **Verify:** the gate is watched failing — add a skip with no row and see the
+  suite go red, then remove it. A gate not seen failing is decoration. **SC 6.**
+- **Files:** `test/test_engines.jl` (new, or `test/runtests.jl` helpers),
+  `docs/src/engines.md`, `docs/make.jl`
+- **Note:** T11 lands before T12 for the M8 T13-before-T14 reason: the
+  machinery that makes skipping expensive must exist before the work that
+  creates the temptation.
 
-### T12 — `update` against a changed response (M)
+### T12 — Five engines green on Linux ◆ (L)
 
-- **Acceptance:** an archive refreshed against a server whose body has changed
-  serves the new body on replay. Both engines.
-- **Verify:** `test_smoke_har.jl`. **SC 14.**
-- **Files:** `test/test_smoke_har.jl`
+- **Acceptance:** the full smoke suite passes with all five engines. Every
+  divergence found is a `skip_engine` call with a reason and a matching
+  `engines.md` row; every divergence that is *this package's* assumption rather
+  than Playwright's goes to `tasks/m9-api-gaps.md` and gets fixed.
+- **Verify:** `PLAYWRIGHT_JL_SMOKE=1 julia --project=. -e 'using Pkg;
+  Pkg.test()'` green locally with no engine filter, and the same on the Linux CI
+  legs. Per-engine counts recorded. **SC 5.**
+- **Files:** every `test_smoke*.jl`, `docs/src/engines.md`, possibly `src/api/*`
+- **Note:** R3's threshold applies here. Fifteen rows is the number at which
+  this stops being a task and becomes a conversation.
 
-> **Checkpoint B** — SC 9–14. The HAR feature is real: something recorded by
-> this package is replayed by this package with the server switched off.
+**Checkpoint A** — SC 1–11. Five engines, one platform. The divergence list is
+complete and documented.
 
-## Part C — the profile
+## Phase 2 — Part B, the platforms
 
-### T13 — Shared option builders, tests first (M)
+### T13 — `node_platform` and `node_url`, exhaustively (M)
 
-- **Acceptance:** `launch_options(…)` and `context_options(…)` build the wire
-  `NamedTuple`s; `launch` and `new_context` call them and behave identically
-  (D10). Internal, unexported.
-- **Verify:** `test_connection.jl` grows its wire-param assertions **before**
-  the refactor, and they pass unchanged after. **SC 16.**
-- **Files:** `src/api/lifecycle.jl`, `test/test_connection.jl`
+- **Acceptance:** all six claimed OS/arch pairs asserted, and the unsupported
+  cases raise with the offending value in the message.
+- **Verify:** hermetic, pure functions, runs everywhere. **SC 13.**
+- **Files:** `test/test_driver.jl`
+- **Note:** queue-independent. This is the task to pick up while waiting on CI.
 
-### T14 — `launch_persistent_context` (M)
+### T14 — Path assertions compare paths (M)
 
-- **Acceptance:** positional `user_data_dir`, the union of launch and context
-  options via T13's builders, returns the `BrowserContext`. Empty
-  `user_data_dir` is an `ArgumentError` before the wire. The docstring's
-  example uses `first(pages(ctx))` and says why (D9).
-- **Verify:** hermetic wire-param assertion. **SC 15, SC 17.**
-- **Files:** `src/api/lifecycle.jl`, `src/Playwright.jl`,
-  `test/test_connection.jl`
+- **Acceptance:** no test asserts a *real* filesystem path against a
+  `/`-separated literal (D8). Fixture paths that never touch a filesystem are
+  left alone — rewriting them is churn with no signal.
+- **Verify:** the grep is recorded in the todo table and comes back empty; the
+  suite is unchanged and green on Linux. **SC 17.**
+- **Files:** `test/test_artifacts.jl`, `test/test_downloads.jl`,
+  `test/test_smoke_files.jl`, `test/test_smoke_persistent.jl`, and whatever the
+  grep finds
+- **Note:** queue-independent, like T13.
 
-### T15 — The context owns the browser (M)
+### T15 — The driver-assembly job, and the Windows fix (L)
 
-- **Acceptance:** `close!(ctx)` on a persistent context closes the browser too
-  (D9). Non-persistent contexts unchanged.
-- **Verify:** hermetic for the flag and the extra close; the process assertion
-  is T16's. **SC 20.**
-- **Files:** `src/connection.jl`, `src/api/lifecycle.jl`,
-  `test/test_connection.jl`
+- **Acceptance:** a new `driver` CI job on all three platforms that runs
+  `bin/install.jl` for the driver only and asserts `driver_cmd("--version")`
+  works — the cheap rung between hermetic and smoke. Whatever T4's diagnostics
+  found about the Windows member filter is fixed in `install_driver`, keeping
+  extraction member-limited (D9).
+- **Verify:** the job is green on all three platforms. **SC 14.**
+- **Files:** `.github/workflows/CI.yml`, `src/driver.jl`
+- **Note:** if the member filter cannot be made to work member-limited on
+  Windows, that is the Ask First D9 names — stop, do not extract the whole
+  archive.
 
-### T16 — The reopen (M)
+### T16 — macOS aarch64 assembly (M)
 
-- **Acceptance:** both engines — set a cookie and a `localStorage` key, close,
-  relaunch on the same directory, both survive. `length(pages(ctx)) == 1`
-  immediately after launch. No browser process left behind.
-- **Verify:** `test_smoke_persistent.jl`. **SC 18, SC 19.**
-- **Files:** `test/test_smoke_persistent.jl`, `test/runtests.jl`
+- **Acceptance:** the driver assembles from
+  `node-v24.17.0-darwin-arm64.tar.xz`. First execution of `node_platform`'s
+  `arm64` branch.
+- **Verify:** T15's `driver` job green on `macos-latest`. **SC 15.**
+- **Files:** `src/driver.jl` if anything needs fixing; possibly nothing
 
-> **Checkpoint C** — SC 15–20. **This is the budget checkpoint.** If it lands
-> late, ask about Part D here (R1), not at T20.
+### T17 — Hermetic green on three platforms (L)
 
-## Part D — the socket
+- **Acceptance:** T5's transcribed failure list is empty. No test skipped on
+  Windows or macOS that is not skipped on Linux for a reason D10/D11/D12 already
+  names; the Windows orphan-check gate and the branded-engine gate both carry
+  their explaining comment (D11).
+- **Verify:** six hermetic jobs green. **SC 12, SC 16** (second half).
+- **Files:** whatever the list holds; `test/test_smoke.jl` for the D11 gates
 
-### T17 — Assert context-scoped delivery (S)
+**Checkpoint B** — SC 12–17. Three platforms, hermetic and driver-assembly
+green. Any red past this point is a browser, not a portability bug.
 
-- **Acceptance:** arming `setWebSocketInterceptionPatterns` on a
-  `BrowserContext` delivers `webSocketRoute` on the context, for a socket
-  opened by one of its pages. The probe established the page-scoped half
-  ([`m8-probe.md`](m8-probe.md) OQ2); this is the half it left open.
-- **Verify:** smoke, both engines. If it comes back page-scoped, **stop and
-  amend the spec** — D11's registry needs a filtering step and that is a design
-  change, not a fix.
-- **Files:** `test/test_smoke_websockets.jl`
+## Phase 3 — Part C, the matrix
 
-### T18 — `WebSocketRoute`, the registry, the dispatcher (L)
+### T18 — The smoke matrix (M)
 
-- **Acceptance:** `route_web_socket!` / `with_web_socket_route` /
-  `unroute_web_socket!`, the registry keyed on the target the caller named
-  (D11), user code on a dispatcher task and never on the reader task.
-- **Verify:** hermetic, mirroring `test_dialogs.jl`: registration and removal,
-  the reader-task assertion, exceptions collected and rethrown at
-  unregistration. **SC 21.**
-- **Files:** `src/api/websockets.jl`, `src/Playwright.jl`,
-  `test/test_websockets.jl`
+- **Acceptance:** fourteen smoke jobs — ubuntu ×5, macos ×5, windows ×4 with
+  WebKit excluded — `fail-fast: false`, timeouts at 60 minutes (D12, D15).
+- **Verify:** the run enumerates exactly fourteen jobs with the right names.
+  **SC 19.**
+- **Files:** `.github/workflows/CI.yml`
 
-### T19 — `connect!`, the send verbs, binary (M)
+### T19 — Two engine classes: install and cache (M)
 
-- **Acceptance:** `connect!` switches mock → proxy (D12); `send_to_page!` and
-  `send_to_server!` take `String` or `Vector{UInt8}`, with base64 and the
-  `isBase64` flag handled invisibly; `close_ws!` takes `code`/`reason`.
-  `send_to_server!` in mock mode raises before the wire.
-- **Verify:** hermetic — the binary round trip asserted as `Vector{UInt8}` in
-  and out; the mock-mode refusal asserted before any message is sent.
-  **SC 24, SC 27.**
-- **Files:** `src/api/websockets.jl`, `test/test_websockets.jl`
+- **Acceptance:** bundled-engine jobs install exactly their own engine and cache
+  under a key containing it; branded-engine jobs run neither step; the Linux
+  WebKit job runs `--with-deps` under `sudo -E`, unconditionally, outside the
+  cache-hit gate (D13).
+- **Verify:** a **second, fully cached run** in which every job still passes.
+  The bug this guards against — a cache that promises more than it holds — only
+  appears on a hit, so a single cold run proves nothing. **SC 20, SC 21.**
+- **Files:** `.github/workflows/CI.yml`
+- **Note:** one task, not two. Splitting the key change from the install change
+  publishes a lying cache in between.
 
-### T20 — Callbacks, and the subscriptions that must not leak (M)
+### T20 — Windows smoke green, four engines ◆ (L)
 
-- **Acceptance:** `on_message_from_page!`, `on_message_from_server!`,
-  `on_close!`. Subscriptions for a route are dropped when the route object is
-  disposed (D13).
-- **Verify:** hermetic assertion on the subscription table after the socket
-  closes — the leak in R3 must be a test failure, not a memory profile.
-  **SC 28.**
-- **Files:** `src/api/websockets.jl`, `src/api/events.jl`,
-  `test/test_websockets.jl`
+- **Acceptance:** chromium, firefox, chrome and msedge green on
+  `windows-latest`. Divergences documented per D4 — including any that are
+  Windows-specific for an engine that passes elsewhere, which `engines.md`'s row
+  format is built to express.
+- **Verify:** four jobs green. **SC 18** (first half).
+- **Files:** `test/test_smoke*.jl`, `docs/src/engines.md`, possibly `src/`
 
-### T21 — `:websocket`'s deferred message (S)
+### T21 — macOS smoke green, five engines ◆ (L)
 
-- **Acceptance:** the entry stays in `DEFERRED_EVENTS` and its message points
-  at `route_web_socket!` instead of claiming no accessors exist (D14).
-- **Verify:** `test_events.jl`, asserting **on the message a user sees**, not
-  only on table membership — the distinction `m7-api-gaps.md` gap 2 paid for.
-  `deferred_table_is_honest` unchanged and green.
-- **Files:** `src/api/events.jl`, `test/test_events.jl`
+- **Acceptance:** all five green on `macos-latest`, including the OQ 6 timing
+  question — the `expect` retry assertions and the M8 WebSocket tests behaving
+  as they do on Linux.
+- **Verify:** five jobs green. **SC 18** (second half).
+- **Files:** as T20
+- **Note:** the queue makes this the slowest task in the milestone regardless of
+  how much is actually wrong. Batch the fixes here more than elsewhere, and
+  accept the attribution cost D14 normally forbids — recording in the todo table
+  that this task deviated from the one-fix-per-push rule and why.
 
-### T22 — The socket on real browsers (L)
+### T22 — Durations, including queue time (S)
 
-- **Acceptance:** both engines — mock mode with the server never contacted
-  (asserted server-side), proxy mode with a server message rewritten, a binary
-  frame each way, the page observing `close_ws!` with its code and reason, and
-  D12's swallowing behaviour pinned as intended.
-- **Verify:** `test_smoke_websockets.jl` against a real WebSocket endpoint on
-  the fixture server. **SC 22, SC 23, SC 25, SC 26.**
-- **Files:** `test/test_smoke_websockets.jl`, `test/fixtures/m8.html`,
-  `test/runtests.jl`
+- **Acceptance:** wall-clock for all fourteen smoke jobs plus macOS queue time,
+  recorded in the todo table. This is the number that decides whether D12's grid
+  survives (D15).
+- **Verify:** the table is filled from a real run. **SC 22.**
+- **Files:** `tasks/todo.md`
 
-> **Checkpoint D** — SC 21–28.
+### T23 — Undraft, and delete the scaffolding (S)
 
-## All parts
+- **Acceptance:** T4's diagnostics job removed; the examples job confirmed
+  unchanged (Linux, two engines); the PR out of draft with its platform table
+  complete.
+- **Verify:** `gh pr view` shows ready-for-review; the workflow has no
+  `diagnostics` job. **SC 23, SC 24** (second half).
+- **Files:** `.github/workflows/CI.yml`, PR description
 
-### T23 — Documentation (L)
+**Checkpoint C** — SC 18–24. **The budget checkpoint.** Fourteen jobs green. If
+this slips, the conversation is about which platform or engine to defer, per
+Assumption 11.
 
-- **Acceptance:** `docs/src/guide/har.md` new; `network.md` covers
-  `route_from_har` and the socket; `events.md`'s table updated for
-  `:websocket`; every new exported name in `api.md`.
+## Phase 4 — the paperwork
+
+### T24 — Documentation (L)
+
+- **Acceptance:** `engines.md` complete and in the sidebar, saying out loud that
+  the branded jobs test a moving target (R4). `getting-started.md`'s "Choosing an
+  engine" no longer says WebKit is untested and covers `engine`. `index.md`'s
+  not-covered sentence agrees with the README's. `api.md` carries the three new
+  names.
 - **Verify:** `julia --project=docs docs/make.jl` — zero errors, zero warnings,
-  no gate weakened. **SC 30.**
-- **Files:** `docs/src/guide/har.md`, `docs/src/guide/network.md`,
-  `docs/src/guide/events.md`, `docs/src/api.md`
+  `checkdocs = :exports`, `warnonly = false`, `doctest = true` unchanged.
+  **SC 26, SC 30.**
+- **Files:** `docs/src/engines.md`, `docs/src/getting-started.md`,
+  `docs/src/index.md`, `docs/src/api.md`, `docs/make.jl`
 
-### T24 — Exports, README, the not-covered list (M)
+### T25 — README and the not-covered gate (M)
 
-- **Acceptance:** `test_exports.jl` grows; README Status rewritten for M8 and
-  the not-covered list checked **item by item** against `names(Playwright)`,
-  four entries removed and the rest justified individually.
-- **Verify:** hermetic; the list re-read against the actual export set, not
-  edited from memory. **SC 33.**
-- **Files:** `src/Playwright.jl`, `test/test_exports.jl`, `README.md`
+- **Acceptance:** WebKit off the not-covered list, the remaining three still
+  individually justified, the platform claim widened from Linux to three, the
+  engine list updated everywhere it appears — including that Chrome and Edge are
+  channels rather than engines.
+- **Verify:** `test_exports.jl`'s not-covered assertion green, with its stale
+  fixture updated to a case that is still stale. **SC 29.**
+- **Files:** `README.md`, `test/test_exports.jl`
 
-### T25 — Bonnie parity (S)
+### T26 — Bonnie parity, re-scored (S)
 
-- **Acceptance:** `docs/bonnie-parity.md` re-scored, **or** a line stating that
-  M8 adds no row and why.
-- **Verify:** the file mentions M8 either way. **SC 34.**
+- **Acceptance:** `docs/bonnie-parity.md` gains a "Re-scored by milestone 9"
+  section saying whether more engines or more platforms change any row — with a
+  reason either way rather than silence.
+- **Verify:** the section exists and addresses both axes. **SC 31.**
 - **Files:** `docs/bonnie-parity.md`
 
-### T26 — Final verification (M)
+### T27 — Final verification (M)
 
-- **Acceptance:** every one of the 35 success criteria run and recorded in
-  `tasks/todo.md`'s table, with any that cannot be met saying so plainly — the
-  M7 precedent, where two criteria were reported unmet rather than reworded.
-- **Verify:** full hermetic and smoke counts recorded; `--check` in sync with
-  an empty `src/generated/` diff for the whole milestone; `format(".")` clean;
-  `Project.toml` diff empty. **SC 29, SC 31, SC 32, SC 35.**
-- **Files:** `tasks/todo.md`, `tasks/m8-api-gaps.md`
+- **Acceptance:** per-engine and total counts recorded, hermetic and smoke,
+  against M8's 2417 / 3348. `gen/generate.jl --check` green, `src/generated/`
+  diff empty from the first commit to the PR head, `format(".")` clean,
+  `Project.toml` diff empty. `tasks/m9-api-gaps.md`'s final contents reported.
+- **Verify:** the todo table's SC rows are all filled with what was run.
+  **SC 25, SC 27, SC 28, SC 32.**
+- **Files:** `tasks/todo.md`, `tasks/m9-api-gaps.md`
 
-> **Checkpoint E** — the milestone. Archive `plan.md` and `todo.md` to
-> `tasks/m8/`.
+**Checkpoint D** — SC 25–32. The milestone is reportable.
+
+## Verification Checkpoints
+
+| Checkpoint | Tasks | SC | The question it answers |
+|---|---|---|---|
+| 0 | T1–T5 | — | Does the instrument work, and is D3a still true? |
+| A | T6–T12 | 1–11 | Do five engines work, on the platform we can debug? |
+| B | T13–T17 | 12–17 | Is the package portable, before any browser is involved? |
+| C | T18–T23 | 18–24 | Does the grid pass, and what does it cost? |
+| D | T24–T27 | 25–32 | Can someone else read what we did? |

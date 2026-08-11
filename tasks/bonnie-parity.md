@@ -117,3 +117,53 @@ Playwright downloads and manages its own browsers, into the shared
 `executable_path` and `channel` on `launch` cover that case, so an existing
 provisioning story keeps working — but `Playwright.install()` in CI is the
 simpler path.
+
+## Re-scored by milestone 9
+
+M9 added three engines (`webkit`, `chrome`, `msedge`) and two platforms
+(Windows, macOS). Both axes were checked against every row above. **No row
+changes**, and the reason is worth stating rather than leaving as silence.
+
+### More engines: no row moves, and one gets easier
+
+Every blocker and comfort row is satisfied by API that is engine-independent by
+construction — `evaluate` and the tagged value codec, the frame tree,
+non-strict locators, `dispatch_event!`. None of them has an
+engine-specific implementation in this package, and none appears in
+[`docs/src/engines.md`](../docs/src/engines.md)'s divergence table. The five
+engines were run against the whole smoke suite, `test_parity.jl` included, so
+this is measured rather than assumed: the parity walkthrough itself now runs on
+all five.
+
+The row that gets *easier* is the CI provisioning note at the end. It says
+Bonnie honours `CHROME_BIN` and uses system Chrome, and that `executable_path`
+and `channel` cover that case. M9 makes it a first-class engine name:
+
+```julia
+browser = launch(engine(pw, "chrome"); headless = true)
+```
+
+so a Bonnie port that wants to keep testing against the real Google Chrome
+— rather than Playwright's bundled Chromium — no longer needs to know that
+`channel` is the mechanism. `engine(pw, "chrome")` is now the whole of it, and
+CI needs no browser download for that leg at all.
+
+The one capability the port gains — `firefox_user_prefs`, for observing the
+Firefox slow-script kill of WGLMakie's first frame — is unaffected. It was
+Firefox-specific before M9 and still is.
+
+### More platforms: no row moves, and one caveat is now testable
+
+Nothing in Bonnie's surface touches a filesystem path that this package
+constructs, so D8's path-handling work does not reach any row here. The hermetic
+suite passes on all three platforms and the smoke suite on the grid, which means
+a Bonnie port is no longer implicitly Linux-only on Playwright.jl's account.
+
+**The caveat that remains is Bonnie's, not this package's.** Bonnie's e2e suite
+drives Genie and WGLMakie, and this repository deliberately keeps its own
+examples on Linux and the two bundled engines (D10) — Genie's warm-up and
+WGLMakie's SwiftShader shader compilation are the slowest, most
+environment-dependent things here, and running them across the grid would test
+Genie's and Makie's portability rather than Playwright.jl's. A Bonnie port that
+wants Windows or macOS coverage has to answer that question for its own stack.
+What M9 settles is only that the *binding* is no longer the obstacle.

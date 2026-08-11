@@ -35,7 +35,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
         @test occursin("not both", err.msg)
         # The whole point: nothing was sent.
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an in-memory upload needs both a name and a buffer" begin
@@ -44,7 +44,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
         @test_throws ArgumentError set_input_files!(loc; buffer = UInt8[1])
         @test_throws ArgumentError set_input_files!(loc; name = "x.csv")
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a path that does not exist is refused before the wire" begin
@@ -59,7 +59,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
         @test err isa ArgumentError
         @test occursin("no such file", err.msg)
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "validation lives in one place: set_files! inherits it" begin
@@ -82,7 +82,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
         )
         @test_throws ArgumentError set_files!(fc, "/no/such/file.csv")
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     # --- What reaches the wire ----------------------------------------------
@@ -97,7 +97,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
         @test sent["params"]["strict"] == false
         @test sent["params"]["localPaths"] == [UPLOAD_FIXTURE]
         @test !haskey(sent["params"], "payloads")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "several paths go as a vector" begin
@@ -108,7 +108,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
             () -> set_input_files!(loc, [UPLOAD_FIXTURE, UPLOAD_FIXTURE]),
         )
         @test sent["params"]["localPaths"] == [UPLOAD_FIXTURE, UPLOAD_FIXTURE]
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the empty call clears rather than omitting" begin
@@ -119,7 +119,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
         sent = waiting_request(f.fake, () -> set_input_files!(loc))
         @test sent["params"]["localPaths"] == []
         @test !haskey(sent["params"], "payloads")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the in-memory form sends payloads, base64 by to_wire" begin
@@ -142,7 +142,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
         # connection.jl says wire encoding belongs.
         @test payload["buffer"] == base64encode(bytes)
         @test !haskey(sent["params"], "localPaths")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "mime_type is optional" begin
@@ -153,7 +153,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
             () -> set_input_files!(loc; name = "x.bin", buffer = UInt8[7]),
         )
         @test !haskey(only(sent["params"]["payloads"]), "mimeType")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an ElementHandle sends no selector" begin
@@ -172,7 +172,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
         @test sent["guid"] == "handle@2"
         @test sent["params"]["localPaths"] == [UPLOAD_FIXTURE]
         @test !haskey(sent["params"], "selector")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     # --- The chooser ---------------------------------------------------------
@@ -189,7 +189,7 @@ const UPLOAD_FIXTURE = joinpath(@__DIR__, "fixtures", "upload.csv")
         @test element(fc) === handle
         @test is_multiple(fc) == true
         @test is_multiple(FileChooser(handle, false, f.page)) == false
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset ":filechooser is opt-in, and no longer deferred" begin

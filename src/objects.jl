@@ -28,6 +28,8 @@ identical on both engines, so this reads `name`.
 """
 browser_name(bt::BrowserType) = bt.initializer["name"]::String
 browser_name(browser::Browser) = browser.initializer["name"]::String
+# browser_name(::Engine) is defined with the Engine struct below, which has to
+# exist before a method can dispatch on it.
 
 """
 The [`Browser`](@ref) `obj` ultimately belongs to, or `nothing` if the chain is
@@ -164,9 +166,14 @@ Locator(frame::Frame, selector::AbstractString) = Locator(frame, String(selector
 """
     PlaywrightAPI
 
-Root handle passed to the [`playwright`](@ref) block. Fields `chromium` and
-`firefox` are the launchable [`BrowserType`](@ref)s. `process` is the driver
-subprocess and `connection` the protocol connection (internal).
+Root handle passed to the [`playwright`](@ref) block. Fields `chromium`,
+`firefox` and `webkit` are the launchable [`BrowserType`](@ref)s. `process` is
+the driver subprocess and `connection` the protocol connection (internal).
+
+Chrome and Edge are not fields here, because Playwright does not model them as
+browser types: they are `chromium` launched with a `channel`. [`engine`](@ref)
+is where that mapping lives, and is what to reach for when the engine you want
+arrives as a *name* rather than as a field.
 
 `utils` is the driver's `LocalUtils`, which owns HAR lookup and zip extraction.
 The protocol declares it optional (`playwright.yml:36`), so it is `nothing` on a
@@ -176,6 +183,7 @@ names what is unavailable instead of returning a `nothing` that fails later.
 struct PlaywrightAPI
     chromium::BrowserType
     firefox::BrowserType
+    webkit::BrowserType
     process::Base.Process
     connection::Connection
     utils::Union{LocalUtils,Nothing}
@@ -224,8 +232,11 @@ close!(ctx)                    # …and go away with the context
 @doc """
     BrowserType
 
-A launchable engine: `pw.chromium` or `pw.firefox` on the handle
+A launchable engine: `pw.chromium`, `pw.firefox` or `pw.webkit` on the handle
 [`playwright`](@ref) hands you. Pass it to [`launch`](@ref).
+
+Reach for [`Engine`](@ref) instead when the engine arrives as a *name* rather
+than as a field — Google Chrome and Microsoft Edge are not `BrowserType`s.
 
 ```julia
 playwright() do pw
@@ -237,6 +248,32 @@ playwright() do pw
 end
 ```
 """ BrowserType
+
+"""
+    Engine
+
+One of the five engines this package tests, from [`engine`](@ref): a
+[`BrowserType`](@ref) together with the `channel` (if any) that selects a
+branded build of it. Pass it to [`launch`](@ref).
+
+The type exists because the five names are not five of a kind. Three of them
+name a `BrowserType`; the other two name `chromium` plus a channel. Carrying
+the pair around means a caller with a name in a variable does not have to carry
+that mapping itself.
+
+Fields are `browser_type`, `name` and `channel`; ask [`engine_name`](@ref) for
+the name rather than reaching for the field.
+"""
+struct Engine
+    browser_type::BrowserType
+    name::String
+    channel::Union{String,Nothing}
+end
+
+# Answers "chromium" for chrome and msedge, which is the point: this asks what
+# engine will run, not which of the five was requested. `engine_name` asks the
+# other question, and the two disagreeing is the distinction D1a exists for.
+browser_name(e::Engine) = browser_name(e.browser_type)
 
 @doc """
     Page

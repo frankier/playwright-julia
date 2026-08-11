@@ -134,7 +134,7 @@ end
         )[end]
         @test isempty(last["params"]["patterns"])
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the dispatcher spawns on the first registration, not before" begin
@@ -151,7 +151,7 @@ end
         # process.
         @test Playwright.ws_registry_for(f.context) === nothing
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the handler gets the route the driver announced" begin
@@ -165,7 +165,7 @@ end
         @test got[] isa WebSocketRoute
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "handlers never run on the transport reader task" begin
@@ -185,7 +185,7 @@ end
         @test ran_on[] !== f.conn.transport.reader
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "handlers run sequentially, never concurrently" begin
@@ -208,7 +208,7 @@ end
         @test !overlapping[]
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the newest matching registration wins" begin
@@ -223,7 +223,7 @@ end
 
         unroute_web_socket!(f.context, new)
         unroute_web_socket!(f.context, old)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a handler that throws is collected and rethrown" begin
@@ -236,7 +236,7 @@ end
         # Not raised where it happened — there is no user task there — so it is
         # rethrown at unregistration, exactly as route!'s are.
         @test_throws ErrorException unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a throwing handler does not kill the dispatcher" begin
@@ -255,7 +255,7 @@ end
         ws_until(() -> calls[] == 2)
 
         @test_throws Exception unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "several exceptions become a CompositeException" begin
@@ -271,7 +271,7 @@ end
         ws_until(() -> length(reg.exceptions) == 2)
 
         @test_throws CompositeException unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "unroute_web_socket! is idempotent, and clears all" begin
@@ -288,7 +288,7 @@ end
         unroute_web_socket!(f.context)      # nothing registered: still a no-op
         @test Playwright.ws_registry_for(f.context) === nothing
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_web_socket_route unregisters even when the body throws" begin
@@ -308,7 +308,7 @@ end
         end == 42
         @test Playwright.ws_registry_for(f.context) === nothing
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a Page target arms the page's own channel" begin
@@ -333,7 +333,7 @@ end
         @test got[] isa WebSocketRoute
 
         unroute_web_socket!(f.page, reg2)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a handler that registers nothing is legal" begin
@@ -351,7 +351,7 @@ end
         end
         @test isempty(filter(r -> r.level == Base.CoreLogging.Warn, logger.logs))
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the socket is opened once the handler has set it up" begin
@@ -367,7 +367,7 @@ end
         @test opened["guid"] == route.guid
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- connect!, the send verbs, binary --------------------------------------
@@ -385,7 +385,7 @@ end
         @test Playwright.ws_is_connected(route)
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a route is in mock mode until connect!" begin
@@ -398,7 +398,7 @@ end
         @test isempty(ws_sent(f, "connect"))
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "connecting twice raises rather than reconnecting" begin
@@ -421,7 +421,7 @@ end
         @test length(ws_sent(f, "connect")) == 1
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a connected route is not also ensureOpened" begin
@@ -436,7 +436,7 @@ end
         unroute_web_socket!(f.context, reg)   # waits for the handler to finish
         @test isempty(ws_sent(f, "ensureOpened"))
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "send_to_page! sends a String as text" begin
@@ -451,7 +451,7 @@ end
         @test sent["params"]["isBase64"] == false
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "send_to_page! base64-encodes bytes" begin
@@ -467,7 +467,7 @@ end
         @test base64decode(sent["params"]["message"]) == bytes
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a wire message decodes back to the type it was sent as" begin
@@ -505,7 +505,7 @@ end
         @test occursin("connect!", sprint(showerror, thrown[]))
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "send_to_server! sends text and bytes once connected" begin
@@ -525,7 +525,7 @@ end
         @test base64decode(binary["params"]["message"]) == bytes
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "close_ws! closes the page's socket with code and reason" begin
@@ -545,7 +545,7 @@ end
         @test closed["params"]["wasClean"] == true
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "close_ws! omits a code and reason nobody gave" begin
@@ -559,7 +559,7 @@ end
         @test !haskey(params, "reason")
 
         unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- Callbacks, and the subscriptions that must not leak -------------------
@@ -576,7 +576,7 @@ end
             @test got[] == "ping"
             @test got[] isa String
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a binary page message arrives as bytes" begin
@@ -594,7 +594,7 @@ end
             @test got[] isa Vector{UInt8}
             @test got[] == bytes
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a server message reaches on_message_from_server!" begin
@@ -611,7 +611,7 @@ end
             ws_until(() -> got[] !== nothing)
             @test got[] == "from-server:ping"
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "an unhandled server message is forwarded to the page" begin
@@ -626,7 +626,7 @@ end
             @test sent["params"]["message"] == "hello"
             @test sent["params"]["isBase64"] == false
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a handled server message is swallowed, as intended" begin
@@ -647,7 +647,7 @@ end
             ws_until(() -> seen[] == 1)
             @test isempty(ws_sent(f, "sendToPage"))
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "an unhandled page message is forwarded to the server" begin
@@ -657,7 +657,7 @@ end
             ws_until(() -> !isempty(ws_sent(f, "sendToServer")))
             @test only(ws_sent(f, "sendToServer"))["params"]["message"] == "ping"
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "in mock mode an unhandled page message goes nowhere" begin
@@ -673,7 +673,7 @@ end
             ws_until(() -> !isempty(ws_sent(f, "sendToPage")))
             @test isempty(ws_sent(f, "sendToServer"))
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "on_close! sees the code and the reason" begin
@@ -687,7 +687,7 @@ end
             ws_until(() -> got[] !== nothing)
             @test got[] == (4002, "page went")
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "an unhandled close closes the other side" begin
@@ -699,7 +699,7 @@ end
             @test params["code"] == 1000
             @test params["reason"] == "bye"
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the route's subscriptions are gone once it closes" begin
@@ -716,7 +716,7 @@ end
             ws_until(() -> !haskey(Playwright.WS_ROUTE_STATE, route.guid))
             @test !haskey(f.conn.subscriptions, route.guid)
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "disposing the route drops its state too" begin
@@ -731,7 +731,7 @@ end
             @test !haskey(f.conn.subscriptions, route.guid)
             @test !(route.guid in Playwright.CONNECTED_WS_ROUTES)
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "unrouting drops a live socket's state" begin
@@ -750,7 +750,7 @@ end
         @test !haskey(Playwright.WS_ROUTE_STATE, route.guid)
         @test !haskey(f.conn.subscriptions, route.guid)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a callback that throws is collected and rethrown" begin
@@ -768,7 +768,7 @@ end
         # Same contract as a handler's: there is no user task to raise into, so
         # it waits for unregistration.
         @test_throws ErrorException unroute_web_socket!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "callbacks never run on the transport reader task" begin
@@ -787,6 +787,6 @@ end
             @test ran_on[] === registry[].task
             @test ran_on[] !== f.conn.transport.reader
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 end

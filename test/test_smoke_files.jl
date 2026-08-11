@@ -1,5 +1,5 @@
 # Downloads, dialogs and uploads against real browsers.
-# Gated behind PLAYWRIGHT_JL_SMOKE=1, and run on Chromium and Firefox alike.
+# Gated behind PLAYWRIGHT_JL_SMOKE=1, and run on every engine in SMOKE_ENGINES.
 #
 # The server here is richer than test_smoke.jl's static one because two of the
 # three surfaces cannot be asserted from the client side:
@@ -78,16 +78,20 @@ function with_files_server(f::Function)
     end
 end
 
-"Run `body(browser, base_url, uploads)` on both engines, naming the engine."
-function on_both_engines(body::Function, label::AbstractString)
+"Run `body(browser, base_url, uploads)` on every smoke engine, naming it."
+function on_each_engine(body::Function, label::AbstractString)
     playwright() do pw
-        for engine in SMOKE_ENGINES
-            bt = engine == "chromium" ? pw.chromium : pw.firefox
-            @testset "$label ($engine)" begin
+        for eng in SMOKE_ENGINES
+            # Was `eng == "chromium" ? pw.chromium : pw.firefox` — a private
+            # copy of the mapping, which quietly launched Firefox for anything
+            # that was not chromium. That is the drift D1a exists to prevent,
+            # and it went unnoticed only because there were exactly two engines.
+            bt = engine(pw, eng)
+            @testset "$label ($eng)" begin
                 with_files_server() do base_url, uploads
                     browser = launch(bt; headless = true)
                     try
-                        body(browser, base_url, uploads, engine)
+                        body(browser, base_url, uploads, eng)
                     finally
                         close!(browser)
                     end
@@ -99,8 +103,16 @@ end
 
 # --- Downloads -------------------------------------------------------------
 
-@testset "downloads, both engines" begin
-    on_both_engines("downloads") do browser, base_url, _uploads, engine
+@testset "downloads, every engine" begin
+    on_each_engine("downloads") do browser, base_url, _uploads, eng
+        # Headless WebKit never fires the :download event for a
+        # Content-Disposition attachment, so every assertion in this block
+        # waits out its budget rather than failing on a wrong value.
+        skip_engine(
+            eng,
+            "webkit",
+            "webkit headless emits no download event for a content disposition attachment",
+        ) && return
         ctx = new_context(browser)
         page = new_page(ctx)
         goto!(page, "$base_url/files.html")
@@ -182,8 +194,8 @@ end
 
 # --- Dialogs ---------------------------------------------------------------
 
-@testset "dialogs, both engines" begin
-    on_both_engines("dialogs") do browser, base_url, _uploads, engine
+@testset "dialogs, every engine" begin
+    on_each_engine("dialogs") do browser, base_url, _uploads, eng
         page = new_page(new_context(browser))
         goto!(page, "$base_url/files.html")
         result() = text_content(locator(page, "#dialog-result"))
@@ -282,8 +294,8 @@ end
 
 # --- Uploads, asserted server-side -----------------------------------------
 
-@testset "uploads, both engines" begin
-    on_both_engines("uploads") do browser, base_url, uploads, engine
+@testset "uploads, every engine" begin
+    on_each_engine("uploads") do browser, base_url, uploads, eng
         page = new_page(new_context(browser))
         goto!(page, "$base_url/files.html")
         fixture = joinpath(@__DIR__, "fixtures", "upload.csv")

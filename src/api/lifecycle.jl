@@ -5,8 +5,8 @@
     playwright(f) -> result of `f`
 
 Start the Playwright driver, call `f(pw)` with a [`PlaywrightAPI`](@ref)
-(fields `chromium`, `firefox`), and guarantee driver shutdown when the block
-exits — normally or by exception. Installs the driver on first use.
+(fields `chromium`, `firefox`, `webkit`), and guarantee driver shutdown when the
+block exits — normally or by exception. Installs the driver on first use.
 
 ```julia
 playwright() do pw
@@ -77,6 +77,11 @@ function start_playwright()
     end
     chromium = from_channel(conn, root.initializer["chromium"])::BrowserType
     firefox = from_channel(conn, root.initializer["firefox"])::BrowserType
+    # The root initializer has always carried webkit; this package simply did
+    # not read it. Indexing rather than `get`, like its two siblings: the
+    # protocol declares all three required, so an absent key is a driver that
+    # is not the driver we pinned, and should say so here.
+    webkit = from_channel(conn, root.initializer["webkit"])::BrowserType
     # `utils` is LocalUtils? in the protocol, so the key can be absent as well
     # as null — get, not indexing. The absent case is answered once, by
     # local_utils, rather than at each of HAR replay's call sites.
@@ -85,7 +90,7 @@ function start_playwright()
         get(root.initializer, "utils", nothing),
     )::Union{LocalUtils,Nothing}
     conn.local_utils = utils
-    return PlaywrightAPI(chromium, firefox, proc, conn, utils)
+    return PlaywrightAPI(chromium, firefox, webkit, proc, conn, utils)
 end
 
 function shutdown(pw::PlaywrightAPI)
@@ -275,18 +280,260 @@ launch(pw.chromium; headless=true, chromium_sandbox=false,
 """
 function launch(bt::BrowserType; kwargs...)
     options = launch_options(; kwargs...)
+    channel = get(kwargs, :channel, nothing)
     return try
         _browser_type_launch(bt; options...)::Browser
     catch err
-        # First-use nicety: if this browser was never installed, install it
-        # and retry once instead of surfacing the driver's error.
-        (err isa PlaywrightError && occursin("Executable doesn't exist", err.message)) ||
-            rethrow()
-        @info "Browser $(browser_name(bt)) is not installed yet; installing it now"
-        run(driver_cmd("install", browser_name(bt)))
-        _browser_type_launch(bt; options...)::Browser
+        err isa PlaywrightError || rethrow()
+        # First-use nicety: if this browser was never installed, install it and
+        # retry once instead of surfacing the driver's error.
+        #
+        # Bundled engines only. A branded channel that is missing cannot be
+        # fixed by installing `browser_name(bt)`, which is "chromium" — that
+        # would download a browser nobody asked for and then fail again with
+        # the same message.
+        if channel === nothing && occursin("Executable doesn't exist", err.message)
+            @info "Browser $(browser_name(bt)) is not installed yet; installing it now"
+            run(driver_cmd("install", browser_name(bt)))
+            return _browser_type_launch(bt; options...)::Browser
+        end
+        throw(launch_failure_help(err, browser_name(bt), channel))
     end
 end
+
+"""
+Name the fix for the two launch failures whose driver message does not know
+about this package (D3, D3a).
+
+Both *wrap* the driver's message rather than replacing it: the driver's text is
+accurate and often carries the missing library or the path it looked in, and
+throwing that away to say something friendlier would lose the diagnosis.
+
+Anything else is returned unchanged, so an unrecognised failure still surfaces
+exactly as the driver reported it.
+"""
+function launch_failure_help(err::PlaywrightError, name::AbstractString, channel)
+    msg = err.message
+    # The observed shape is a box-drawn banner: "Host system is missing
+    # dependencies to run browsers." followed by "sudo playwright
+    # install-deps" -- which is the driver's own CLI, not this package's.
+    if occursin("missing dependencies", msg) || occursin("install-deps", msg)
+        return DriverError(
+            msg *
+            "\n\nFrom Playwright.jl, the command that installs those libraries is:\n\n" *
+            "    sudo -E \"\$(which julia)\" --project=. bin/install.jl --with-deps $name\n\n" *
+            "or, in a session already running as root, " *
+            "`install(; browsers = [\"$name\"], with_deps = true)`. It needs root " *
+            "because it runs the distribution's package manager, and it is " *
+            "Linux-only.\n\n" *
+            "The `\$(which julia)` is not decoration: sudo replaces PATH from " *
+            "secure_path, so a bare `sudo julia` can run a different Julia than " *
+            "the one you are in, and re-resolve your project as root.\n\n" *
+            "WebKit is usually the engine that hits this — it is the one that does " *
+            "not ship its own libraries, so `install` succeeds and the launch is " *
+            "where it goes wrong.";
+            name = err.name,
+            stack = err.stack,
+        )
+    end
+    # A branded channel the machine does not have. Playwright's own advice is
+    # `playwright install chrome`, which is right but is not a command a Julia
+    # user has -- and it does not say that it is a machine-wide change.
+    if channel !== nothing &&
+       (occursin("is not found", msg) || occursin("Executable doesn't exist", msg))
+        return DriverError(
+            msg *
+            "\n\n`$channel` is a system-installed browser, not a Playwright " *
+            "download. From Playwright.jl:\n\n" *
+            "    julia bin/install.jl $channel\n\n" *
+            "That installs the real Google Chrome or Microsoft Edge through this " *
+            "machine's package manager — a system-wide change, needing root on " *
+            "Linux — rather than putting anything in PLAYWRIGHT_BROWSERS_PATH. " *
+            "If you only need a browser to test with, `chromium` is the bundled " *
+            "build and needs no system change.";
+            name = err.name,
+            stack = err.stack,
+        )
+    end
+    return err
+end
+
+# --- Engines by name (D1a) ------------------------------------------------
+
+"The five engine names, in the order they are reported and iterated."
+const ENGINE_NAMES = ("chromium", "firefox", "webkit", "chrome", "msedge")
+
+# The mapping, in one place. `chrome` and `msedge` are `chromium` with a
+# channel; the other three are their own BrowserType with no channel at all.
+const ENGINE_CHANNELS = Dict(
+    "chromium" => nothing,
+    "firefox" => nothing,
+    "webkit" => nothing,
+    "chrome" => "chrome",
+    "msedge" => "msedge",
+)
+
+"""
+    engine(pw, name) -> Engine
+
+The engine `name` names, ready to [`launch`](@ref). One of `"chromium"`,
+`"firefox"`, `"webkit"`, `"chrome"` or `"msedge"`.
+
+The last two are not browser types: Playwright launches Google Chrome and
+Microsoft Edge as `chromium` with a `channel`, and this function is where that
+mapping lives so that no caller has to carry a copy of it. The point of asking
+by name is a name that came from somewhere else — an environment variable, a
+test matrix, a command line — where a typo should say so rather than surface as
+a missing field much later.
+
+```julia
+playwright() do pw
+    browser = launch(engine(pw, get(ENV, "ENGINE", "chromium")); headless = true)
+end
+```
+
+[`engine_name`](@ref) asks an `Engine` which of the five it is. That is a
+different question from [`browser_name`](@ref), which asks the running browser
+and answers `"chromium"` for Chrome and Edge alike.
+
+Chrome and Edge are installed system-wide rather than downloaded (see
+[`install`](@ref)), so they launch from whatever build the machine already has.
+Other channels — `"chrome-beta"`, `"msedge-dev"` — are not engine names, and
+stay reachable by passing `channel` to [`launch`](@ref) yourself.
+
+Throws `ArgumentError` naming all five when `name` is not one of them.
+"""
+function engine(pw::PlaywrightAPI, name::AbstractString)
+    key = String(name)
+    haskey(ENGINE_CHANNELS, key) || throw(
+        ArgumentError(
+            "unknown engine `$key`. Choose from: " * join(ENGINE_NAMES, ", ") * ".",
+        ),
+    )
+    channel = ENGINE_CHANNELS[key]
+    # The branded two launch chromium; the other three name their own field.
+    bt = channel === nothing ? getfield(pw, Symbol(key)) : pw.chromium
+    return Engine(bt, key, channel)
+end
+
+"""
+    skip_engine(name, engine, reason) -> Bool
+
+Whether the engine `name` is `engine`, saying so at `@info` with `reason` when
+it is. Written for a test that must not run on one engine:
+
+```julia
+@testset "…" for name in SMOKE_ENGINES
+    skip_engine(name, "webkit", "no Page.pdf outside Chromium") && continue
+    …
+end
+```
+
+`engine` may also be a collection, for a divergence shared by several.
+
+A skip that is not visible in the test output does not exist, which is why this
+logs rather than merely returning. And every reason passed here must have a
+matching row in `docs/src/engines.md` — `test_engines.jl` reads both and fails
+when they disagree, so a skip with no row is a failing suite rather than a
+quietly missing test.
+
+Exported so that a *user* writing a cross-engine suite has the same tool, and
+the same pressure to write down what differs.
+"""
+function skip_engine(name::AbstractString, engine, reason::AbstractString)
+    matched = engine isa AbstractString ? name == engine : name in engine
+    matched || return false
+    @info "skipping on $name: $reason"
+    return true
+end
+
+"""
+    parse_engine_names(spec) -> Vector{String}
+
+The engine names in a comma-separated `spec`, validated against the same closed
+set [`engine`](@ref) uses, or all five when `spec` is blank.
+
+Internal, and shared by the test suite's `PLAYWRIGHT_JL_ENGINE` and
+`examples/common.jl` so that the two cannot disagree about what a name is.
+
+With five engines, "exactly one, or all of them" stopped being enough — the
+useful middle case is "the two that already worked, while I fix the third".
+
+An unknown name throws here rather than yielding an engine list that is short
+or empty, because an empty engine loop is a suite that passes by testing
+nothing, which is the actual risk. A blank `spec` means all five, matching what
+an unset variable does: a CI matrix whose engine value failed to interpolate
+should over-test, never under-test.
+
+Throws `ArgumentError` naming all five for any name that is not one of them.
+"""
+function parse_engine_names(spec::AbstractString)
+    isempty(strip(spec)) && return collect(ENGINE_NAMES)
+    names = String.(strip.(split(spec, ',')))
+    for name in names
+        haskey(ENGINE_CHANNELS, name) || throw(
+            ArgumentError(
+                "unknown engine `$name` in `$spec`. Choose from: " *
+                join(ENGINE_NAMES, ", ") *
+                ".",
+            ),
+        )
+    end
+    return names
+end
+
+"""
+    engine_name(e::Engine) -> String
+
+Which of the five engines `e` is: `"chromium"`, `"firefox"`, `"webkit"`,
+`"chrome"` or `"msedge"`.
+
+Deliberately not [`browser_name`](@ref), which asks the *running browser* what
+it is and answers `"chromium"` for all three Chromium engines. The two
+questions have different answers, so they have different spellings — a test
+that branches on `browser_name(browser) == "chromium"` now catches Chrome and
+Edge too, which is usually what you want and occasionally not.
+"""
+engine_name(e::Engine) = e.name
+
+"""
+    launch(e::Engine; kwargs...) -> Browser
+
+Launch the engine [`engine`](@ref) returned. Takes every keyword
+[`launch(::BrowserType)`](@ref) takes.
+
+`channel` is supplied from the `Engine` for the branded two and left off the
+wire entirely for the other three — absent, not null, since the driver applies
+a different default to a `channel` that is present and null than to one the
+caller never mentioned.
+
+An explicit `channel` keyword wins, with no warning: asking
+`engine(pw, "chrome")` for `channel = "chrome-beta"` is a coherent thing to
+want, and it is how the beta and dev channels stay reachable without becoming
+engine names.
+"""
+function launch(e::Engine; kwargs...)
+    # `channel` is only defaulted in, so an explicit one in kwargs takes
+    # precedence -- and a bundled engine contributes no key at all.
+    return launch(e.browser_type; engine_options(e, kwargs)...)
+end
+
+# The channel-defaulting rule, once, because launch and
+# launch_persistent_context both need it and two copies would drift apart the
+# first time one of them grew a special case.
+engine_options(e::Engine, kwargs) =
+    e.channel === nothing ? kwargs : (; channel = e.channel, kwargs...)
+
+"""
+    launch_persistent_context(e::Engine, user_data_dir; kwargs...) -> BrowserContext
+
+Launch the engine [`engine`](@ref) returned against a persistent profile.
+Takes everything [`launch_persistent_context(::BrowserType, …)`](@ref) takes,
+and supplies `channel` for the branded engines on the same terms
+[`launch(::Engine)`](@ref) does.
+"""
+launch_persistent_context(e::Engine, user_data_dir::AbstractString; kwargs...) =
+    launch_persistent_context(e.browser_type, user_data_dir; engine_options(e, kwargs)...)
 
 """
     new_context(browser::Browser; kwargs...) -> BrowserContext

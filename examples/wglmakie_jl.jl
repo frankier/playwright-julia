@@ -75,7 +75,7 @@ try
         # Firefox's `--headless` disables WebGL; xvfb plus headless=false gives
         # it a software GL stack via mesa. Chromium keeps SwiftShader either way.
         headless = get(ENV, "PLAYWRIGHT_JL_HEADLESS", "true") != "false"
-        browser = launch(engine(pw); headless = headless)
+        browser = launch(engine_from_env(pw); headless = headless)
         try
             ctx = new_context(browser)
             try

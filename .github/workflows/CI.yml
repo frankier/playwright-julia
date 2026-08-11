@@ -1,6 +1,20 @@
-# The package's own checks. Everything here is hermetic: no Node, no browser,
-# no network beyond the registry. The jobs that need a real browser live in
-# their own workflow so a browser download failure cannot redden this one.
+# The package's own checks, in three tiers that get more expensive and less
+# hermetic as you go down (D6):
+#
+#   test     3 OS x 2 Julia. No Node, no browser, no network beyond the
+#            registry. The cheapest signal on every platform, and the one that
+#            tells a portability bug apart from a browser bug.
+#   driver   3 OS. Assembles the driver bundle and asks it its version. Two
+#            minutes, no browser — the rung that separates "the bundle is
+#            wrong" from "the browser is wrong".
+#   smoke    14 jobs, the platform x engine grid minus WebKit on Windows (D12).
+#            Real browsers against a fixture server served in-process.
+#   examples 2 jobs, Linux only, on the bundled engines. Slow by nature and
+#            deliberately not part of the grid (D10) — they test Genie's and
+#            Makie's portability, not this package's.
+#
+# Plus codegen and formatting, which are Linux-only because they check bytes
+# that are identical everywhere.
 name: CI
 
 on:
@@ -16,43 +30,107 @@ concurrency:
 
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ubuntu-latest
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The hermetic tier, and the first gate on every platform (D6). It needs no
+    # Node, no browser and no network beyond the registry, which makes it the
+    # cheapest possible Windows and macOS signal -- a couple of minutes against
+    # a smoke job's fifteen.
+    #
+    # It also partitions Part B's failures into two kinds that want different
+    # fixes: a hermetic failure on Windows is *this package's* portability bug
+    # (a path, a line ending, a string comparison), while a smoke failure is the
+    # driver bundle or the browser. Finding the first kind under the second
+    # kind's feedback loop is how a week disappears.
+    #
+    # No engine axis here, deliberately: this job launches nothing.
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
-        # Linux only, oldest supported and current stable.
+        # Oldest supported and current stable, on all three platforms.
+        # macos-latest is Apple Silicon; the other two are x64.
+        os: [ubuntu-latest, windows-latest, macos-latest]
         version: ["1.10", "1"]
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
-          arch: x64
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
 
-  smoke:
-    # The job that makes CI mean something for this package: real browsers
-    # against the local fixture server, one job per engine.
-    name: Smoke (${{ matrix.engine }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
+  driver:
+    # The cheap rung between hermetic and smoke (D6): assemble the driver
+    # bundle and ask it its version. Two minutes against a smoke job's twenty,
+    # with no browser involved.
+    #
+    # It exists because "the driver bundle is wrong" and "the browser is wrong"
+    # are different failures with different fixes, and finding the first under
+    # the second's feedback loop is how a week disappears. On Windows it proves
+    # the member-limited extraction gets node.exe out of the .zip (D9); on
+    # macOS it is the first execution of node_platform's arm64 branch.
+    name: Driver assembly (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        engine: [chromium, firefox]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+      - uses: julia-actions/cache@v3
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Assemble the driver and run it
+        # No browsers: install_driver only. `--version` is the cheapest
+        # question that proves the assembled node binary can run the assembled
+        # playwright-core.
+        run: |
+          julia --project=. -e '
+            using Playwright
+            dir = Playwright.install_driver()
+            @info "assembled" dir contents = sort(readdir(dir))
+            run(Playwright.driver_cmd("--version"; dir))'
+
+  smoke:
+    # The job that makes CI mean something for this package: real browsers
+    # against the local fixture server, one job per platform per engine.
+    #
+    # Fourteen jobs — the full grid minus WebKit on Windows (D12). The
+    # temptation to trim further (Chrome only on Linux, Edge only on Windows)
+    # is the wrong trade for a browser-automation binding specifically: the
+    # whole point is that the caller's combination works, and the combinations
+    # are exactly what a trimmed matrix stops testing. Edge on macOS is a
+    # genuinely different thing from Edge on Windows.
+    name: Smoke (${{ matrix.os }}, ${{ matrix.engine }})
+    runs-on: ${{ matrix.os }}
+    # 60 for all of them rather than tuned per platform (D15): a timeout's job
+    # is to catch a hang, and a hang is a hang everywhere. Windows process
+    # startup, antivirus scanning a freshly extracted browser and a cold
+    # precompile are all slower, and a first run on a platform has no cache.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        engine: [chromium, firefox, webkit, chrome, msedge]
+        exclude:
+          # D12's one stated exclusion. Not a slip — a decision.
+          - os: windows-latest
+            engine: webkit
     env:
       # Relocate the browsers into the workspace so actions/cache can see them.
+      # Harmless for the branded engines, which put nothing there.
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.playwright
     steps:
       - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v2
         with:
           version: "1.10"
-          arch: x64
       - uses: julia-actions/cache@v3
 
       - name: Read the pinned driver versions
@@ -69,8 +147,20 @@ jobs:
                 println(io, "node=", node)
             end'
 
-      - name: Restore browsers and driver
+      - name: Restore browsers
         id: browsers
+        # Bundled engines only (D13). The branded jobs have nothing in the
+        # workspace to cache: Playwright does not download Chrome or Edge, the
+        # runner image supplies them, and a cache entry for them would be an
+        # empty directory that then reports a hit.
+        #
+        # The key carries the engine. It did not before, and that was correct
+        # only by accident: every job installed the same two browsers, so every
+        # job populated the same cache correctly. With one browser per job, a
+        # key without the engine publishes a cache promising more than it
+        # holds — and the next job restores it, sees a hit, skips the install
+        # and fails to launch.
+        if: matrix.engine != 'chrome' && matrix.engine != 'msedge'
         uses: actions/cache@v6
         with:
           # Browsers only. The driver bundle lands in a Scratch.jl directory,
@@ -78,13 +168,54 @@ jobs:
           # (cache-scratchspaces defaults to true) — caching the same path from
           # two actions would just race them against each other.
           path: ${{ github.workspace }}/.playwright
-          key: playwright-${{ runner.os }}-pw${{ steps.pins.outputs.playwright }}-node${{ steps.pins.outputs.node }}
+          key: playwright-${{ runner.os }}-${{ matrix.engine }}-pw${{ steps.pins.outputs.playwright }}-node${{ steps.pins.outputs.node }}
 
-      - name: Install driver and browsers
-        if: steps.browsers.outputs.cache-hit != 'true'
-        run: julia bin/install.jl
-
+      # Before the installs, not after: bin/install.jl falls back to
+      # activating and instantiating the checkout when Playwright is not in the
+      # active environment, and that fallback must not be what runs under sudo
+      # below. With the project already instantiated here, `--project=.` makes
+      # the script's `using Playwright` succeed and the fallback never fires.
       - uses: julia-actions/julia-buildpkg@v1
+
+      - name: Install the browser
+        # One engine, not both. Also skipped entirely for the branded two:
+        # `bin/install.jl chrome` is a *system package* install, which is
+        # exactly what D3a forbids CI from doing.
+        if: |
+          matrix.engine != 'chrome' && matrix.engine != 'msedge' &&
+          steps.browsers.outputs.cache-hit != 'true'
+        run: julia --project=. bin/install.jl ${{ matrix.engine }}
+
+      - name: Install WebKit's system libraries
+        # Linux WebKit only, and deliberately OUTSIDE the cache-hit gate (D13):
+        # these are system packages, they do not live in the workspace, and the
+        # cache cannot restore them. A cache hit still needs this step.
+        #
+        # WebKit is the engine that does not ship its own world — without this
+        # the install succeeds and the browser then fails to launch on a
+        # missing shared library.
+        #
+        # Two details here are load-bearing, and both were learned the hard way
+        # (see tasks/m9-probe.md, OQ 7 — `sudo -E` alone is NOT enough):
+        #
+        #   * `$(which julia)`, because sudo replaces PATH from secure_path
+        #     regardless of -E. Plain `sudo -E julia` found a *different* Julia
+        #     than setup-julia had installed, which then re-resolved the
+        #     project against a different stdlib and rewrote Project.toml and
+        #     Manifest.toml — as root, so every later step failed on a manifest
+        #     it could neither use nor replace.
+        #   * `--project=.`, so the script finds Playwright already present and
+        #     never reaches its activate-and-instantiate fallback. Nothing
+        #     should run Pkg as root.
+        #
+        # The chown is the belt to that braces: the driver lives in a Scratch.jl
+        # directory inside the depot, and anything root touched there has to go
+        # back to the runner before the suite runs.
+        if: matrix.os == 'ubuntu-latest' && matrix.engine == 'webkit'
+        run: |
+          sudo -E "$(which julia)" --project=. bin/install.jl --with-deps webkit
+          sudo chown -R "$(id -u):$(id -g)" "$HOME/.julia" .
+
       - name: Smoke tests
         env:
           PLAYWRIGHT_JL_SMOKE: "1"

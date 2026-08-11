@@ -78,10 +78,10 @@ end
 
 @testset "smoke: HAR round trip" begin
     playwright() do pw
-        for engine in SMOKE_ENGINES
-            bt = getfield(pw, Symbol(engine))
+        for eng in SMOKE_ENGINES
+            bt = engine(pw, eng)
 
-            @testset "$engine: record, stop the server, replay" begin
+            @testset "$eng: record, stop the server, replay" begin
                 workdir = mktempdir()
                 archive = joinpath(workdir, "roundtrip.har")
 
@@ -90,7 +90,7 @@ end
                 # No url filter: the document itself has to be in the archive or
                 # there is nothing to navigate to in phase 2. The filtered case
                 # is the `url`-filter test below, and it is separate on purpose.
-                recorded, base_url = within_deadline("$engine record") do
+                recorded, base_url = within_deadline("$eng record") do
                     with_har_server() do url, _body, _hits, stop_server
                         texts = with_browser(bt) do browser
                             page = new_page(browser)
@@ -119,7 +119,7 @@ end
                 @test !server_is_up(base_url)
 
                 # --- Phase 2: replay, with nothing behind it -----------------
-                replayed = within_deadline("$engine replay") do
+                replayed = within_deadline("$eng replay") do
                     with_browser(bt) do browser
                         page = new_page(browser)
                         ctx = first(contexts(browser))
@@ -135,7 +135,7 @@ end
                 @test replayed == recorded
             end
 
-            @testset "$engine: a url filter leaves the document out" begin
+            @testset "$eng: a url filter leaves the document out" begin
                 # This asserts the *absence* of something from the archive,
                 # which cannot be read off the file without parsing HAR — and
                 # this package does not parse HAR. So it is asserted the way a
@@ -144,7 +144,7 @@ end
                 workdir = mktempdir()
                 archive = joinpath(workdir, "api-only.har")
 
-                base_url = within_deadline("$engine record filtered") do
+                base_url = within_deadline("$eng record filtered") do
                     with_har_server() do url, _body, _hits, stop_server
                         with_browser(bt) do browser
                             page = new_page(browser)
@@ -165,7 +165,7 @@ end
 
                 # The document is not in the archive, so navigating fails under
                 # the :abort default.
-                navigation_failed = within_deadline("$engine replay filtered") do
+                navigation_failed = within_deadline("$eng replay filtered") do
                     with_browser(bt) do browser
                         page = new_page(browser)
                         ctx = first(contexts(browser))
@@ -182,7 +182,7 @@ end
                 @test navigation_failed
             end
 
-            @testset "$engine: update = true refreshes a stale archive" begin
+            @testset "$eng: update = true refreshes a stale archive" begin
                 # The leg that closes the loop. Unlike every other replay test
                 # this one needs a backend to record *from*, which is why it
                 # does not share a fixture with them.
@@ -193,7 +193,7 @@ end
                 workdir = mktempdir()
                 archive = joinpath(workdir, "stale.har")
 
-                base_url = within_deadline("$engine update", 180.0) do
+                base_url = within_deadline("$eng update", 180.0) do
                     with_har_server() do url, body, _hits, stop_server
                         # Phase 1: the archive as originally recorded.
                         with_browser(bt) do browser
@@ -232,7 +232,7 @@ end
                 # The new body is the assertion — the old one would mean update
                 # had quietly done nothing, which is the failure the refusal
                 # existed to prevent in the first place.
-                replayed = within_deadline("$engine update replay") do
+                replayed = within_deadline("$eng update replay") do
                     with_browser(bt) do browser
                         page = new_page(browser)
                         ctx = first(contexts(browser))

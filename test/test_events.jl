@@ -20,7 +20,7 @@ function autoreply!(fake::FakeDriver)
     seen = Vector{Any}()
     @async try
         while true
-            msg = take!(fake.client_messages)
+            msg = next_message(fake)
             push!(seen, msg)
             reply_ok(fake, msg["id"], Dict{String,Any}())
         end
@@ -63,8 +63,8 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         sub = Playwright.subscribe(f.page, "console")
         send_event(f.fake, "page@1", "console", Dict("text" => "hello"))
         @test timedwait(() -> isready(sub.channel), 5.0) === :ok
-        @test take!(sub.channel)["text"] == "hello"
-        close(f.conn)
+        @test take_within!(sub.channel, "an event on `sub`")["text"] == "hello"
+        shutdown!(f.fake)
     end
 
     @testset "events route to the right subscriber only" begin
@@ -75,13 +75,13 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
 
         send_event(f.fake, "page@1", "console", Dict("text" => "for page 1"))
         @test timedwait(() -> isready(on_page.channel), 5.0) === :ok
-        @test take!(on_page.channel)["text"] == "for page 1"
+        @test take_within!(on_page.channel, "an event on `on_page`")["text"] == "for page 1"
 
         # A sibling page and a different event name on the same page must not
         # have seen it.
         @test !isready(on_page2.channel)
         @test !isready(on_other_event.channel)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "two subscriptions on the same owner and event both receive it" begin
@@ -90,9 +90,9 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         b = Playwright.subscribe(f.page, "console")
         send_event(f.fake, "page@1", "console", Dict("text" => "broadcast"))
         @test timedwait(() -> isready(a.channel) && isready(b.channel), 5.0) === :ok
-        @test take!(a.channel)["text"] == "broadcast"
-        @test take!(b.channel)["text"] == "broadcast"
-        close(f.conn)
+        @test take_within!(a.channel, "an event on `a`")["text"] == "broadcast"
+        @test take_within!(b.channel, "an event on `b`")["text"] == "broadcast"
+        shutdown!(f.fake)
     end
 
     @testset "an event for an unknown guid never kills the read loop" begin
@@ -102,8 +102,8 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         send_event(f.fake, "page@1", "console", Dict("text" => "still alive"))
         # The connection must still be dispatching after the orphan.
         @test timedwait(() -> isready(sub.channel), 5.0) === :ok
-        @test take!(sub.channel)["text"] == "still alive"
-        close(f.conn)
+        @test take_within!(sub.channel, "an event on `sub`")["text"] == "still alive"
+        shutdown!(f.fake)
     end
 
     @testset "no event is dropped — 5 000 messages, 5 000 received" begin
@@ -114,10 +114,10 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
             send_event(f.fake, "page@1", "console", Dict("n" => i))
         end
         @test timedwait(() -> Base.n_avail(sub.channel) == 5_000, 60.0) === :ok
-        received = [take!(sub.channel)["n"] for _ = 1:5_000]
+        received = [take_within!(sub.channel, "an event on `sub`")["n"] for _ = 1:5_000]
         @test length(received) == 5_000
         @test received == collect(1:5_000)   # and in order
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "close(sub) detaches from the registry and empties the buffer" begin
@@ -133,7 +133,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         # garbage now, not at some later GC of the handle.
         @test Base.n_avail(sub.channel) == 0
         @test sub.closed
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "close(sub) is idempotent" begin
@@ -142,7 +142,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         close(sub)
         @test close(sub) === nothing
         @test subscription_count(f.conn) == 0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "dispatch to a closed subscription is a no-op, not an error" begin
@@ -154,9 +154,9 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         fresh = Playwright.subscribe(f.page, "console")
         send_event(f.fake, "page@1", "console", Dict("text" => "fresh"))
         @test timedwait(() -> isready(fresh.channel), 5.0) === :ok
-        @test take!(fresh.channel)["text"] == "fresh"
+        @test take_within!(fresh.channel, "an event on `fresh`")["text"] == "fresh"
         @test Base.n_avail(sub.channel) == 0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "closing an owner closes the subscriptions beneath it" begin
@@ -175,7 +175,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         # buffer; emptying it here would discard a `close` event that arrived
         # in the same breath as the dispose.
         @test !haskey(f.conn.subscriptions, "page@1")
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a dropped page does not keep its backlog alive" begin
@@ -198,7 +198,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         # ...and an explicit close still empties it, as it always did.
         close(sub)
         @test Base.n_avail(sub.channel) == 0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a wait on a closed owner gives up at once, not at the timeout" begin
@@ -213,7 +213,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
             nothing,
         )
         @test elapsed < 5.0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a buffered payload survives the dispose that follows it" begin
@@ -227,7 +227,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         send_dispose(f.fake, "page@1")
         @test timedwait(() -> sub.closed, 5.0) === :ok
         @test Playwright.take_event!(sub, :console, 1_000, nothing)["text"] == "last words"
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "closing the connection clears the whole registry" begin
@@ -237,7 +237,7 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         Playwright.subscribe(f.context, "page")
         @test subscription_count(f.conn) == 2
 
-        close(f.conn)
+        shutdown!(f.fake)
         @test timedwait(() -> subscription_count(f.conn) == 0, 5.0) === :ok
     end
 
@@ -250,11 +250,11 @@ subscription_count(conn) = sum(length, values(conn.subscriptions); init = 0)
         send_event(b.fake, "page@1", "console", Dict("text" => "other session"))
         send_event(a.fake, "page@1", "console", Dict("text" => "this session"))
         @test timedwait(() -> isready(sub_a.channel), 5.0) === :ok
-        @test take!(sub_a.channel)["text"] == "this session"
+        @test take_within!(sub_a.channel, "an event on `sub_a`")["text"] == "this session"
         @test Base.n_avail(sub_a.channel) == 0
 
-        close(a.conn)
-        close(b.conn)
+        shutdown!(a.fake)
+        shutdown!(b.fake)
     end
 end
 
@@ -280,7 +280,7 @@ end
         end
         @test msg isa Playwright.ConsoleMessage
         @test msg.text == "shouted"
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the block's own return value is not what comes back" begin
@@ -290,7 +290,7 @@ end
             :block_value
         end
         @test got isa Playwright.ConsoleMessage
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "event names accept Symbol, wire spelling and String" begin
@@ -300,7 +300,7 @@ end
                 send_event(f.fake, "context@1", "console", Dict("text" => "hi"))
             end
             @test msg.text == "hi"
-            close(f.conn)
+            shutdown!(f.fake)
         end
         # camelCase wire spellings normalise to the same event
         f = event_fixture()
@@ -316,7 +316,7 @@ end
             end
             @test got isa Playwright.Frame
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "payloads arrive as their own wrapper types" begin
@@ -353,7 +353,7 @@ end
         @test err isa Playwright.PageError
         @test err.message == "boom"
         @test err.name == "TypeError"
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a console payload carries type, text and location" begin
@@ -381,7 +381,7 @@ end
         @test msg.location.line == 7
         @test msg.location.column == 3
         @test msg.timestamp == 1234.0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "opt-in events tell the driver to start and stop sending them" begin
@@ -400,7 +400,7 @@ end
         @test updates[1]["params"]["event"] == "console"
         @test updates[1]["params"]["enabled"] == true
         @test updates[2]["params"]["enabled"] == false
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "an event that needs no opt-in does not send one" begin
@@ -416,7 +416,7 @@ end
         @test isempty([
             r for r in f.requests if get(r, "method", "") == "updateSubscription"
         ])
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "nested subscriptions do not switch each other off" begin
@@ -443,7 +443,7 @@ end
             r["params"]["enabled"] == false
         ]
         @test length(disables) == 1
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a predicate skips events that do not match" begin
@@ -453,7 +453,7 @@ end
             send_event(f.fake, "context@1", "console", Dict("text" => "second"))
         end
         @test msg.text == "second"
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a wait that never matches raises TimeoutError" begin
@@ -471,7 +471,7 @@ end
         catch e
             @test occursin("console", e.message)
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the timeout comes from the cascade when none is given" begin
@@ -483,7 +483,7 @@ end
         ) do
         end
         @test elapsed < 5.0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "an unsupported event names itself and says it is deferred" begin
@@ -547,7 +547,7 @@ end
         end
         @test err isa ArgumentError
         @test !occursin("deferred", lowercase(err.msg))
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # A message here can go stale without anything breaking, and then it tells
@@ -598,7 +598,7 @@ end
         for gone in (:download, :filechooser)
             @test !haskey(Playwright.DEFERRED_EVENTS, gone)
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # The gate above catches an entry that lies about being unsupported. Nothing
@@ -623,7 +623,7 @@ end
             # a dead end.
             @test occursin("with_dialog", err.msg)
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "an event on the wrong owner type is rejected" begin
@@ -631,7 +631,7 @@ end
         # :console lives on the context, not the page
         @test_throws ArgumentError expect_event(f.page, :console) do
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the registry is empty after the block, however it ends" begin
@@ -657,7 +657,7 @@ end
             error("body blew up")
         end
         @test subscription_count(f.conn) == 0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "wait_for_event waits for something already in flight" begin
@@ -666,9 +666,9 @@ end
         waiter = @async wait_for_event(f.context, :console; timeout = 5_000)
         @test timedwait(() -> subscription_count(f.conn) == 1, 5.0) === :ok
         send_event(f.fake, "context@1", "console", Dict("text" => "later"))
-        @test fetch(waiter).text == "later"
+        @test await(waiter).text == "later"
         @test subscription_count(f.conn) == 0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_events collects every event in the block" begin
@@ -685,7 +685,7 @@ end
         end
         @test [m.text for m in collected] == ["m1", "m2", "m3", "m4", "m5"]
         @test subscription_count(f.conn) == 0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_events closes its subscription even when the block throws" begin
@@ -694,7 +694,7 @@ end
             error("nope")
         end
         @test subscription_count(f.conn) == 0
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "next_event pulls one payload at a time" begin
@@ -706,7 +706,7 @@ end
             @test next_event(events; timeout = 5_000).text == "b"
             @test_throws Playwright.TimeoutError next_event(events; timeout = 100)
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "no event is dropped across a 5 000-message burst" begin
@@ -720,7 +720,7 @@ end
             @test texts[1] == "m1"
             @test texts[end] == "m5000"
         end
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "framedetached still reaches subscribers despite internal handling" begin
@@ -749,6 +749,6 @@ end
             () -> Playwright.lookup_object(f.conn, "frame@7") === nothing,
             5.0,
         ) === :ok
-        close(f.conn)
+        shutdown!(f.fake)
     end
 end

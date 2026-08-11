@@ -153,11 +153,11 @@ todo_texts(page) =
 @testset "smoke: network" begin
     with_network_server() do base_url, hits, seen_headers
         playwright() do pw
-            for engine in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(engine))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$engine: with_route fulfils with no server behind it" begin
-                    seen = within_deadline("$engine with_route fulfils") do
+                @testset "$eng: with_route fulfils with no server behind it" begin
+                    seen = within_deadline("$eng with_route fulfils") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -190,8 +190,8 @@ todo_texts(page) =
                     @test seen.after == seen.before
                 end
 
-                @testset "$engine: page routes are page-scoped, context routes are not" begin
-                    seen = within_deadline("$engine route scope") do
+                @testset "$eng: page routes are page-scoped, context routes are not" begin
+                    seen = within_deadline("$eng route scope") do
                         with_browser(bt) do browser
                             ctx = new_context(browser)
                             routed = new_page(ctx)
@@ -244,8 +244,8 @@ todo_texts(page) =
                     @test seen.both == ["context-scoped", "context-scoped"]
                 end
 
-                @testset "$engine: unmatched requests are continued, page loads" begin
-                    seen = within_deadline("$engine unmatched continue") do
+                @testset "$eng: unmatched requests are continued, page loads" begin
+                    seen = within_deadline("$eng unmatched continue") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -286,8 +286,8 @@ todo_texts(page) =
                     @test seen.todos == ["from the server"]
                 end
 
-                @testset "$engine: a throwing handler surfaces out of with_route" begin
-                    seen = within_deadline("$engine throwing handler") do
+                @testset "$eng: a throwing handler surfaces out of with_route" begin
+                    seen = within_deadline("$eng throwing handler") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -329,8 +329,8 @@ todo_texts(page) =
                     @test seen.todos == ["from the server"]
                 end
 
-                @testset "$engine: a handler that settles nothing warns once, no hang" begin
-                    seen = within_deadline("$engine unsettled warns once") do
+                @testset "$eng: a handler that settles nothing warns once, no hang" begin
+                    seen = within_deadline("$eng unsettled warns once") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -376,8 +376,8 @@ todo_texts(page) =
                     @test seen.warnings == 1
                 end
 
-                @testset "$engine: expect_request returns the real request" begin
-                    seen = within_deadline("$engine expect_request") do
+                @testset "$eng: expect_request returns the real request" begin
+                    seen = within_deadline("$eng expect_request") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -407,8 +407,8 @@ todo_texts(page) =
                     @test seen.resource in ("fetch", "xhr")
                 end
 
-                @testset "$engine: expect_response reads status, headers and body" begin
-                    seen = within_deadline("$engine expect_response") do
+                @testset "$eng: expect_response reads status, headers and body" begin
+                    seen = within_deadline("$eng expect_response") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -454,8 +454,8 @@ todo_texts(page) =
                     @test seen.missing_ok == false
                 end
 
-                @testset "$engine: :requestfailed fires with the engine's text" begin
-                    seen = within_deadline("$engine requestfailed") do
+                @testset "$eng: :requestfailed fires with the eng's text" begin
+                    seen = within_deadline("$eng requestfailed") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -489,8 +489,8 @@ todo_texts(page) =
                     @test !isempty(seen.text)
                 end
 
-                @testset "$engine: page-scoped events see only their page" begin
-                    seen = within_deadline("$engine page-scoped events") do
+                @testset "$eng: page-scoped events see only their page" begin
+                    seen = within_deadline("$eng page-scoped events") do
                         with_browser(bt) do browser
                             ctx = new_context(browser)
                             watched = new_page(ctx)
@@ -521,8 +521,8 @@ todo_texts(page) =
                     @test endswith(seen.url, "/api/todos")
                 end
 
-                @testset "$engine: the four network events are no longer deferred" begin
-                    seen = within_deadline("$engine events not deferred") do
+                @testset "$eng: the four network events are no longer deferred" begin
+                    seen = within_deadline("$eng events not deferred") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -544,8 +544,8 @@ todo_texts(page) =
                     @test seen.finished isa Playwright.Request
                 end
 
-                @testset "$engine: fulfil from a real upstream response" begin
-                    seen = within_deadline("$engine fulfil from upstream") do
+                @testset "$eng: fulfil from a real upstream response" begin
+                    seen = within_deadline("$eng fulfil from upstream") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -588,8 +588,8 @@ todo_texts(page) =
                     @test seen.rendered == ["from the server"]
                 end
 
-                @testset "$engine: an APIResponse is disposed after its handler" begin
-                    seen = within_deadline("$engine APIResponse disposal") do
+                @testset "$eng: an APIResponse is disposed after its handler" begin
+                    seen = within_deadline("$eng APIResponse disposal") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -645,8 +645,8 @@ todo_texts(page) =
                     @test seen.body_after_dispose == "raised"
                 end
 
-                @testset "$engine: raw_headers differs from headers" begin
-                    seen = within_deadline("$engine raw_headers") do
+                @testset "$eng: raw_headers differs from headers" begin
+                    seen = within_deadline("$eng raw_headers") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -683,8 +683,8 @@ todo_texts(page) =
                     end
                 end
 
-                @testset "$engine: overlapping registrations resolve newest-first" begin
-                    seen = within_deadline("$engine overlapping registrations") do
+                @testset "$eng: overlapping registrations resolve newest-first" begin
+                    seen = within_deadline("$eng overlapping registrations") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -728,8 +728,8 @@ todo_texts(page) =
                     @test seen.none == ["from the server"]
                 end
 
-                @testset "$engine: abort! stops the request reaching the server" begin
-                    seen = within_deadline("$engine abort!") do
+                @testset "$eng: abort! stops the request reaching the server" begin
+                    seen = within_deadline("$eng abort!") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))
@@ -759,8 +759,8 @@ todo_texts(page) =
                     @test seen.after == seen.before
                 end
 
-                @testset "$engine: continue! reaches the server modified" begin
-                    seen = within_deadline("$engine continue! rewrite") do
+                @testset "$eng: continue! reaches the server modified" begin
+                    seen = within_deadline("$eng continue! rewrite") do
                         with_browser(bt) do browser
                             page = new_page(browser)
                             ctx = first(contexts(browser))

@@ -15,3 +15,7 @@ examples/output/
 # Traces, video and PDF written by the artifact tests. Binaries, and
 # regenerated on every run — never worth committing.
 artifacts/
+# The browser cache, when PLAYWRIGHT_BROWSERS_PATH points into the checkout —
+# which is what the README's CI recipe and CI.yml both do. Several hundred
+# megabytes of downloaded browser, one `git add -A` away from being committed.
+.playwright/

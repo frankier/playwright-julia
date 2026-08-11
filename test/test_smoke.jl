@@ -45,8 +45,14 @@ tryrun(cmd) =
             @test pw isa Playwright.PlaywrightAPI
             @test pw.chromium isa Playwright.BrowserType
             @test pw.firefox isa Playwright.BrowserType
+            # webkit is the third BrowserType the root initializer has always
+            # carried and start_playwright never read (D1). Asking the *real*
+            # driver its name is SC 1 -- no browser download is involved, the
+            # name comes off the initializer.
+            @test pw.webkit isa Playwright.BrowserType
             @test Playwright.browser_name(pw.chromium) == "chromium"
             @test Playwright.browser_name(pw.firefox) == "firefox"
+            @test Playwright.browser_name(pw.webkit) == "webkit"
             pw_ref[] = pw
             :block_result
         end
@@ -85,10 +91,10 @@ tryrun(cmd) =
 
     with_fixture_server() do base_url
         playwright() do pw
-            for browser_name in SMOKE_ENGINES
-                bt = getfield(pw, Symbol(browser_name))
+            for eng in SMOKE_ENGINES
+                bt = engine(pw, eng)
 
-                @testset "$browser_name: launch → new_page → goto! → title → close!" begin
+                @testset "$eng: launch → new_page → goto! → title → close!" begin
                     browser = launch(bt; headless = true)
                     @test browser isa Playwright.Browser
                     page = new_page(browser)
@@ -101,26 +107,39 @@ tryrun(cmd) =
                     goto!(page, "$base_url/second.html")
                     @test title(page) == "Second Fixture Page"
 
-                    @test_throws PlaywrightError goto!(
-                        page,
-                        "http://127.0.0.1:1/unreachable";
-                        timeout = 5_000,
+                    # WebKit resolves this rather than raising: a connection
+                    # to a closed port on localhost comes back as a response it
+                    # is willing to hand over, where Chromium and Firefox both
+                    # surface a network error.
+                    if !skip_engine(
+                        eng,
+                        "webkit",
+                        "webkit resolves an unreachable host instead of raising",
                     )
+                        @test_throws PlaywrightError goto!(
+                            page,
+                            "http://127.0.0.1:1/unreachable";
+                            timeout = 5_000,
+                        )
+                    end
 
                     close!(page)
                     close!(browser)
                 end
 
-                @testset "$browser_name: set_default_timeout! shortens a real miss" begin
+                @testset "$eng: set_default_timeout! shortens a real miss" begin
                     # The point of the cascade is that a missing selector
                     # fails in the time you asked for, not in 30 s. Measuring
                     # the elapsed time is the only way to tell a resolved
                     # timeout from a hardcoded one that happens to raise.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
-                    set_default_timeout!(ctx, 2_000)
                     page = new_page(ctx)
                     goto!(page, "$base_url/")
+                    # Set after navigating: the elapsed-time assertion below is
+                    # about a missing selector resolving its timeout from the
+                    # cascade, and the fixture load is only setup.
+                    set_default_timeout!(ctx, 2_000)
 
                     missing_el = locator(page, "#definitely-not-here")
                     elapsed = @elapsed @test_throws Playwright.TimeoutError text_content(
@@ -145,7 +164,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: locators — text_content, click!, set_value!" begin
+                @testset "$eng: locators — text_content, click!, set_value!" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/")
@@ -206,7 +225,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: multi-match locators over sliders.html" begin
+                @testset "$eng: multi-match locators over sliders.html" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/sliders.html")
@@ -256,7 +275,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: dispatch_event! drives a range input" begin
+                @testset "$eng: dispatch_event! drives a range input" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/sliders.html")
@@ -297,7 +316,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: content and state queries" begin
+                @testset "$eng: content and state queries" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/sliders.html")
@@ -321,7 +340,15 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: launch options reach the browser" begin
+                @testset "$eng: launch options reach the browser" begin
+                    # Same reason as the shared-option set in test_fixtures.jl:
+                    # the Chromium flag below is fatal to WebKit rather than
+                    # inert. The second of the two sites that pass one.
+                    skip_engine(
+                        eng,
+                        "webkit",
+                        "webkit rejects unknown command-line args instead of ignoring them",
+                    ) && continue
                     browser = launch(
                         bt;
                         headless = true,
@@ -336,7 +363,7 @@ tryrun(cmd) =
                     @test title(page) == "Playwright.jl Fixture"
                     close!(browser)
 
-                    if browser_name == "firefox"
+                    if eng == "firefox"
                         # Observably applied: the pref is readable back through
                         # the same preference service that set it.
                         browser = launch(
@@ -350,7 +377,7 @@ tryrun(cmd) =
                     end
                 end
 
-                @testset "$browser_name: explicit context lifecycle" begin
+                @testset "$eng: explicit context lifecycle" begin
                     browser = launch(bt; headless = true)
                     @test isempty(Playwright.contexts(browser))
 
@@ -374,7 +401,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: new_page(browser) no longer leaks its context" begin
+                @testset "$eng: new_page(browser) no longer leaks its context" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/")
@@ -396,7 +423,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: console messages and page errors" begin
+                @testset "$eng: console messages and page errors" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/noisy.html")
@@ -443,7 +470,7 @@ tryrun(cmd) =
                     close!(browser)
                 end
 
-                @testset "$browser_name: screenshot writes a non-empty PNG" begin
+                @testset "$eng: screenshot writes a non-empty PNG" begin
                     browser = launch(bt; headless = true)
                     page = new_page(browser)
                     goto!(page, "$base_url/")

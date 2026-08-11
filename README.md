@@ -94,7 +94,14 @@ $ PLAYWRIGHT_JL_SMOKE=1 julia --project=. -e 'using Pkg; Pkg.test()' # + real br
 ```
 
 The hermetic suite needs no Node.js and no browsers. The smoke suite launches
-headless Chromium and Firefox against local HTML fixtures served in-process.
+headless browsers against local HTML fixtures served in-process — all five
+engines by default. Narrow it with `PLAYWRIGHT_JL_ENGINE`, which takes one name
+or a comma-separated list:
+
+```console
+$ PLAYWRIGHT_JL_SMOKE=1 PLAYWRIGHT_JL_ENGINE=webkit julia --project=. -e 'using Pkg; Pkg.test()'
+$ PLAYWRIGHT_JL_SMOKE=1 PLAYWRIGHT_JL_ENGINE=chromium,firefox julia --project=. -e 'using Pkg; Pkg.test()'
+```
 
 Build the docs locally with `julia --project=docs docs/make.jl`. That build
 never launches a browser.
@@ -119,8 +126,26 @@ generated API would be a transliteration of TypeScript rather than Julia.
 
 ## Status
 
-Chromium and Firefox, on Linux, through a synchronous API. What the package
-covers:
+Five engines on three platforms, through a synchronous API.
+
+| | Linux | macOS | Windows |
+|---|---|---|---|
+| `chromium`, `firefox` | yes | yes | yes |
+| `webkit` | yes | yes | no |
+| `chrome`, `msedge` | yes | yes | yes |
+
+`chrome` and `msedge` are **channels, not engines**: Playwright launches Google
+Chrome and Microsoft Edge as `chromium` with a `channel`, using the browser
+already installed on the machine rather than downloading one.
+[`engine(pw, name)`](https://frankier.github.io/playwright-julia/dev/engines/)
+is where that mapping lives, so code with an engine name in a variable does not
+have to carry its own copy.
+
+WebKit on Windows is not supported — that is a decision, not an omission; see
+[the engines page](https://frankier.github.io/playwright-julia/dev/engines/) for
+what else differs between the five, and why.
+
+What the package covers:
 
 - Locators, JavaScript evaluation and the frame tree.
 - Driver-side waiting, and assertions that retry until they hold.
@@ -137,9 +162,12 @@ covers:
 Naming follows one rule: a call that changes what the page can observe ends in
 `!` — `goto!`, `click!`, `close!`, `set_value!`.
 
-Not yet covered: WebKit, because `PlaywrightAPI` carries `chromium` and
-`firefox` fields only, so there is no `pw.webkit` to launch. Also service
-workers, a Julia trace *viewer* or any trace parsing, and an async API.
+Not yet covered: service workers, because nothing in the wrapper reaches
+`BrowserContext.serviceWorkers` and a route that a worker intercepts is
+invisible to it. A Julia trace *viewer* or any trace parsing — traces are
+written and can be opened in Playwright's own viewer, but nothing here reads
+one back. And an async API: every call blocks, which is the right default for a
+test suite and the wrong one for driving many pages at once.
 
 ## Licence
 

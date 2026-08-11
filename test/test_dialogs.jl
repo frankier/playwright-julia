@@ -80,7 +80,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         f = timeout_fixture()
         @test Playwright.dialog_registry_for(f.page) === nothing
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the dispatcher starts on registration and stops on release" begin
@@ -99,7 +99,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         # registry is a task leaked per page.
         bounded(() -> istaskdone(task))
         @test Playwright.dialog_registry_for(f.page) === nothing
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "registering opts in, and releasing opts out" begin
@@ -119,7 +119,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         bounded(() -> length(seen) >= 2)
         @test seen[2]["method"] == "updateSubscription"
         @test seen[2]["params"]["enabled"] == false
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the dispatcher survives a handler that throws" begin
@@ -149,7 +149,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         end
         @test err !== nothing
         @test occursin("handler boom", sprint(showerror, err))
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     # --- The behaviour ------------------------------------------------------
@@ -167,7 +167,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         bounded(() -> seen[] !== nothing)
         @test seen[] == ("prompt", "your name?", "Ada")
         off_dialog!(f.page, reg)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "accept! sends promptText only when given" begin
@@ -181,7 +181,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         @test acc["guid"] == "dialog@q"
         @test acc["params"]["promptText"] == "Ada"
         off_dialog!(f.page, reg)
-        close(f.fake.connection)
+        shutdown!(f.fake)
 
         f2 = timeout_fixture()
         seen2 = collect_requests!(f2)
@@ -191,7 +191,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         acc2 = seen2[findfirst(m -> m["method"] == "accept", seen2)]
         @test !haskey(acc2["params"], "promptText")
         off_dialog!(f2.page, reg2)
-        close(f2.fake.connection)
+        shutdown!(f2.fake)
     end
 
     @testset "a handler that answers nothing gets a dismissal and one warning" begin
@@ -218,7 +218,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         bounded(() -> count(m -> m["method"] == "dismiss", seen) > before)
 
         off_dialog!(f.page, reg)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a throwing handler still gets the dialog dismissed" begin
@@ -230,7 +230,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         # The page must proceed even though the handler failed.
         bounded(() -> any(m -> m["method"] == "dismiss" && m["guid"] == "dialog@z", seen))
         @test_throws Exception off_dialog!(f.page, reg)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "handlers never run on the transport reader task" begin
@@ -251,7 +251,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         @test ran_on[] === registry.task
         @test ran_on[] !== f.fake.connection.transport.reader
         off_dialog!(f.page, reg)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "with_dialog releases even when the body throws" begin
@@ -261,7 +261,7 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
             error("body boom")
         end
         @test Playwright.dialog_registry_for(f.page) === nothing
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a dialog for another page is not this page's to answer" begin
@@ -281,6 +281,6 @@ bounded(cond; seconds = 10.0) = @test timedwait(cond, seconds) === :ok
         fire_dialog(f, "dialog@mine"; page_guid = "page@1")
         bounded(() -> touched[])
         off_dialog!(f.page, reg)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end

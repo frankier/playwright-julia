@@ -81,7 +81,7 @@ try
     @info "Genie answered its first request after $(warmup)s"
 
     playwright() do pw
-        browser = launch(engine(pw); headless = true)
+        browser = launch(engine_from_env(pw); headless = true)
         try
             page = new_page(browser)
 
