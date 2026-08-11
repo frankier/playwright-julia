@@ -134,9 +134,12 @@ tryrun(cmd) =
                     # timeout from a hardcoded one that happens to raise.
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
-                    set_default_timeout!(ctx, 2_000)
                     page = new_page(ctx)
                     goto!(page, "$base_url/")
+                    # Set after navigating: the elapsed-time assertion below is
+                    # about a missing selector resolving its timeout from the
+                    # cascade, and the fixture load is only setup.
+                    set_default_timeout!(ctx, 2_000)
 
                     missing_el = locator(page, "#definitely-not-here")
                     elapsed = @elapsed @test_throws Playwright.TimeoutError text_content(

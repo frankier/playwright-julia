@@ -216,9 +216,13 @@ end
                 @testset "$eng: expect timeouts come from the cascade" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
-                    set_default_timeout!(ctx, 1_000)
                     page = new_page(ctx)
                     goto!(page, "$base_url/waiting.html")
+                    # After the navigation, not before — see the identical note
+                    # on "waiting timeouts come from the cascade". goto!
+                    # inherits the context default, and the subject here is
+                    # expect's timeout.
+                    set_default_timeout!(ctx, 1_000)
 
                     elapsed = @elapsed @test_throws Playwright.AssertionFailure expect(
                         locator(page, "h1");

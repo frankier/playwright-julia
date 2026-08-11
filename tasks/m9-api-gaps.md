@@ -49,4 +49,29 @@ Recorded so that a later reader does not re-open a settled question:
 
 ## Gaps
 
-_None recorded yet._
+### 1. No public accessor for the running browser's version
+
+**Surfaced by:** the branded engines, and specifically by R4.
+
+`Browser`'s initializer carries a `version` field — the diagnostics job read it
+directly to answer OQ 3, and printed `chrome 151.0.7922.72`,
+`msedge 150.0.4078.105` and so on. There is no public way to ask for it.
+[`browser_name`](@ref) answers `"chromium"` and stops there.
+
+Before M9 this was uninteresting: the bundled engines are pinned by
+`PLAYWRIGHT_VERSION`, so the version was a constant a user could look up. D3a
+changes that. Chrome and Edge come from the machine and move on Google's and
+Microsoft's schedules, and the probe already caught the three runner images
+carrying three different Chrome versions in the same run, one of them a major
+version ahead. A user whose branded test starts failing has no supported way to
+record what it ran against.
+
+**Not done because** it is API surface, not a divergence, and M9's rule is that
+Part A adds nothing beyond `Engine`, `engine`, `engine_name` and `skip_engine`.
+Adding a `browser_version` accessor is a small, self-contained piece of work
+that belongs in a milestone that is choosing its API rather than one that is
+proving a matrix.
+
+It is also the natural companion to a *reporting* question this milestone did
+not open: `report_diagnostics` exists and would be the obvious place to include
+the engine name and browser version together.

@@ -137,9 +137,12 @@ end
                     @assert browser_name(browser) == browser_name(e)
 
                     ctx = new_context(browser)
-                    set_default_timeout!(ctx, 2_000)
                     page = new_page(ctx)
                     goto!(page, url)
+                    # The cascade goes on after the navigation: the walkthrough
+                    # is about auto-waiting, not about how fast a cold browser
+                    # loads a local page.
+                    set_default_timeout!(ctx, 2_000)
 
                     # Real auto-waiting, no hand-rolled polling
                     wait_for_selector(page, "#late")
