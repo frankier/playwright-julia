@@ -48,6 +48,29 @@ function include_traced(file)
     flush(stderr)
 end
 
+# The task running the suite, captured so the watchdog can read its state from
+# outside. A Timer callback runs on its own task, so nothing it asks about
+# itself describes the hang.
+const MAIN_TASK = current_task()
+
+# The nested @testset descriptions the main task is currently inside, outermost
+# first. Test keeps that stack in task-local storage, and a Task's storage is an
+# ordinary IdDict reachable from another task -- which is the only way to get a
+# testset name out of a run that will never reach its own report. Internals, so
+# it is wrapped: a change to the key must degrade the watchdog, not replace the
+# diagnosis with an exception inside the diagnostic.
+function testset_stack()
+    try
+        store = MAIN_TASK.storage
+        store === nothing && return String[]
+        stack = get(store, :__BASETESTNEXT__, nothing)
+        stack === nothing && return String[]
+        return [string(getfield(ts, :description)) for ts in stack]
+    catch err
+        return ["<unavailable: $err>"]
+    end
+end
+
 # A Timer, deliberately: it runs on the event loop, so it fires while the main
 # task sits in a `take!` that will never be satisfied -- the shape every stalled
 # Windows job has. If it does *not* fire, the process is blocked somewhere that
@@ -56,16 +79,25 @@ watchdog =
     FILE_TIMEOUT <= 0 ? nothing :
     Timer(30.0; interval = 30.0) do _
         elapsed = time() - FILE_STARTED[]
-        if elapsed > FILE_TIMEOUT
-            println(
-                stderr,
-                "!!! WATCHDOG: $(CURRENT_FILE[]) has been running for " *
-                "$(round(Int, elapsed))s (limit $(round(Int, FILE_TIMEOUT))s). " *
-                "Killing the process so the log names the file.",
-            )
-            flush(stderr)
-            exit(1)
+        elapsed > FILE_TIMEOUT || return
+        println(
+            stderr,
+            "!!! WATCHDOG: $(CURRENT_FILE[]) has been running for " *
+            "$(round(Int, elapsed))s (limit $(round(Int, FILE_TIMEOUT))s).",
+        )
+        println(stderr, "!!! testset: " * join(testset_stack(), " > "))
+        flush(stderr)
+        # Every task's backtrace, which for a deadlock is the whole answer: the
+        # line the suite is waiting on and the line whoever should wake it is
+        # waiting on, together. Undocumented, and worth it -- the alternative is
+        # another hour-long run that says no more than the last one did.
+        try
+            @ccall jl_print_task_backtraces(0::Cint)::Cvoid
+        catch err
+            println(stderr, "!!! could not dump task backtraces: $err")
         end
+        flush(stderr)
+        exit(1)
     end
 
 @testset "Playwright.jl" begin
