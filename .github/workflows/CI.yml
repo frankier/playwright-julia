@@ -4,6 +4,9 @@
 #   test     3 OS x 2 Julia. No Node, no browser, no network beyond the
 #            registry. The cheapest signal on every platform, and the one that
 #            tells a portability bug apart from a browser bug.
+#   driver   3 OS. Assembles the driver bundle and asks it its version. Two
+#            minutes, no browser — the rung that separates "the bundle is
+#            wrong" from "the browser is wrong".
 #   smoke    14 jobs, the platform x engine grid minus WebKit on Windows (D12).
 #            Real browsers against a fixture server served in-process.
 #   examples 2 jobs, Linux only, on the bundled engines. Slow by nature and
@@ -57,6 +60,41 @@ jobs:
       - uses: julia-actions/cache@v3
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
+
+  driver:
+    # The cheap rung between hermetic and smoke (D6): assemble the driver
+    # bundle and ask it its version. Two minutes against a smoke job's twenty,
+    # with no browser involved.
+    #
+    # It exists because "the driver bundle is wrong" and "the browser is wrong"
+    # are different failures with different fixes, and finding the first under
+    # the second's feedback loop is how a week disappears. On Windows it proves
+    # the member-limited extraction gets node.exe out of the .zip (D9); on
+    # macOS it is the first execution of node_platform's arm64 branch.
+    name: Driver assembly (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: "1.10"
+      - uses: julia-actions/cache@v3
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Assemble the driver and run it
+        # No browsers: install_driver only. `--version` is the cheapest
+        # question that proves the assembled node binary can run the assembled
+        # playwright-core.
+        run: |
+          julia --project=. -e '
+            using Playwright
+            dir = Playwright.install_driver()
+            @info "assembled" dir contents = sort(readdir(dir))
+            run(Playwright.driver_cmd("--version"; dir))'
 
   smoke:
     # The job that makes CI mean something for this package: real browsers
