@@ -44,7 +44,7 @@ closed_reply(fake, id) = driver_send(
         # The point of the closed set: `:allways` must not silently mean
         # "never dump anything".
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "artifacts_on without artifacts is refused" begin
@@ -59,7 +59,7 @@ closed_reply(fake, id) = driver_send(
         @test err isa ArgumentError
         @test occursin("artifacts", err.msg)
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the default artifacts_on needs no artifacts" begin
@@ -70,11 +70,11 @@ closed_reply(fake, id) = driver_send(
         f = timeout_fixture()
         task = @async with_page(identity, f.browser)
         @test timedwait(() -> isready(f.fake.client_messages), 10.0) === :ok
-        @test take!(f.fake.client_messages)["method"] == "newContext"
+        @test next_message(f.fake)["method"] == "newContext"
         # Unstick the task: there is no real browser to finish the handshake.
-        close(f.fake.connection)
+        shutdown!(f.fake)
         @test try
-            fetch(task)
+            await(task)
             true
         catch e
             !(e isa ArgumentError) && !(e.task.result isa ArgumentError)
@@ -90,7 +90,7 @@ end
         dir = mktempdir()
 
         responder = @async for _ = 1:3   # screenshot, console, page errors
-            msg = take!(f.fake.client_messages)
+            msg = next_message(f.fake)
             closed_reply(f.fake, msg["id"])
         end
 
@@ -103,8 +103,8 @@ end
         @test isempty(readdir(dir))
         # It failed *loudly enough to find*, just not by throwing.
         @test any(l -> l.level == Base.CoreLogging.Warn, logs)
-        wait(responder)
-        close(f.fake.connection)
+        await(responder)
+        shutdown!(f.fake)
     end
 
     @testset "it writes what it can and returns those paths" begin
@@ -112,13 +112,13 @@ end
         dir = mktempdir()
 
         responder = @async begin
-            shot = take!(f.fake.client_messages)
+            shot = next_message(f.fake)
             reply_ok(
                 f.fake,
                 shot["id"],
                 Dict{String,Any}("binary" => base64encode(Vector{UInt8}("PNGDATA"))),
             )
-            console = take!(f.fake.client_messages)
+            console = next_message(f.fake)
             reply_ok(
                 f.fake,
                 console["id"],
@@ -137,7 +137,7 @@ end
                     ],
                 ),
             )
-            errors = take!(f.fake.client_messages)
+            errors = next_message(f.fake)
             reply_ok(
                 f.fake,
                 errors["id"],
@@ -156,14 +156,14 @@ end
         end
 
         files = report_diagnostics(f.page, dir)
-        wait(responder)
+        await(responder)
 
         @test length(files) == 3
         @test all(isfile, files)
         @test read(joinpath(dir, "screenshot.png"), String) == "PNGDATA"
         @test occursin("hello there", read(joinpath(dir, "console.log"), String))
         @test occursin("boom", read(joinpath(dir, "errors.log"), String))
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a partial dump is still a dump" begin
@@ -173,10 +173,10 @@ end
         dir = mktempdir()
 
         responder = @async begin
-            shot = take!(f.fake.client_messages)
+            shot = next_message(f.fake)
             closed_reply(f.fake, shot["id"])
             for _ = 1:2
-                msg = take!(f.fake.client_messages)
+                msg = next_message(f.fake)
                 reply_ok(
                     f.fake,
                     msg["id"],
@@ -202,12 +202,12 @@ end
         logs, files = Test.collect_test_logs() do
             report_diagnostics(f.page, dir)
         end
-        wait(responder)
+        await(responder)
 
         @test joinpath(dir, "screenshot.png") ∉ files
         @test joinpath(dir, "console.log") in files
         @test any(l -> l.level == Base.CoreLogging.Warn, logs)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "nothing to report leaves no empty files" begin
@@ -215,14 +215,14 @@ end
         dir = mktempdir()
 
         responder = @async begin
-            shot = take!(f.fake.client_messages)
+            shot = next_message(f.fake)
             reply_ok(
                 f.fake,
                 shot["id"],
                 Dict{String,Any}("binary" => base64encode(Vector{UInt8}("PNG"))),
             )
             for _ = 1:2
-                msg = take!(f.fake.client_messages)
+                msg = next_message(f.fake)
                 reply_ok(
                     f.fake,
                     msg["id"],
@@ -232,12 +232,12 @@ end
         end
 
         files = report_diagnostics(f.page, dir)
-        wait(responder)
+        await(responder)
 
         @test files == [joinpath(dir, "screenshot.png")]
         @test !isfile(joinpath(dir, "console.log"))
         @test !isfile(joinpath(dir, "errors.log"))
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end
 

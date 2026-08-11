@@ -27,10 +27,10 @@ message sequence — the one that is asserts the sequence itself, above.
 """
 function drive_tracing_session(f, dest)
     for _ = 1:2   # tracingStart, tracingStartChunk
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_ok(f.fake, msg["id"], Dict{String,Any}("traceName" => "trace-1"))
     end
-    stop = take!(f.fake.client_messages)
+    stop = next_message(f.fake)
     send_create(
         f.fake,
         "context@1",
@@ -43,9 +43,9 @@ function drive_tracing_session(f, dest)
         stop["id"],
         Dict{String,Any}("artifact" => Dict("guid" => "artifact@trace")),
     )
-    save = take!(f.fake.client_messages)
+    save = next_message(f.fake)
     reply_ok(f.fake, save["id"], Dict{String,Any}())
-    final = take!(f.fake.client_messages)
+    final = next_message(f.fake)
     reply_ok(f.fake, final["id"], Dict{String,Any}())
     return nothing
 end
@@ -107,7 +107,7 @@ end
         @test sent["guid"] == "artifact@1"
         @test sent["method"] == "saveAs"
         @test sent["params"]["path"] == dest
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "save_as! returns the path it was given, so calls chain" begin
@@ -115,10 +115,10 @@ end
         art = fixture_artifact(f)
         dest = joinpath(mktempdir(), "saved.zip")
         task = @async save_as!(art; path = dest)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
-        @test fetch(task) == dest
-        close(f.fake.connection)
+        @test await(task) == dest
+        shutdown!(f.fake)
     end
 
     # The last member of the family still taking `path` positionally.
@@ -134,10 +134,10 @@ end
         @test_throws MethodError save_as!(art, dest)
 
         task = @async save_as!(art; path = dest)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["params"]["path"] == dest
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
-        @test fetch(task) == dest
+        @test await(task) == dest
 
         # All four members now read the same way at the call site. `screenshot`
         # and `pdf` are checked against a Page rather than an Artifact, so this
@@ -145,7 +145,7 @@ end
         for fn in (save_as!, stop_tracing!, screenshot, pdf)
             @test any(m -> :path in Base.kwarg_decl(m), methods(fn).ms)
         end
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "path blocks on pathAfterFinished, not on the initializer" begin
@@ -155,11 +155,11 @@ end
         f = timeout_fixture()
         art = fixture_artifact(f; absolute_path = "/tmp/pw/not-yet.zip")
         task = @async path(art)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["method"] == "pathAfterFinished"
         reply_ok(f.fake, msg["id"], Dict{String,Any}("value" => "/tmp/pw/finished.zip"))
-        @test fetch(task) == "/tmp/pw/finished.zip"
-        close(f.fake.connection)
+        @test await(task) == "/tmp/pw/finished.zip"
+        shutdown!(f.fake)
     end
 
     @testset "delete_file! sends delete" begin
@@ -167,7 +167,7 @@ end
         art = fixture_artifact(f)
         sent = waiting_request(f.fake, () -> delete_file!(art))
         @test sent["method"] == "delete"
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end
 
@@ -202,18 +202,18 @@ end
         task = @async start_tracing!(f.context; screenshots = true, snapshots = true)
         for _ = 1:2
             @test timedwait(() -> isready(f.fake.client_messages), 10.0) === :ok
-            msg = take!(f.fake.client_messages)
+            msg = next_message(f.fake)
             push!(sent, msg)
             reply_ok(f.fake, msg["id"], Dict{String,Any}("traceName" => "trace-1"))
         end
-        fetch(task)
+        await(task)
 
         @test sent[1]["method"] == "tracingStart"
         @test sent[1]["guid"] == "tracing@1"
         @test sent[1]["params"]["screenshots"] == true
         @test sent[1]["params"]["snapshots"] == true
         @test sent[2]["method"] == "tracingStartChunk"
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "sources is not a keyword at all" begin
@@ -226,7 +226,7 @@ end
         fixture_tracing(f)
         @test_throws MethodError start_tracing!(f.context; sources = true)
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "stop_tracing! archives and saves, in that order" begin
@@ -236,7 +236,7 @@ end
 
         task = @async stop_tracing!(f.context; path = dest)
 
-        stop = take!(f.fake.client_messages)
+        stop = next_message(f.fake)
         @test stop["method"] == "tracingStopChunk"
         # archive mode is what makes the driver assemble the zip.
         @test stop["params"]["mode"] == "archive"
@@ -254,17 +254,17 @@ end
             Dict{String,Any}("artifact" => Dict("guid" => "artifact@trace")),
         )
 
-        save = take!(f.fake.client_messages)
+        save = next_message(f.fake)
         @test save["method"] == "saveAs"
         @test save["params"]["path"] == dest
         reply_ok(f.fake, save["id"], Dict{String,Any}())
 
-        stop_msg = take!(f.fake.client_messages)
+        stop_msg = next_message(f.fake)
         @test stop_msg["method"] == "tracingStop"
         reply_ok(f.fake, stop_msg["id"], Dict{String,Any}())
 
-        @test fetch(task) == dest
-        close(f.fake.connection)
+        @test await(task) == dest
+        shutdown!(f.fake)
     end
 
     @testset "with_tracing writes the zip when the block returns" begin
@@ -278,9 +278,9 @@ end
             return :body_result
         end
         drive_tracing_session(f, dest)
-        @test fetch(task) == :body_result
+        @test await(task) == :body_result
         @test ran[]
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the zip is written when the block THROWS, and the block's error wins" begin
@@ -297,14 +297,14 @@ end
         drive_tracing_session(f, dest)
 
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.result : e
         end
         @test err isa ErrorException
         @test occursin("the body blew up", err.msg)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     # The next two run with_tracing on *this* task and answer the driver from
@@ -317,10 +317,10 @@ end
     function fail_the_stop(f, message)
         return @async begin
             for _ = 1:2
-                msg = take!(f.fake.client_messages)
+                msg = next_message(f.fake)
                 reply_ok(f.fake, msg["id"], Dict{String,Any}("traceName" => "t"))
             end
-            stop = take!(f.fake.client_messages)
+            stop = next_message(f.fake)
             reply_error(f.fake, stop["id"], message)
         end
     end
@@ -341,8 +341,8 @@ end
         result = @test_logs (:warn,) match_mode = :any traced()
 
         @test result == :fine
-        wait(responder)
-        close(f.fake.connection)
+        await(responder)
+        shutdown!(f.fake)
     end
 
     @testset "...and it still loses to the body's own exception" begin
@@ -375,8 +375,8 @@ end
         # The trace failure was still reported — quietly, and as a warning.
         @test any(l -> l.level == Base.CoreLogging.Warn, logs)
         @test any(l -> occursin("could not save trace", l.message), logs)
-        wait(responder)
-        close(f.fake.connection)
+        await(responder)
+        shutdown!(f.fake)
     end
 end
 
@@ -399,7 +399,7 @@ end
         rv = sent["params"]["recordVideo"]
         @test rv["dir"] == "artifacts/video"
         @test rv["size"] == Dict("width" => 640, "height" => 480)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "size is optional; dir alone is enough" begin
@@ -411,14 +411,14 @@ end
         rv = sent["params"]["recordVideo"]
         @test rv["dir"] == "artifacts/video"
         @test !haskey(rv, "size")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "no record_video means no recordVideo key at all" begin
         f = timeout_fixture()
         sent = waiting_request(f.fake, () -> new_context(f.browser))
         @test !haskey(sent["params"], "recordVideo")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a Dict works as well as a NamedTuple" begin
@@ -428,7 +428,7 @@ end
             () -> new_context(f.browser; record_video = Dict("dir" => "artifacts/v")),
         )
         @test sent["params"]["recordVideo"]["dir"] == "artifacts/v"
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "video(page) is nothing without recording" begin
@@ -436,7 +436,7 @@ end
         # what the driver sends for a context that is not recording.
         f = timeout_fixture()
         @test video(f.page) === nothing
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "video(page) resolves the Artifact when there is one" begin
@@ -458,11 +458,11 @@ end
         @test v isa Playwright.Artifact
         # ...and it is the Artifact surface, so the three verbs work on it.
         task = @async path(v)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["method"] == "pathAfterFinished"
         reply_ok(f.fake, msg["id"], Dict{String,Any}("value" => "/tmp/pw/video.webm"))
-        @test fetch(task) == "/tmp/pw/video.webm"
-        close(f.fake.connection)
+        @test await(task) == "/tmp/pw/video.webm"
+        shutdown!(f.fake)
     end
 end
 
@@ -498,7 +498,7 @@ end
         @test params["margin"] == Dict("top" => "1cm", "bottom" => "2cm")
         @test params["scale"] == 0.5
         @test params["pageRanges"] == "1-2"
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an unset option is omitted entirely, not sent as null" begin
@@ -513,7 +513,7 @@ end
         for key in ("format", "landscape", "margin", "scale", "pageRanges")
             @test !haskey(sent["params"], key)
         end
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the write returns its destination, and writes it" begin
@@ -521,13 +521,13 @@ end
         bytes = Vector{UInt8}("%PDF-1.4 pretend")
         dest = joinpath(mktempdir(), "out.pdf")
         task = @async pdf(f.page; path = dest)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         pdf_reply(f.fake, msg["id"], bytes)
-        got = fetch(task)
+        got = await(task)
         @test got == dest          # you named a destination, you get it back
         @test isfile(dest)
         @test read(dest) == bytes
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     # The split is the point: one convention for the return value, one for
@@ -550,17 +550,17 @@ end
         dest = joinpath(mktempdir(), "shot.png")
         png = Vector{UInt8}("\x89PNG pretend")
         task = @async screenshot(f.page; path = dest)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_ok(f.fake, msg["id"], Dict{String,Any}("binary" => base64encode(png)))
-        @test fetch(task) == dest
+        @test await(task) == dest
         @test read(dest) == png
 
         task = @async screenshot_bytes(f.page)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_ok(f.fake, msg["id"], Dict{String,Any}("binary" => base64encode(png)))
-        @test fetch(task) == png
+        @test await(task) == png
 
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "off Chromium it is an ArgumentError, decided without a round trip" begin
@@ -581,7 +581,7 @@ end
         @test occursin("firefox", err.msg)
         # Nothing went to the driver.
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end
 

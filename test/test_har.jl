@@ -45,7 +45,7 @@ function har_fixture(;
     exports_artifact = Ref(export_artifact)
     @async try
         while true
-            msg = take!(fake.client_messages)
+            msg = next_message(fake)
             push!(requests, msg)
             method = get(msg, "method", "")
             if method == "harOpen"
@@ -175,7 +175,7 @@ end
         # on it and no new handle type was invented.
         @test reg isa Playwright.RouteRegistration
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "`fulfill` serves the archived response" begin
@@ -199,7 +199,7 @@ end
               "text/plain"
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a binary body survives as bytes" begin
@@ -224,7 +224,7 @@ end
         @test base64decode(settled["params"]["body"]) == png
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the lookup carries what the request actually was" begin
@@ -240,7 +240,7 @@ end
         @test lookup["params"]["isNavigationRequest"] === false
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "`noentry` under :abort fails the request" begin
@@ -252,7 +252,7 @@ end
         @test settled["method"] == "abort"
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "`noentry` under :fallback reaches the real network" begin
@@ -268,7 +268,7 @@ end
         @test settled["method"] == "continue"
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "`not_found` names both values when given a third" begin
@@ -286,7 +286,7 @@ end
 
         # ...and it raised before the wire, so nothing was opened.
         @test isempty(filter(m -> get(m, "method", "") == "harOpen", f.requests))
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "`url` restricts which requests are served" begin
@@ -297,7 +297,7 @@ end
         @test last_patterns(f.requests) == ["**/api/**"]
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "no `url` serves everything" begin
@@ -306,7 +306,7 @@ end
         @test last_patterns(f.requests) == ["**/*"]
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "`redirect` is one continue! at redirectURL" begin
@@ -333,7 +333,7 @@ end
         @test settled["params"]["url"] == "http://probe.test/b"
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a sub-resource redirect is fulfilled, not continued" begin
@@ -365,7 +365,7 @@ end
         )
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "`error` carries the driver's message to unroute!" begin
@@ -394,7 +394,7 @@ end
         # ...and it is rethrown where the handler's exceptions are rethrown.
         @test_throws Playwright.DriverError unroute!(f.context, reg)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "`error` supplies the names the driver's message omits" begin
@@ -420,7 +420,7 @@ end
         @test occursin(abspath(HAR_FIXTURE), err.message)
 
         @test_throws Playwright.DriverError unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "an aborted noentry names the archive and the URL" begin
@@ -461,7 +461,7 @@ end
         @test kwargs[:url] == "http://probe.test/missing"
         @test kwargs[:archive] == abspath(HAR_FIXTURE)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset ":fallback misses are not warned about" begin
@@ -478,7 +478,7 @@ end
         end
         @test isempty(filter(r -> r.level == Base.CoreLogging.Warn, logger.logs))
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- .har.zip, and who owns the temp directory -----------------------------
@@ -504,7 +504,7 @@ end
         @test !endswith(har_file, ".zip")
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the caller's .zip is copied, never handed to harUnzip" begin
@@ -524,7 +524,7 @@ end
         unroute!(f.context, reg)
         @test isfile(HAR_ZIP_FIXTURE)
         @test read(HAR_ZIP_FIXTURE) == before
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "the temp directory is gone after unroute!" begin
@@ -541,7 +541,7 @@ end
         @test !isdir(tmp)
         @test any(m -> get(m, "method", "") == "harClose", f.requests)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a plain .har is not unzipped" begin
@@ -549,7 +549,7 @@ end
         reg = route_from_har(f.context, HAR_FIXTURE)
         @test isempty(filter(m -> get(m, "method", "") == "harUnzip", f.requests))
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- with_har, the update refusal, and harClose ----------------------------
@@ -570,7 +570,7 @@ end
         unroute!(f.context, reg)
         @test length(filter(m -> get(m, "method", "") == "harClose", f.requests)) == 1
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "unroute_all! closes the archive too" begin
@@ -578,7 +578,7 @@ end
         route_from_har(f.context, HAR_FIXTURE)
         unroute_all!(f.context)
         @test length(filter(m -> get(m, "method", "") == "harClose", f.requests)) == 1
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_har closes the archive when the body throws" begin
@@ -589,7 +589,7 @@ end
 
         @test length(filter(m -> get(m, "method", "") == "harClose", f.requests)) == 1
         @test Playwright.registry_for(f.context) === nothing
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_har returns the body's value" begin
@@ -598,7 +598,7 @@ end
             42
         end == 42
         @test length(filter(m -> get(m, "method", "") == "harClose", f.requests)) == 1
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_har cleans up a .zip's temp directory when the body throws" begin
@@ -611,7 +611,7 @@ end
         har_file =
             only(filter(m -> get(m, "method", "") == "harUnzip", f.requests))["params"]["harFile"]
         @test !isdir(dirname(har_file))
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- update = true: a recording behind a replay's name ---------------------
@@ -646,7 +646,7 @@ end
         ) || last_patterns(f.requests) == String[]
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "unroute! on an update registration writes the file" begin
@@ -670,7 +670,7 @@ end
         # is the write, not a read.)
         @test isempty(filter(m -> get(m, "method", "") == "harClose", f.requests))
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_har + update writes even when the body throws" begin
@@ -684,7 +684,7 @@ end
         end
         @test length(filter(m -> get(m, "method", "") == "harExport", f.requests)) == 1
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "update = true does not require the archive to exist yet" begin
@@ -700,7 +700,7 @@ end
               dest
         unroute!(f.context, reg)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "update = true still refuses a Page target" begin
@@ -717,7 +717,7 @@ end
         end
         @test err isa ArgumentError
         @test occursin("BrowserContext", err.msg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     # --- Recording: HarRecording, start/stop -----------------------------------
@@ -747,7 +747,7 @@ end
         # A glob is not also sent as a regex.
         @test !haskey(options, "urlRegexSource")
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a Regex url goes out as source and flags, not as a glob" begin
@@ -765,7 +765,7 @@ end
         @test occursin("i", options["urlRegexFlags"])
         @test !haskey(options, "urlGlob")
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "no url records everything" begin
@@ -776,7 +776,7 @@ end
             only(filter(m -> get(m, "method", "") == "harStart", f.requests))["params"]["options"]
         @test !haskey(options, "urlGlob")
         @test !haskey(options, "urlRegexSource")
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "content and mode reject a bad Symbol, naming the set" begin
@@ -822,7 +822,7 @@ end
         @test options["content"] == "attach"
         @test options["mode"] == "minimal"
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "stop_har_recording! exports, saves, and returns the path" begin
@@ -856,7 +856,7 @@ end
         @test unzip["params"]["resourcesDir"] == dirname(abspath(dest))
         @test unzip["params"]["zipFile"] == save["params"]["path"]
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a .zip destination keeps the archive as exported" begin
@@ -873,7 +873,7 @@ end
               dest
         @test isempty(filter(m -> get(m, "method", "") == "harUnzip", f.requests))
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "a zip is recognised by its bytes, not its name" begin
@@ -895,7 +895,7 @@ end
               zip_named_har
 
         unroute!(f.context, reg)
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "an export with no artifact names the unwritten path" begin
@@ -917,7 +917,7 @@ end
         @test occursin(dest, err.message)
         @test !isfile(dest)
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_har_recording writes the archive when the body throws" begin
@@ -937,7 +937,7 @@ end
         @test only(filter(m -> get(m, "method", "") == "harUnzip", f.requests))["params"]["harFile"] ==
               dest
 
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_har_recording returns the body's value" begin
@@ -948,7 +948,7 @@ end
             42
         end == 42
         @test length(filter(m -> get(m, "method", "") == "harExport", f.requests)) == 1
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "with_har_recording validates before it starts anything" begin
@@ -964,7 +964,7 @@ end
         end
         @test !ran[]
         @test isempty(filter(m -> get(m, "method", "") == "harStart", f.requests))
-        close(f.conn)
+        shutdown!(f.fake)
     end
 
     @testset "harOpen answering with `error` names the archive" begin
@@ -972,7 +972,7 @@ end
         conn = fake.connection
         @async try
             while true
-                msg = take!(fake.client_messages)
+                msg = next_message(fake)
                 if get(msg, "method", "") == "harOpen"
                     reply_ok(fake, msg["id"], Dict{String,Any}("error" => "bad archive"))
                 else
@@ -1001,7 +1001,7 @@ end
         @test occursin("bad archive", err.message)
         @test occursin(abspath(HAR_FIXTURE), err.message)
 
-        close(conn)
+        shutdown!(fake)
     end
 
     @testset "a missing archive is named before the driver is asked" begin
@@ -1018,7 +1018,7 @@ end
         # by looking before asking.
         @test err !== nothing
         @test occursin("nope.har", sprint(showerror, err))
-        close(f.conn)
+        shutdown!(f.fake)
     end
 end
 

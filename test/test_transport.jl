@@ -18,8 +18,8 @@
         Playwright.send(transport, msg1)
         Playwright.send(transport, msg2)
 
-        got1 = take!(received)
-        got2 = take!(received)
+        got1 = take_within!(received, "a value on `received`")
+        got2 = take_within!(received, "a value on `received`")
         @test got1["id"] == 1
         @test got1["params"]["sdkLanguage"] == "julia"
         @test got2["method"] == "ping"
@@ -40,7 +40,7 @@
             write(wire.in, byte)
             flush(wire.in)
         end
-        @test take!(received)["id"] == 42
+        @test take_within!(received, "a value on `received`")["id"] == 42
         close(transport)
     end
 
@@ -61,8 +61,8 @@
         write(wire.in, UInt8[0x7b, 0x22, 0x69])
         close(wire.in)
 
-        @test take!(closed)      # on_close fired
-        wait(transport.reader)
+        @test take_within!(closed, "a value on `closed`")      # on_close fired
+        await(transport.reader)
         @test transport.closed
     end
 

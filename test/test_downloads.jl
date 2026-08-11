@@ -64,7 +64,7 @@ end
         @test suggested_filename(dl) == "report-2026.csv"
         @test artifact(dl) isa Playwright.Artifact
         @test Playwright.page(dl) === f.page
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "path, save_as! and delete_file! forward to the artifact" begin
@@ -74,28 +74,28 @@ end
         end
 
         task = @async path(dl)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["guid"] == "artifact@dl"
         @test msg["method"] == "pathAfterFinished"
         reply_ok(f.fake, msg["id"], Dict{String,Any}("value" => "/tmp/pw/done.csv"))
-        @test fetch(task) == "/tmp/pw/done.csv"
+        @test await(task) == "/tmp/pw/done.csv"
 
         dest = joinpath(mktempdir(), "copy.csv")
         task = @async save_as!(dl; path = dest)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["guid"] == "artifact@dl"
         @test msg["method"] == "saveAs"
         @test msg["params"]["path"] == dest
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
         # path is a keyword and comes back, inherited unchanged.
-        @test fetch(task) == dest
+        @test await(task) == dest
 
         task = @async delete_file!(dl)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["method"] == "delete"
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
-        fetch(task)
-        close(f.fake.connection)
+        await(task)
+        shutdown!(f.fake)
     end
 
     @testset "cancel! reaches the artifact" begin
@@ -104,12 +104,12 @@ end
             fire_download(f)
         end
         task = @async cancel!(dl)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["guid"] == "artifact@dl"
         @test msg["method"] == "cancel"
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
-        @test fetch(task) === nothing
-        close(f.fake.connection)
+        @test await(task) === nothing
+        shutdown!(f.fake)
     end
 
     @testset "failure is nothing on success and a string on refusal" begin
@@ -121,17 +121,17 @@ end
         end
 
         task = @async failure(dl)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         @test msg["method"] == "failure"
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
-        @test fetch(task) === nothing
+        @test await(task) === nothing
 
         refused = "Pass { acceptDownloads: true } when you are creating your browser context."
         task = @async failure(dl)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_ok(f.fake, msg["id"], Dict{String,Any}("error" => refused))
-        @test fetch(task) == refused
-        close(f.fake.connection)
+        @test await(task) == refused
+        shutdown!(f.fake)
     end
 
     @testset "accept_downloads maps three ways, and never to the trap value" begin
@@ -154,7 +154,7 @@ end
             result = Dict{String,Any}("context" => Dict("guid" => "context@1")),
         )
         @test !haskey(sent["params"], "acceptDownloads")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the keyword is sent when given" begin
@@ -165,7 +165,7 @@ end
             result = Dict{String,Any}("context" => Dict("guid" => "context@1")),
         )
         @test sent["params"]["acceptDownloads"] == "deny"
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset ":download is not opt-in" begin

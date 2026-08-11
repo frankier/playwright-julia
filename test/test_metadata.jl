@@ -23,7 +23,7 @@
 
         @test browser_name(browser) == "firefox"
         @test browser_name(browser) isa String
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "browser_name works on a BrowserType too, with the same type" begin
@@ -37,7 +37,7 @@
         bt = Playwright.lookup_object(fake.connection, "bt@1")
         @test browser_name(bt) == "chromium"
         @test browser_name(bt) isa String
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "browser_name is exported" begin

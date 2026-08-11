@@ -100,6 +100,10 @@ watchdog =
         exit(1)
     end
 
+# Deadlines for every take!/fetch in the suite. Not a test file and not inside
+# the testset: the files below call these at load, so they have to exist first.
+include(joinpath(@__DIR__, "waits.jl"))
+
 @testset "Playwright.jl" begin
     @testset "package loads" begin
         @test Playwright isa Module

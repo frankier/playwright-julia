@@ -53,7 +53,7 @@ end
         f = timeout_fixture()
         @test Playwright.resolve_timeout(f.page, nothing) == 30_000
         @test Playwright.resolve_navigation_timeout(f.page, nothing) == 30_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an explicit keyword beats every setting" begin
@@ -63,7 +63,7 @@ end
         @test Playwright.resolve_timeout(f.page, 500) == 500
         # ...including zero, which Playwright reads as "no timeout".
         @test Playwright.resolve_timeout(f.page, 0) == 0
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a page inherits its context's setting" begin
@@ -72,7 +72,7 @@ end
         @test Playwright.resolve_timeout(f.page, nothing) == 2_000
         # and a sibling context is untouched
         @test Playwright.resolve_timeout(f.page2, nothing) == 30_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a page's own setting overrides the context it inherits from" begin
@@ -81,7 +81,7 @@ end
         set_default_timeout!(f.page, 7_000)
         @test Playwright.resolve_timeout(f.page, nothing) == 7_000
         @test Playwright.resolve_timeout(f.context, nothing) == 2_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a frame resolves through its page, then its context" begin
@@ -93,7 +93,7 @@ end
         # that only follows __create__ parentage jumps straight past the page
         # and reports 2_000 here.
         @test Playwright.resolve_timeout(f.frame, nothing) == 7_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a child frame resolves through the page it is parented to" begin
@@ -102,7 +102,7 @@ end
         @test Playwright.resolve_timeout(f.childframe, nothing) == 2_000
         set_default_timeout!(f.page, 7_000)
         @test Playwright.resolve_timeout(f.childframe, nothing) == 7_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a Locator resolves through its frame" begin
@@ -111,7 +111,7 @@ end
         loc = Playwright.Locator(f.frame, "#x")
         @test Playwright.resolve_timeout(loc, nothing) == 2_000
         @test Playwright.resolve_timeout(loc, 250) == 250
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "navigation timeouts have their own setting" begin
@@ -123,7 +123,7 @@ end
 
         set_default_navigation_timeout!(f.page, 4_000)
         @test Playwright.resolve_navigation_timeout(f.page, nothing) == 4_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "navigation falls back to the default timeout before the package default" begin
@@ -136,7 +136,7 @@ end
         # An explicit navigation setting still wins over it.
         set_default_navigation_timeout!(f.context, 9_000)
         @test Playwright.resolve_navigation_timeout(f.page, nothing) == 9_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "settings are dropped when the owner is disposed" begin
@@ -160,7 +160,7 @@ end
         # same way if it is never pruned — and a stale entry is worse than a
         # leak, because it points the cascade at a disposed page.
         @test !haskey(conn.settings_parents, "frame@1")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a disposed page leaves no stale hop behind" begin
@@ -177,7 +177,7 @@ end
               :ok
         @test !haskey(conn.settings_parents, "frame@1")
         @test Playwright.resolve_timeout(f.frame, nothing) == 2_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "settings do not leak between connections" begin
@@ -191,8 +191,8 @@ end
         b = timeout_fixture()   # same guids, different connection
         @test Playwright.resolve_timeout(b.page, nothing) == 30_000
 
-        close(a.fake.connection)
-        close(b.fake.connection)
+        shutdown!(a.fake)
+        shutdown!(b.fake)
     end
 
     # --- T2b: the cascade reaches the wire ---------------------------------
@@ -205,10 +205,10 @@ end
     "Run `action()` against the fake and return the params of the frame it sent."
     function sent_params(fake, action)
         task = @async action()
-        msg = take!(fake.client_messages)
+        msg = next_message(fake)
         reply_ok(fake, msg["id"], Dict{String,Any}("value" => nothing))
         try
-            fetch(task)
+            await(task)
         catch
         end
         return msg["params"]
@@ -229,7 +229,7 @@ end
         @test sent_params(f.fake, () -> set_value!(loc, "v"))["timeout"] == 2_000
         @test sent_params(f.fake, () -> get_attribute(loc, "href"))["timeout"] == 2_000
         @test sent_params(f.fake, () -> dispatch_event!(loc, "click"))["timeout"] == 2_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an explicit keyword still beats the setting on the wire" begin
@@ -237,7 +237,7 @@ end
         set_default_timeout!(f.context, 2_000)
         loc = Playwright.locator(f.frame, "#x")
         @test sent_params(f.fake, () -> click!(loc; timeout = 250))["timeout"] == 250
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a page's own setting reaches locator actions through its frame" begin
@@ -246,14 +246,14 @@ end
         set_default_timeout!(f.page, 7_000)
         loc = Playwright.locator(f.frame, "#x")
         @test sent_params(f.fake, () -> text_content(loc))["timeout"] == 7_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "page actions send the inherited timeout" begin
         f = timeout_fixture()
         set_default_timeout!(f.context, 2_000)
         @test sent_params(f.fake, () -> screenshot_bytes(f.page))["timeout"] == 2_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "goto! sends the navigation timeout, not the action timeout" begin
@@ -261,7 +261,7 @@ end
         set_default_timeout!(f.context, 2_000)
         set_default_navigation_timeout!(f.context, 9_000)
         @test sent_params(f.fake, () -> goto!(f.page, "about:blank"))["timeout"] == 9_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "no literal timeout default survives in src/api/" begin
@@ -299,7 +299,7 @@ end
         @test set_default_timeout!(f.page, 1_000) === nothing
         @test_throws ArgumentError set_default_timeout!(f.page, -1)
         @test_throws ArgumentError set_default_navigation_timeout!(f.page, -1)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end
 
@@ -314,14 +314,14 @@ end
     @testset "the package default is true" begin
         f = timeout_fixture()
         @test locator(f.page, "tr").strict == true
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a context default beats the package default" begin
         f = timeout_fixture()
         set_default_strict!(f.context, false)
         @test locator(f.page, "tr").strict == false
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a page default beats the context default" begin
@@ -329,7 +329,7 @@ end
         set_default_strict!(f.context, false)
         set_default_strict!(f.page, true)
         @test locator(f.page, "tr").strict == true
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a frame default beats the page default" begin
@@ -338,7 +338,7 @@ end
         set_default_strict!(f.page, true)
         set_default_strict!(f.frame, false)
         @test locator(f.frame, "tr").strict == false
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an explicit keyword beats every default" begin
@@ -348,7 +348,7 @@ end
         set_default_strict!(f.frame, false)
         @test locator(f.frame, "tr"; strict = true).strict == true
         @test locator(f.page, "tr"; strict = true).strict == true
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "false is a setting, not an absence" begin
@@ -358,7 +358,7 @@ end
         f = timeout_fixture()
         set_default_strict!(f.context, false)
         @test Playwright.resolve_strict(f.frame, nothing) == false
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "strictness is resolved at construction, not at action time" begin
@@ -368,7 +368,7 @@ end
         loose = locator(f.page, "tr"; strict = false)
         set_default_strict!(f.context, true)
         @test loose.strict == false
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the setting is pruned with its owner" begin
@@ -382,6 +382,6 @@ end
             5.0,
         ) === :ok
         @test !haskey(conn.timeouts, "context@1")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end

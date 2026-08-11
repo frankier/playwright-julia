@@ -23,7 +23,7 @@ using Playwright: evaluate_all, element_handle, frame, selector, is_strict
         @test sent["params"]["expression"] == "(el, v) => el.value = v"
         @test sent["params"]["strict"] == true
         @test sent["params"]["arg"]["value"]["n"] == 7
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a non-strict Locator says so on the wire" begin
@@ -35,17 +35,17 @@ using Playwright: evaluate_all, element_handle, frame, selector, is_strict
             result = Dict{String,Any}("value" => Dict("s" => "x")),
         )
         @test sent["params"]["strict"] == false
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "evaluate returns the value through the codec, not the raw wire form" begin
         f = timeout_fixture()
         loc = Playwright.locator(f.frame, "#volume")
         task = @async evaluate(loc, "el => el.value")
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_ok(f.fake, msg["id"], Dict{String,Any}("value" => Dict("s" => "seven")))
-        @test fetch(task) == "seven"
-        close(f.fake.connection)
+        @test await(task) == "seven"
+        shutdown!(f.fake)
     end
 
     @testset "evaluate_all runs against every match" begin
@@ -61,7 +61,7 @@ using Playwright: evaluate_all, element_handle, frame, selector, is_strict
         # evalOnSelectorAll has no strict parameter: "all the matches" is not
         # an ambiguity, so strictness would have nothing to decide.
         @test !haskey(sent["params"], "strict")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "element_handle resolves the locator to a handle" begin
@@ -71,7 +71,7 @@ using Playwright: evaluate_all, element_handle, frame, selector, is_strict
         @test sent["method"] == "querySelector"
         @test sent["params"]["selector"] == "#volume"
         @test sent["params"]["strict"] == true
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the public accessors report what the locator was built with" begin
@@ -83,7 +83,7 @@ using Playwright: evaluate_all, element_handle, frame, selector, is_strict
 
         loose = Playwright.locator(f.frame, "input"; strict = false)
         @test is_strict(loose) === false
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the accessors are exported, so no caller needs the private fields" begin

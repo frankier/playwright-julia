@@ -107,7 +107,7 @@ end
         @test post_data(req) === nothing
         @test post_data_string(req) === nothing
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "Response reads its initializer" begin
@@ -121,7 +121,7 @@ end
         @test request(resp) isa Playwright.Request
         @test url(request(resp)) == "https://x.test/api/items?page=2"
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "ok covers 2xx and the 0 of file:// and data:" begin
@@ -138,7 +138,7 @@ end
             resp = fake_response(fake, "r$code"; init = Dict{String,Any}("status" => code))
             @test ok(resp) == expected
         end
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "headers lower-cases keys and joins duplicates with \", \"" begin
@@ -160,7 +160,7 @@ end
         @test h["set-cookie"] == "a=1, b=2"
         @test length(h) == 2
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "headers_array preserves wire order, case and duplicates" begin
@@ -185,7 +185,7 @@ end
         # ...which is the whole reason it exists: this is what `headers` loses.
         @test length([v for (k, v) in arr if lowercase(k) == "set-cookie"]) == 2
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "the three body forms return three types" begin
@@ -205,7 +205,7 @@ end
         @test post_data_string(req) == payload
         @test json(req) == Dict("items" => [1, 2], "ok" => true)
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "a request with no body says so rather than guessing" begin
@@ -214,7 +214,7 @@ end
         @test post_data(req) === nothing
         @test post_data_string(req) === nothing
         @test_throws ArgumentError json(req)
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "binary post data survives as bytes" begin
@@ -224,7 +224,7 @@ end
         raw = UInt8[0x00, 0xff, 0xfe, 0x41]
         req = fake_request(fake; init = Dict{String,Any}("postData" => base64encode(raw)))
         @test post_data(req) == raw
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "body, text and json go to the wire" begin
@@ -235,7 +235,7 @@ end
         # One canned reply per call, so each assertion pays its own round trip.
         @async begin
             for _ = 1:3
-                msg = take!(fake.client_messages)
+                msg = next_message(fake)
                 reply_ok(
                     fake,
                     msg["id"],
@@ -248,7 +248,7 @@ end
         @test within(() -> text(resp)) == payload
         @test within(() -> json(resp)) == Dict("hello" => "world")
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "raw_headers costs a round trip and keeps wire order" begin
@@ -257,7 +257,7 @@ end
 
         sent = Ref{Any}(nothing)
         @async begin
-            msg = take!(fake.client_messages)
+            msg = next_message(fake)
             sent[] = msg
             reply_ok(
                 fake,
@@ -278,7 +278,7 @@ end
         # It really went to the driver — this is the difference from `headers`.
         @test sent[]["method"] == "rawResponseHeaders"
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "response(request) is a round trip that may answer nothing" begin
@@ -286,12 +286,12 @@ end
         req = fake_request(fake)
 
         @async begin
-            msg = take!(fake.client_messages)
+            msg = next_message(fake)
             reply_ok(fake, msg["id"], Dict{String,Any}())     # no response
         end
         @test within(() -> response(req)) === nothing
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "frame and redirected_from resolve their channel references" begin
@@ -324,7 +324,7 @@ end
         # ...and the chain terminates rather than looping.
         @test redirected_from(first_req) === nothing
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 
     @testset "RequestFailure carries the request and the engine's own text" begin
@@ -337,6 +337,6 @@ end
         @test occursin("net::ERR_CONNECTION_REFUSED", sprint(show, failure))
         @test occursin("x.test", sprint(show, failure))
 
-        close(fake.connection)
+        shutdown!(fake)
     end
 end

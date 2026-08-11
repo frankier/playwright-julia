@@ -45,7 +45,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         @test sent["params"]["expectedText"] == [Dict("string" => "Hello")]
         @test sent["params"]["isNot"] == false
         @test sent["params"]["timeout"] == 2_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "each matcher maps to its probed expression" begin
@@ -63,7 +63,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
             sent = waiting_request(f.fake, () -> expect(loc; kwargs...))
             @test sent["params"]["expression"] == expression
         end
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "count goes out as a number, not as text" begin
@@ -72,7 +72,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         sent = waiting_request(f.fake, () -> expect(loc; to_have_count = 3))
         @test sent["params"]["expectedNumber"] == 3
         @test !haskey(sent["params"], "expectedText")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an attribute assertion carries its name in expressionArg" begin
@@ -84,7 +84,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         )
         @test sent["params"]["expressionArg"] == "href"
         @test sent["params"]["expectedText"] == [Dict("string" => "/somewhere")]
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a Regex expectation goes out as a regex, not as a literal string" begin
@@ -95,7 +95,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         @test expected["regexSource"] == "Hel+o"
         @test occursin("i", expected["regexFlags"])
         @test !haskey(expected, "string")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "Not(...) sets isNot on that matcher" begin
@@ -104,7 +104,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         sent = waiting_request(f.fake, () -> expect(loc; to_have_text = Not("Goodbye")))
         @test sent["params"]["isNot"] == true
         @test sent["params"]["expectedText"] == [Dict("string" => "Goodbye")]
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "Not applies per matcher, not to the whole call" begin
@@ -116,15 +116,15 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         task = @async expect(loc; to_have_count = 1, to_have_text = Not("old"))
         for _ = 1:2
             @test timedwait(() -> isready(f.fake.client_messages), 10.0) === :ok
-            msg = take!(f.fake.client_messages)
+            msg = next_message(f.fake)
             push!(sent, msg)
             reply_ok(f.fake, msg["id"], Dict{String,Any}())
         end
-        fetch(task)
+        await(task)
         by_expr = Dict(m["params"]["expression"] => m["params"]["isNot"] for m in sent)
         @test by_expr["to.have.count"] == false
         @test by_expr["to.have.text"] == true
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "to_be_visible = false is the same as to_be_hidden" begin
@@ -133,17 +133,17 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         sent = waiting_request(f.fake, () -> expect(loc; to_be_visible = false))
         @test sent["params"]["expression"] == "to.be.visible"
         @test sent["params"]["isNot"] == true
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a passing assertion returns the locator, so calls chain" begin
         f = timeout_fixture()
         loc = Playwright.locator(f.frame, "#title")
         task = @async expect(loc; to_have_text = "Hello")
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
-        @test fetch(task) === loc
-        close(f.fake.connection)
+        @test await(task) === loc
+        shutdown!(f.fake)
     end
 
     @testset "a failure raises AssertionFailure carrying expected AND received" begin
@@ -152,11 +152,11 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         f = timeout_fixture()
         loc = Playwright.locator(f.frame, "#title")
         task = @async expect(loc; to_have_text = "Goodbye")
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         expect_failure_reply(f.fake, msg["id"]; received = Dict("s" => "Hello"))
 
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.result : e
@@ -166,17 +166,17 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         @test occursin("Goodbye", err.message)   # expected
         @test occursin("Hello", err.message)     # received
         @test occursin("#title", err.message)    # and which locator
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a numeric received value is decoded as a number" begin
         f = timeout_fixture()
         loc = Playwright.locator(f.frame, "li")
         task = @async expect(loc; to_have_count = 99)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         expect_failure_reply(f.fake, msg["id"]; received = Dict("n" => 2))
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.result : e
@@ -184,14 +184,14 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         @test err isa Playwright.AssertionFailure
         @test occursin("99", err.message)
         @test occursin("2", err.message)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a missing element says so rather than reporting `undefined`" begin
         f = timeout_fixture()
         loc = Playwright.locator(f.frame, "#nope")
         task = @async expect(loc; to_be_visible = true)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         expect_failure_reply(
             f.fake,
             msg["id"];
@@ -199,14 +199,14 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
             customErrorMessage = "element(s) not found",
         )
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.result : e
         end
         @test err isa Playwright.AssertionFailure
         @test occursin("element(s) not found", err.message)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "expect rejects a matcher it does not know" begin
@@ -217,7 +217,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         @test_throws ArgumentError expect(loc; to_have_texture = "Hello")
         # ...and asking for nothing at all is a mistake worth naming too.
         @test_throws ArgumentError expect(loc)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an explicit timeout beats the cascade" begin
@@ -229,7 +229,7 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
             () -> expect(loc; to_have_text = "Hello", timeout = 250),
         )
         @test sent["params"]["timeout"] == 250
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "errorDetails does not disturb ordinary errors" begin
@@ -238,17 +238,17 @@ expect_failure_reply(fake, id; received = Dict("s" => "Hello"), extra...) = driv
         f = timeout_fixture()
         loc = Playwright.locator(f.frame, "#title")
         task = @async text_content(loc)
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_error(f.fake, msg["id"], "something else went wrong")
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.result : e
         end
         @test err isa Playwright.DriverError
         @test !(err isa Playwright.AssertionFailure)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "retry_until returns once the condition holds" begin
@@ -298,7 +298,7 @@ end
         @test sent["params"]["expectedText"] == [Dict("string" => "Dashboard")]
         @test sent["params"]["isNot"] == false
         @test sent["params"]["timeout"] == 2_000
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "to_have_url does the same with its own expression" begin
@@ -310,7 +310,7 @@ end
         @test sent["params"]["expression"] == "to.have.url"
         @test sent["params"]["selector"] == ""
         @test sent["params"]["expectedText"] == [Dict("string" => "https://example.com/x")]
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a Regex expectation works, as it does for locators" begin
@@ -322,7 +322,7 @@ end
         expected = sent["params"]["expectedText"][1]
         @test expected["regexSource"] == "late-title\\.html\$"
         @test !haskey(expected, "string")
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "expect(::Frame) works directly, and on a child frame" begin
@@ -330,16 +330,16 @@ end
         sent = waiting_request(f.fake, () -> expect(f.childframe; to_have_title = "child"))
         @test sent["guid"] == "childframe@1"
         @test sent["params"]["selector"] == ""
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a passing assertion returns its target, so calls chain" begin
         f = timeout_fixture()
         task = @async expect(f.page; to_have_title = "Dashboard")
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         reply_ok(f.fake, msg["id"], Dict{String,Any}())
-        @test fetch(task) === f.page
-        close(f.fake.connection)
+        @test await(task) === f.page
+        shutdown!(f.fake)
     end
 
     @testset "several matchers in one call are each checked" begin
@@ -348,23 +348,23 @@ end
         task = @async expect(f.page; to_have_title = "Dashboard", to_have_url = r"dash")
         for _ = 1:2
             @test timedwait(() -> isready(f.fake.client_messages), 10.0) === :ok
-            msg = take!(f.fake.client_messages)
+            msg = next_message(f.fake)
             push!(sent, msg)
             reply_ok(f.fake, msg["id"], Dict{String,Any}())
         end
-        fetch(task)
+        await(task)
         @test Set(m["params"]["expression"] for m in sent) ==
               Set(["to.have.title", "to.have.url"])
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "a failure carries the received value and names the target" begin
         f = timeout_fixture()
         task = @async expect(f.page; to_have_title = "Wrong")
-        msg = take!(f.fake.client_messages)
+        msg = next_message(f.fake)
         expect_failure_reply(f.fake, msg["id"]; received = Dict("s" => "Dashboard"))
         err = try
-            fetch(task)
+            await(task)
             nothing
         catch e
             e isa TaskFailedException ? e.task.result : e
@@ -377,7 +377,7 @@ end
         # error message reads like a bug in the package.
         @test occursin("page", lowercase(err.message))
         @test !occursin("locator(\"\")", err.message)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "matchers stay type-partitioned, both ways" begin
@@ -411,7 +411,7 @@ end
 
         # Nothing reached the driver in either direction.
         @test !isready(f.fake.client_messages)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "an unknown matcher is refused, and lists the document matchers" begin
@@ -424,13 +424,13 @@ end
         end
         @test err isa ArgumentError
         @test occursin("to_have_title", err.msg)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "expect with no matcher at all is refused" begin
         f = timeout_fixture()
         @test_throws ArgumentError expect(f.page)
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "Not negates a document matcher too" begin
@@ -438,7 +438,7 @@ end
         sent = waiting_request(f.fake, () -> expect(f.page; to_have_title = Not("Wrong")))
         @test sent["params"]["isNot"] == true
         @test sent["params"]["expectedText"] == [Dict("string" => "Wrong")]
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end
 
@@ -660,7 +660,7 @@ Test.finish(ts::RecordingTestSet) = ts
         end
         @test occursin("250", err3.message)
 
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 
     @testset "the target form still takes a do-block" begin
@@ -669,6 +669,6 @@ Test.finish(ts::RecordingTestSet) = ts
         @test retry_until(f.page; interval = 10, on_timeout = :false) do
             false
         end === false
-        close(f.fake.connection)
+        shutdown!(f.fake)
     end
 end
