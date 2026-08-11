@@ -293,6 +293,13 @@ jobs:
           path: ${{ github.workspace }}/.playwright
           key: playwright-${{ runner.os }}-${{ matrix.engine }}-pw${{ steps.pins.outputs.playwright }}-node${{ steps.pins.outputs.node }}
 
+      # Before the installs, not after: bin/install.jl falls back to
+      # activating and instantiating the checkout when Playwright is not in the
+      # active environment, and that fallback must not be what runs under sudo
+      # below. With the project already instantiated here, `--project=.` makes
+      # the script's `using Playwright` succeed and the fallback never fires.
+      - uses: julia-actions/julia-buildpkg@v1
+
       - name: Install the browser
         # One engine, not both. Also skipped entirely for the branded two:
         # `bin/install.jl chrome` is a *system package* install, which is
@@ -300,7 +307,7 @@ jobs:
         if: |
           matrix.engine != 'chrome' && matrix.engine != 'msedge' &&
           steps.browsers.outputs.cache-hit != 'true'
-        run: julia bin/install.jl ${{ matrix.engine }}
+        run: julia --project=. bin/install.jl ${{ matrix.engine }}
 
       - name: Install WebKit's system libraries
         # Linux WebKit only, and deliberately OUTSIDE the cache-hit gate (D13):
@@ -310,10 +317,28 @@ jobs:
         # WebKit is the engine that does not ship its own world — without this
         # the install succeeds and the browser then fails to launch on a
         # missing shared library.
+        #
+        # Two details here are load-bearing, and both were learned the hard way
+        # (see tasks/m9-probe.md, OQ 7 — `sudo -E` alone is NOT enough):
+        #
+        #   * `$(which julia)`, because sudo replaces PATH from secure_path
+        #     regardless of -E. Plain `sudo -E julia` found a *different* Julia
+        #     than setup-julia had installed, which then re-resolved the
+        #     project against a different stdlib and rewrote Project.toml and
+        #     Manifest.toml — as root, so every later step failed on a manifest
+        #     it could neither use nor replace.
+        #   * `--project=.`, so the script finds Playwright already present and
+        #     never reaches its activate-and-instantiate fallback. Nothing
+        #     should run Pkg as root.
+        #
+        # The chown is the belt to that braces: the driver lives in a Scratch.jl
+        # directory inside the depot, and anything root touched there has to go
+        # back to the runner before the suite runs.
         if: matrix.os == 'ubuntu-latest' && matrix.engine == 'webkit'
-        run: sudo -E julia bin/install.jl --with-deps webkit
+        run: |
+          sudo -E "$(which julia)" --project=. bin/install.jl --with-deps webkit
+          sudo chown -R "$(id -u):$(id -g)" "$HOME/.julia" .
 
-      - uses: julia-actions/julia-buildpkg@v1
       - name: Smoke tests
         env:
           PLAYWRIGHT_JL_SMOKE: "1"

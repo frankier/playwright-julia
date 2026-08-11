@@ -222,13 +222,33 @@ trimmed.
 
 ## Suite counts (T27, SC 25)
 
-M8 recorded 2417 hermetic / 3348 smoke on two engines. The smoke number will
-jump for a reason that is not new coverage — five engines multiplying existing
+M8 recorded 2417 hermetic / 3348 smoke on two engines. The smoke number moves
+for a reason that is not new coverage — five engines multiplying existing
 testsets — so it is recorded per engine as well as in total, or it means
 nothing.
 
+Passing assertions per engine, `ubuntu-latest`, run 31446202297:
+
 | | chromium | firefox | webkit | chrome | msedge | total |
 |---|---|---|---|---|---|---|
-| smoke | | | | | | |
+| smoke | 3057 | 3061 | 3002 | 3051 | 3051 | 15222 |
 
-Hermetic (engine-independent): _____
+Hermetic (engine-independent): **2591**, up from M8's 2417. The 174 new
+assertions are the `engines` testset (83), the `node_platform`/`node_url`
+sweep, `install`'s `with_deps` and branded-name behaviour, the two launch
+failure messages, and `test_engines.jl`'s documentation gate.
+
+**Reading the smoke numbers.** These are not comparable to M8's 3348 and
+should not be read as a regression. M8's figure was one run of a two-engine
+loop; each column here is a whole-suite run against one engine, so the
+per-engine number is the like-for-like one. It sits a little above M8's
+because the engine-metadata and parity testsets gained assertions, and the
+spread between columns is the divergence count made visible:
+
+- webkit is ~55 below chromium — the four skipped download assertions, the
+  unreachable-host assertion, and the two `args` testsets.
+- chrome and msedge sit 6 below chromium — the console-event skip.
+- firefox is slightly above chromium, which is the `firefox_user_prefs` leg.
+
+Every gap is accounted for by a row in `docs/src/engines.md`. A column that
+dropped for a reason not on that page would be the thing to worry about.
