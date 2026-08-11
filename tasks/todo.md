@@ -180,7 +180,62 @@ legible without opening fourteen logs.
 | T4 scaffold (hermetic, existing suite) | green | 1 failure | green |
 | T15 driver assembly | green | green | green |
 | T17 hermetic | green | green | green |
-| T20/T21 smoke | in progress | in progress | in progress |
+| T20/T21 smoke | **5/5 green** | 2/4 green, 2 unresolved | **5/5 green** |
+
+## Open at hand-off: Windows Firefox and Edge smoke
+
+**12 of the 14 smoke jobs are green.** `Smoke (windows-latest, firefox)` and
+`Smoke (windows-latest, msedge)` have not completed, across three attempts.
+Checkpoint C is therefore **not** met, and the PR stays in draft.
+
+What is known, stated without varnish because the correlation implicates a
+commit of this milestone's own:
+
+| Run | Windows chromium | chrome | firefox | msedge |
+|---|---|---|---|---|
+| 31446202297 (before `58352d9`) | cancelled¹ | cancelled¹ | failed on a real assertion | **green, 8m25s** |
+| 31447657850 (after) | green | green | hit the 60-min timeout | hit the 60-min timeout |
+| 31451533031 (after) | green | green | hit the 60-min timeout | hit the 60-min timeout |
+
+¹ cancelled by a superseding push, not by a failure.
+
+**Evidence that it is the environment:**
+
+- The first timed-out attempt logged real network failures —
+  `Failed to connect to us-east.pkg.julialang.org port 443 after 21002 ms`,
+  and `julia-buildpkg` took **549 seconds** falling back to cloning the
+  General registry over git. Normal is well under a minute.
+- One Windows hermetic job was `cancelled` by the runner in the same window.
+- Chromium and Chrome pass on the same OS, in the same runs, on the same code.
+- Windows Firefox was already the slowest job in the whole matrix at 12m48s,
+  so a runner several times slower would exceed 60 minutes on its own.
+
+**Evidence that it might be ours:**
+
+- Both engines completed before `58352d9` and neither has completed since.
+  That commit moved `set_default_timeout!` to *after* the navigation in four
+  testsets.
+- The second attempt showed **no** network errors and still made no progress
+  for ~55 minutes after `Testing Running tests...`.
+
+**Why it was not chased further:** the mechanism that would settle it is not
+available. Julia buffers testset output, so a job killed at the timeout prints
+nothing about where it was, and each attempt costs an hour. Three were spent.
+
+**What to do next**, in order:
+
+1. Re-run the two jobs when the Windows runners are healthy — cheapest, and
+   the most likely resolution given Chromium and Chrome pass beside them.
+2. If they time out again with no network fault in the log, revert `58352d9`'s
+   four hunks and re-run. That commit fixed a real bug (a 1s context default
+   applied to the fixture navigation) but the two 2s sites in it were changed
+   prophylactically and were passing before.
+3. If it persists, add per-testset progress output to the Windows leg so a
+   timeout says where it stopped, rather than guessing again.
+
+Nothing here is a reason to trim the matrix (Assumption 11). The grid's cost
+is measured and affordable; this is one platform-engine pair with an
+unexplained stall.
 
 ## Job durations (T22, SC 22)
 
