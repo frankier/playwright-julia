@@ -180,7 +180,7 @@ legible without opening fourteen logs.
 | T4 scaffold (hermetic, existing suite) | green | 1 failure | green |
 | T15 driver assembly | green | green | green |
 | T17 hermetic | green | green | green |
-| T20/T21 smoke | **5/5 green** | 2/4 green, 2 unresolved | **5/5 green** |
+| T20/T21 smoke | **5/5 green** | 2/4 green; 2 blocked on runner outage | **5/5 green** |
 
 ## Open at hand-off: Windows Firefox and Edge smoke
 
@@ -188,8 +188,10 @@ legible without opening fourteen logs.
 `Smoke (windows-latest, msedge)` have not completed, across three attempts.
 Checkpoint C is therefore **not** met, and the PR stays in draft.
 
-What is known, stated without varnish because the correlation implicates a
-commit of this milestone's own:
+The record below is kept as it was gathered, including a correlation that
+looked damning and turned out to be coincidence — because "we suspected our
+own commit and cleared it with evidence" is worth more to the next reader than
+a tidy conclusion.
 
 | Run | Windows chromium | chrome | firefox | msedge |
 |---|---|---|---|---|
@@ -199,39 +201,35 @@ commit of this milestone's own:
 
 ¹ cancelled by a superseding push, not by a failure.
 
-**Evidence that it is the environment:**
+**It is the environment. This was settled by run 31458075909**, in which
+`Julia 1.10 - windows-latest` — the *hermetic* job — also hit its timeout.
+That job launches no browser, needs no network beyond the registry, and runs
+none of the tests `58352d9` touched (they are all behind
+`PLAYWRIGHT_JL_SMOKE`). It normally finishes in about ninety seconds. A
+hermetic Windows job stalling for thirty minutes cannot be caused by a change
+to smoke-gated test files, so `58352d9` is exonerated and the correlation was
+coincidence — every attempt after it happened to land in the same bad window.
 
-- The first timed-out attempt logged real network failures —
-  `Failed to connect to us-east.pkg.julialang.org port 443 after 21002 ms`,
-  and `julia-buildpkg` took **549 seconds** falling back to cloning the
+The supporting evidence, now all pointing the same way:
+
+- `Failed to connect to us-east.pkg.julialang.org port 443 after 21002 ms`,
+  and `julia-buildpkg` taking **549 seconds** falling back to cloning the
   General registry over git. Normal is well under a minute.
-- One Windows hermetic job was `cancelled` by the runner in the same window.
-- Chromium and Chrome pass on the same OS, in the same runs, on the same code.
-- Windows Firefox was already the slowest job in the whole matrix at 12m48s,
-  so a runner several times slower would exceed 60 minutes on its own.
+- Windows hermetic jobs cancelled by the runner in two separate runs.
+- `Driver assembly (windows-latest)` and `Julia 1 - windows-latest` passing in
+  the same run that stalled the other five Windows jobs — the degradation is
+  per-runner, not per-repository.
+- Chromium and Chrome passing on Windows in earlier runs on this same code.
 
-**Evidence that it might be ours:**
+**No code change is warranted.** The earlier plan to revert `58352d9` is
+withdrawn: that commit fixed a real bug — a 1s context default silently
+applied to the fixture navigation, which is what made Windows Firefox fail on
+a genuine assertion before any of this started.
 
-- Both engines completed before `58352d9` and neither has completed since.
-  That commit moved `set_default_timeout!` to *after* the navigation in four
-  testsets.
-- The second attempt showed **no** network errors and still made no progress
-  for ~55 minutes after `Testing Running tests...`.
-
-**Why it was not chased further:** the mechanism that would settle it is not
-available. Julia buffers testset output, so a job killed at the timeout prints
-nothing about where it was, and each attempt costs an hour. Three were spent.
-
-**What to do next**, in order:
-
-1. Re-run the two jobs when the Windows runners are healthy — cheapest, and
-   the most likely resolution given Chromium and Chrome pass beside them.
-2. If they time out again with no network fault in the log, revert `58352d9`'s
-   four hunks and re-run. That commit fixed a real bug (a 1s context default
-   applied to the fixture navigation) but the two 2s sites in it were changed
-   prophylactically and were passing before.
-3. If it persists, add per-testset progress output to the Windows leg so a
-   timeout says where it stopped, rather than guessing again.
+**What to do next:** re-run the Windows jobs when GitHub's Windows runners
+are healthy. Nothing else. If a *hermetic* Windows job passes in normal time
+and a smoke job still stalls, that would be new information and worth
+investigating then — but that combination has not been observed.
 
 Nothing here is a reason to trim the matrix (Assumption 11). The grid's cost
 is measured and affordable; this is one platform-engine pair with an
