@@ -64,6 +64,15 @@ end
                 firefox_user_prefs = Dict("dom.disable_beforeunload" => true),
             )
             for eng in SMOKE_ENGINES
+                # The rule above holds for four of the five. WebKit parses its
+                # own command line strictly and exits on an argument it does
+                # not know, so the Chromium flag in `args` is fatal to it
+                # rather than ignored.
+                skip_engine(
+                    eng,
+                    "webkit",
+                    "webkit rejects unknown command-line args instead of ignoring them",
+                ) && continue
                 bt = engine(pw, eng)
                 browser = launch(bt; headless = true, opts...)
                 @test browser_name(browser) == browser_name(bt)
@@ -603,9 +612,16 @@ end
                 @testset "$eng: waiting timeouts come from the cascade" begin
                     browser = launch(bt; headless = true)
                     ctx = new_context(browser)
-                    set_default_timeout!(ctx, 1_000)
                     page = new_page(ctx)
                     goto!(page, "$base_url/waiting.html")
+                    # The cascade is set *after* navigating, not before. goto!
+                    # inherits the context default too, and the subject here is
+                    # wait_for_selector's timeout, not the navigation's — so a
+                    # 1s budget on the fixture load is an accidental coupling.
+                    # It found a cold Firefox on Windows taking longer than a
+                    # second to load a page off localhost, which says nothing
+                    # about the cascade.
+                    set_default_timeout!(ctx, 1_000)
 
                     elapsed =
                         @elapsed @test_throws Playwright.TimeoutError wait_for_selector(

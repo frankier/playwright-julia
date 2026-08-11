@@ -39,16 +39,16 @@ is a different milestone.
 
 ## Phase 0: the scaffold
 
-- [ ] **T1** (S) Open `tasks/m9-api-gaps.md`, empty on purpose. Fifth turn of
+- [x] **T1** (S) Open `tasks/m9-api-gaps.md`, empty on purpose. Fifth turn of
       the instrument. Must be committed before the first `src/` change — SC 32
-- [ ] **T2** (S) Branch `m9-engines-and-platforms`, draft PR, the live platform
+- [x] **T2** (S) Branch `m9-engines-and-platforms`, draft PR, the live platform
       table in its description (D14) — SC 24 (first half)
-- [ ] **T3** (M) `.gitattributes`; renormalise in one commit that changes
+- [x] **T3** (M) `.gitattributes`; renormalise in one commit that changes
       nothing else (D7) — SC 16 (first half)
-- [ ] **T4** (M) CI scaffold: hermetic on 3 OS × 2 Julia, existing suite
+- [x] **T4** (M) CI scaffold: hermetic on 3 OS × 2 Julia, existing suite
       unchanged, **expected red**. Plus the throwaway `diagnostics` job
       answering OQ 1, 3, 5 on all three platforms
-- [ ] **T5** (L) `tasks/m9-probe.md`: every OQ answered or deferred with a
+- [x] **T5** (L) `tasks/m9-probe.md`: every OQ answered or deferred with a
       reason; the local five-engine sweep on Fedora (OQ 2, 4); T4's red
       transcribed into a numbered list — that list is Part B's content. **State
       the divergence count as a number** and check it against R3
@@ -60,18 +60,18 @@ checkpoint's at T19 (R2).
 
 ## Phase 1: Part A — the engines (Linux)
 
-- [ ] **T6** (S) `webkit` on `PlaywrightAPI`; the docstring stops saying two
+- [x] **T6** (S) `webkit` on `PlaywrightAPI`; the docstring stops saying two
       (D1) — SC 1
-- [ ] **T7** (M) `Engine`, `engine`, `engine_name`, `launch(::Engine)`; five
+- [x] **T7** (M) `Engine`, `engine`, `engine_name`, `launch(::Engine)`; five
       names, closed set; `channel` present-vs-absent **on the wire** (D1a) —
       SC 2, 3
-- [ ] **T8** (M) `SMOKE_ENGINES` takes a comma list; `examples/common.jl` shares
+- [x] **T8** (M) `SMOKE_ENGINES` takes a comma list; `examples/common.jl` shares
       the validation; engine loops stop using `getfield` (D5) — SC 10
-- [ ] **T9** (M) `install`: `with_deps`, the branded names, the system-install
+- [x] **T9** (M) `install`: `with_deps`, the branded names, the system-install
       warning before the driver runs (D3, D3a) — SC 7, 8, 11
-- [ ] **T10** (M) The two launch-failure messages, injected rather than observed
+- [x] **T10** (M) The two launch-failure messages, injected rather than observed
       (D3, D3a) — SC 9
-- [ ] **T11** (M) `skip_engine`, `docs/src/engines.md`, and the gate that makes
+- [x] **T11** (M) `skip_engine`, `docs/src/engines.md`, and the gate that makes
       them agree — **watched failing** (D4) — SC 6
 - [ ] **T12** ◆ (L) Five engines green on Linux; every divergence a skip *and* a
       row; package-side assumptions to `m9-api-gaps.md` and fixed — SC 5
@@ -81,14 +81,14 @@ failure can actually be debugged.
 
 ## Phase 2: Part B — the platforms
 
-- [ ] **T13** (M) `node_platform` / `node_url` for all six claimed OS/arch
+- [x] **T13** (M) `node_platform` / `node_url` for all six claimed OS/arch
       pairs; unsupported cases name the value — SC 13 *(queue-independent)*
-- [ ] **T14** (M) Real filesystem paths asserted with `basename`/`joinpath`,
+- [x] **T14** (M) Real filesystem paths asserted with `basename`/`joinpath`,
       never a `/`-separated literal (D8) — SC 17 *(queue-independent)*
-- [ ] **T15** (L) The `driver` CI job on 3 OS — the cheap rung between hermetic
+- [x] **T15** (L) The `driver` CI job on 3 OS — the cheap rung between hermetic
       and smoke — plus the Windows member-filter fix, still member-limited
       (D9) — SC 14
-- [ ] **T16** (M) macOS aarch64 assembly; first run of the `arm64` branch — SC 15
+- [x] **T16** (M) macOS aarch64 assembly; first run of the `arm64` branch — SC 15
 - [ ] **T17** (L) T5's failure list emptied; the D11 gates carry their
       explaining comment — SC 12, 16 (second half)
 
@@ -97,9 +97,9 @@ bug. That distinction is the whole reason this phase exists separately.
 
 ## Phase 3: Part C — the matrix
 
-- [ ] **T18** (M) Fourteen smoke jobs: ubuntu ×5, macos ×5, windows ×4 (no
+- [x] **T18** (M) Fourteen smoke jobs: ubuntu ×5, macos ×5, windows ×4 (no
       WebKit), `fail-fast: false`, 60-minute timeouts (D12, D15) — SC 19
-- [ ] **T19** (M) Two engine classes: bundled installs one engine and caches per
+- [x] **T19** (M) Two engine classes: bundled installs one engine and caches per
       engine; branded does neither; Linux WebKit runs `--with-deps` under
       `sudo -E` outside the cache gate (D13). **Verified by a second, fully
       cached run** — SC 20, 21
@@ -115,12 +115,12 @@ bug. That distinction is the whole reason this phase exists separately.
 
 ## Phase 4: the paperwork
 
-- [ ] **T24** (L) `engines.md` complete and in the sidebar; getting-started,
+- [x] **T24** (L) `engines.md` complete and in the sidebar; getting-started,
       index, api.md — SC 26, 30
-- [ ] **T25** (M) README: WebKit off the not-covered list, three platforms
+- [x] **T25** (M) README: WebKit off the not-covered list, three platforms
       claimed, Chrome and Edge named as channels; the stale fixture updated to a
       case that is still stale — SC 29
-- [ ] **T26** (S) `docs/bonnie-parity.md` re-scored by M9, both axes, with a
+- [x] **T26** (S) `docs/bonnie-parity.md` re-scored by M9, both axes, with a
       reason either way — SC 31
 - [ ] **T27** (M) Counts per engine and total; codegen, format, `Project.toml`,
       gaps file — SC 25, 27, 28, 32
@@ -137,38 +137,38 @@ until it passes.
 
 | SC | Verified by |
 |---|---|
-| 1 | |
-| 2 | |
-| 3 | |
-| 4 | |
-| 5 | |
-| 6 | |
-| 7 | |
-| 8 | |
-| 9 | |
-| 10 | |
-| 11 | |
-| 12 | |
-| 13 | |
-| 14 | |
-| 15 | |
-| 16 | |
-| 17 | |
-| 18 | |
-| 19 | |
-| 20 | |
-| 21 | |
-| 22 | |
-| 23 | |
-| 24 | |
-| 25 | |
-| 26 | |
-| 27 | |
-| 28 | |
-| 29 | |
-| 30 | |
-| 31 | |
-| 32 | |
+| 1 | `browser_name(pw.webkit) == "webkit"` against the real driver, test_smoke.jl. Green on all smoke jobs. |
+| 2 | `test_connection.jl` "engines" testset, hermetic against the fake driver: all five mappings, and `ArgumentError` naming all five for `edge`, `Chrome`, `""`. |
+| 3 | Wire assertions in the same testset: no `channel` key at all for chromium/firefox/webkit, `channel == name` for chrome/msedge, and an explicit keyword overriding both. |
+| 4 | `test_fixtures.jl` "browser_name on a running Browser": `engine_name(bt) == eng` while `browser_name(browser) == "chromium"` for chrome and msedge, asserted as an inequality. |
+| 5 | Pending — the ubuntu smoke legs. Locally: chromium, firefox, chrome green; webkit unrunnable on Fedora (m9-probe.md, OQ 4); msedge not installable there. |
+| 6 | `test_engines.jl`. **Watched failing**: an invented reason added to test_smoke_har.jl reddened the suite naming the file, engine and unmatched words; then removed. |
+| 7 | `Playwright.install_args(["webkit"], true) == ["install", "--with-deps", "webkit"]`, and `check_with_deps(true, :windows)` / `(true, :macos)` throw. Asserted on the command, never run. |
+| 8 | `warn_branded_install` under `Test.collect_test_logs`, for chrome and msedge, on `:linux` (says root) and `:macos`. No install performed. Bundled names log nothing. |
+| 9 | **Injected, not observed** — neither failure can be arranged on a machine that has the browsers. The message shapes are copied from a real driver: the missing-dependency banner came out of the Fedora sweep. |
+| 10 | `parse_engine_names`: one name, a list, spaces, blank (= all five); and `edge`/`safari`/`Chrome`/`chromium,safari`/`chromium,` all throw naming all five. |
+| 11 | `DEFAULT_BROWSERS == ["chromium", "firefox"]`, asserted directly, and the README's install section unchanged. |
+| 12 | Pending the final Windows legs. macOS 1.10 and 1 were green from the very first scaffold run; Windows had exactly one failure (test_har.jl:454), fixed. |
+| 13 | `test_driver.jl`: all six OS/arch pairs for both `node_platform` and `node_url`, plus `i686` and `plan9` naming the offending value. No src change was needed. |
+| 14 | `Driver assembly (windows-latest)` green: `contents=.complete, node.exe, package` and `Version 1.61.1`. The member filter matched a forward-slashed path unchanged (OQ 1). |
+| 15 | `Driver assembly (macos-latest)` green from `node-v24.17.0-darwin-arm64.tar.xz`. First execution of node_platform's arm64 branch; nothing needed fixing. |
+| 16 | `.gitattributes` committed before the scaffold. `git ls-files --eol` is `w/lf` throughout on Linux. Renormalisation touched exactly one tracked file (protocol/LICENSE-PLAYWRIGHT, CRLF). |
+| 17 | `grep -rnE '@test.*"[^"]*/[^"]*"' test/*.jl` — remaining hits are wire params handed to the fake driver and comment text in generated source, neither of which touches a filesystem. |
+| 18 | Pending the Windows and macOS smoke legs. |
+| 19 | `yaml.safe_load` over CI.yml enumerates exactly 14 smoke jobs after the WebKit-on-Windows exclude, `fail-fast: false`, and the hermetic job at 3 OS x 2 Julia. |
+| 20 | Pending — needs a second, fully cached run. A single cold run cannot prove it; the bug only appears on a hit. |
+| 21 | `if: matrix.os == 'ubuntu-latest' && matrix.engine == 'webkit'`, a step of its own, outside the cache-hit gate. |
+| 22 | Pending T22. |
+| 23 | Pending T23. |
+| 24 | PR #9 opened draft before the first `src/` change — `git log` puts the m9-api-gaps commit and the PR ahead of the webkit field. Carries the platform table. |
+| 25 | Pending final counts. |
+| 26 | `julia --project=docs docs/make.jl`: zero errors, zero warnings, with checkdocs = :exports, warnonly = false, doctest = true all unchanged. engines.md is in the sidebar. |
+| 27 | `gen/generate.jl --check` green locally and in CI on every push; `format(".")` returns true. |
+| 28 | Pending final check. |
+| 29 | README rewritten; `test_exports.jl`'s not-covered gate green, with its stale fixture given a "WebKit" claim so it is still testing a case that is stale. |
+| 30 | getting-started's "Choosing an engine" rewritten for five engines; index.md's not-covered sentence agrees with the README's. |
+| 31 | `tasks/bonnie-parity.md` gains "Re-scored by milestone 9": no row changes, with the reason on both axes. |
+| 32 | `git log --diff-filter=A -- tasks/m9-api-gaps.md` is commit 1 on the branch; the first src/ commit is 5th. |
 
 ## The platform table
 
@@ -177,10 +177,10 @@ legible without opening fourteen logs.
 
 | Task | Linux | Windows | macOS |
 |---|---|---|---|
-| T4 scaffold | | | |
-| T15 driver | | | |
-| T17 hermetic | | | |
-| T20/T21 smoke | | | |
+| T4 scaffold (hermetic, existing suite) | green | 1 failure | green |
+| T15 driver assembly | green | green | green |
+| T17 hermetic | green | green | green |
+| T20/T21 smoke | in progress | in progress | in progress |
 
 ## Job durations (T22, SC 22)
 

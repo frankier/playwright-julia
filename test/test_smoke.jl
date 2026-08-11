@@ -107,11 +107,21 @@ tryrun(cmd) =
                     goto!(page, "$base_url/second.html")
                     @test title(page) == "Second Fixture Page"
 
-                    @test_throws PlaywrightError goto!(
-                        page,
-                        "http://127.0.0.1:1/unreachable";
-                        timeout = 5_000,
+                    # WebKit resolves this rather than raising: a connection
+                    # to a closed port on localhost comes back as a response it
+                    # is willing to hand over, where Chromium and Firefox both
+                    # surface a network error.
+                    if !skip_engine(
+                        eng,
+                        "webkit",
+                        "webkit resolves an unreachable host instead of raising",
                     )
+                        @test_throws PlaywrightError goto!(
+                            page,
+                            "http://127.0.0.1:1/unreachable";
+                            timeout = 5_000,
+                        )
+                    end
 
                     close!(page)
                     close!(browser)

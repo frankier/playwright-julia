@@ -105,6 +105,14 @@ end
 
 @testset "downloads, every engine" begin
     on_each_engine("downloads") do browser, base_url, _uploads, eng
+        # Headless WebKit never fires the :download event for a
+        # Content-Disposition attachment, so every assertion in this block
+        # waits out its budget rather than failing on a wrong value.
+        skip_engine(
+            eng,
+            "webkit",
+            "webkit headless emits no download event for a content disposition attachment",
+        ) && return
         ctx = new_context(browser)
         page = new_page(ctx)
         goto!(page, "$base_url/files.html")
