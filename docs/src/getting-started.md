@@ -35,7 +35,7 @@ install(; browsers = ["chromium"])   # or just the one you need
 [`Playwright.browsers_path`](@ref) reports where the package looks for browsers.
 Check that first when a launch cannot find one.
 
-## A first test
+## Your first test
 
 ```julia
 using Test
@@ -73,7 +73,7 @@ To collect a screenshot and a trace when a test fails, use the
 [`with_page`](@ref) fixture instead of the `try`/`finally` above. See
 [Artifacts](@ref).
 
-## Choosing an engine
+## Engines and browsers
 
 There are five: `chromium`, `firefox`, `webkit`, `chrome` and `msedge`. The
 first three are [`BrowserType`](@ref)s on the handle — `pw.chromium`,

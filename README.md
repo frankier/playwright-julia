@@ -12,7 +12,9 @@ CDP. The same architecture as `playwright-python`: a pinned Playwright driver
 **📖 [Documentation](https://frankier.github.io/playwright-julia/dev/)** — the
 guide, the examples and the full API reference live there.
 
-## Install
+## Quick start
+
+### Install
 
 ```julia
 using Pkg
@@ -21,7 +23,7 @@ Pkg.add(url = "https://github.com/frankier/playwright-julia")
 
 Not registered yet.
 
-## Quick start
+### Quick example
 
 ```julia
 using Playwright
@@ -57,9 +59,9 @@ Playwright.jl as a *test* dependency hits. See
 [Getting started](https://frankier.github.io/playwright-julia/dev/getting-started/)
 for caching browsers in GitHub Actions.
 
-## Waiting is not sleeping
+### Avoid sleep
 
-The one idea worth knowing before reading anything else. Every assertion
+The one idea is worth knowing before reading anything else. Every assertion
 retries in the browser until it holds, so a test never has to guess how long a
 page will take:
 
@@ -70,61 +72,8 @@ sleep(2)                                                   # don't
 expect(locator(page, "#status"); to_have_text = "ready")   # do
 ```
 
-## Examples
 
-Four runnable scripts under [`examples/`](examples/), each driving a real Julia
-web stack in a real browser:
-
-| Script | Stack |
-|---|---|
-| [`http_jl.jl`](examples/http_jl.jl) | HTTP.jl — the pattern, with nothing else in the way |
-| [`oxygen_jl.jl`](examples/oxygen_jl.jl) | Oxygen.jl — a page and the JSON API it calls |
-| [`genie_jl.jl`](examples/genie_jl.jl) | Genie.jl — routing, and a 25-second warm-up |
-| [`wglmakie_jl.jl`](examples/wglmakie_jl.jl) | WGLMakie.jl — WebGL, screenshotted and traced |
-
-```console
-$ julia --project=examples examples/runexamples.jl      # all of them, both engines
-```
-
-## Testing this package
-
-```console
-$ julia --project=. -e 'using Pkg; Pkg.test()'                       # hermetic
-$ PLAYWRIGHT_JL_SMOKE=1 julia --project=. -e 'using Pkg; Pkg.test()' # + real browsers
-```
-
-The hermetic suite needs no Node.js and no browsers. The smoke suite launches
-headless browsers against local HTML fixtures served in-process — all five
-engines by default. Narrow it with `PLAYWRIGHT_JL_ENGINE`, which takes one name
-or a comma-separated list:
-
-```console
-$ PLAYWRIGHT_JL_SMOKE=1 PLAYWRIGHT_JL_ENGINE=webkit julia --project=. -e 'using Pkg; Pkg.test()'
-$ PLAYWRIGHT_JL_SMOKE=1 PLAYWRIGHT_JL_ENGINE=chromium,firefox julia --project=. -e 'using Pkg; Pkg.test()'
-```
-
-Build the docs locally with `julia --project=docs docs/make.jl`. That build
-never launches a browser.
-
-## The channel layer is generated
-
-`src/generated/channels.jl` — one type per protocol interface, one function per
-protocol command — is generated from Playwright's own protocol spec, vendored
-under `protocol/spec/` at the pinned version. The generated code is checked in.
-The generator never runs at build or load time, and adds no runtime dependency.
-
-```console
-$ julia --project=gen gen/fetch_spec.jl        # re-vendor protocol/spec/*.yml
-$ julia --project=gen gen/generate.jl          # regenerate the channel layer
-$ julia --project=gen gen/generate.jl --check  # non-zero exit if it is stale
-```
-
-The user-facing API is hand-written on top of that layer: the spec carries no
-documentation and no notion of the idiomatic way to call something, so a fully
-generated API would be a transliteration of TypeScript rather than Julia.
-**Never edit `src/generated/` by hand.**
-
-## Status
+## Features
 
 Five engines on three platforms, through a synchronous API.
 
@@ -162,12 +111,69 @@ What the package covers:
 Naming follows one rule: a call that changes what the page can observe ends in
 `!` — `goto!`, `click!`, `close!`, `set_value!`.
 
-Not yet covered: service workers, because nothing in the wrapper reaches
+*Not yet covered*: service workers, because nothing in the wrapper reaches
 `BrowserContext.serviceWorkers` and a route that a worker intercepts is
 invisible to it. A Julia trace *viewer* or any trace parsing — traces are
 written and can be opened in Playwright's own viewer, but nothing here reads
 one back. And an async API: every call blocks, which is the right default for a
 test suite and the wrong one for driving many pages at once.
+
+## Further examples
+
+Four runnable scripts under [`examples/`](examples/), each driving a real Julia
+web stack in a real browser:
+
+| Script | Stack |
+|---|---|
+| [`http_jl.jl`](examples/http_jl.jl) | HTTP.jl — the pattern, with nothing else in the way |
+| [`oxygen_jl.jl`](examples/oxygen_jl.jl) | Oxygen.jl — a page and the JSON API it calls |
+| [`genie_jl.jl`](examples/genie_jl.jl) | Genie.jl — routing, and a 25-second warm-up |
+| [`wglmakie_jl.jl`](examples/wglmakie_jl.jl) | WGLMakie.jl — WebGL, screenshotted and traced |
+
+```console
+$ julia --project=examples examples/runexamples.jl      # all of them, both engines
+```
+
+## Development
+
+### Testing this package
+
+```console
+$ julia --project=. -e 'using Pkg; Pkg.test()'                       # hermetic
+$ PLAYWRIGHT_JL_SMOKE=1 julia --project=. -e 'using Pkg; Pkg.test()' # + real browsers
+```
+
+The hermetic suite needs no Node.js and no browsers. The smoke suite launches
+headless browsers against local HTML fixtures served in-process — all five
+engines by default. Narrow it with `PLAYWRIGHT_JL_ENGINE`, which takes one name
+or a comma-separated list:
+
+```console
+$ PLAYWRIGHT_JL_SMOKE=1 PLAYWRIGHT_JL_ENGINE=webkit julia --project=. -e 'using Pkg; Pkg.test()'
+$ PLAYWRIGHT_JL_SMOKE=1 PLAYWRIGHT_JL_ENGINE=chromium,firefox julia --project=. -e 'using Pkg; Pkg.test()'
+```
+
+Build the docs locally with `julia --project=docs docs/make.jl`. That build
+never launches a browser.
+
+### The channel layer is generated
+
+`src/generated/channels.jl` — one type per protocol interface, one function per
+protocol command — is generated from Playwright's own protocol spec, vendored
+under `protocol/spec/` at the pinned version. The generated code is checked in.
+The generator never runs at build or load time, and adds no runtime dependency.
+
+```console
+$ julia --project=gen gen/fetch_spec.jl        # re-vendor protocol/spec/*.yml
+$ julia --project=gen gen/generate.jl          # regenerate the channel layer
+$ julia --project=gen gen/generate.jl --check  # non-zero exit if it is stale
+```
+
+The user-facing API is hand-written on top of that layer: the spec carries no
+documentation and no notion of the idiomatic way to call something, so a fully
+generated API would be a transliteration of TypeScript rather than Julia.
+**Never edit `src/generated/` by hand.**
+
 
 ## Licence
 
